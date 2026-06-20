@@ -1,0 +1,117 @@
+.navbar-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  border-bottom: 1px solid var(--glass-border);
+  transition: var(--transition-smooth);
+}
+
+.navbar-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 72px;
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+}
+
+.logo-icon {
+  color: var(--accent-color);
+  animation: logo-glow 4s ease-in-out infinite alternate;
+}
+
+.logo-accent {
+  color: var(--accent-color);
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.nav-link {
+  font-family: var(--font-title);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  position: relative;
+  padding: 8px 0;
+}
+
+.nav-link:hover, .nav-link.active {
+  color: var(--text-primary);
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background-color: var(--accent-color);
+  transition: var(--transition-smooth);
+}
+
+.nav-link:hover::after, .nav-link.active::after {
+  width: 100%;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-profile-menu {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background-color: var(--border-color);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-family: var(--font-title);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.username-text {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Animations */
+@keyframes logo-glow {
+  0% {
+    filter: drop-shadow(0 0 2px var(--accent-glow));
+  }
+  100% {
+    filter: drop-shadow(0 0 8px var(--accent-color));
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar-links {
+    display: none; /* simple responsive hide for links */
+  }
+}

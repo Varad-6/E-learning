@@ -1,0 +1,157 @@
+.course-card {
+  border-radius: var(--border-radius-md);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-between;
+  border: 1px solid var(--border-color);
+  transition: var(--transition-smooth);
+}
+
+.course-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--accent-color);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.course-code {
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.difficulty-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+
+/* Difficulty Tag Colors (translucent, rich contrast) */
+.tag-beginner {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: var(--neon-teal);
+}
+
+.tag-intermediate {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+}
+
+.tag-advanced {
+  background-color: rgba(244, 63, 94, 0.12);
+  color: var(--neon-coral);
+}
+
+.course-title {
+  font-size: 1.2rem;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.course-desc {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: 2.64rem; /* matches 2 lines of line-height 1.32 */
+}
+
+.course-meta {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.rating-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.stars-row {
+  display: flex;
+  gap: 2px;
+}
+
+.star-icon.gold {
+  color: #f59e0b;
+}
+
+.star-icon.grey {
+  color: var(--border-color);
+}
+
+.rating-value {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.reviews-count {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Progress bar style */
+.progress-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 6px;
+  background-color: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: var(--neon-teal);
+  border-radius: 3px;
+  transition: width 0.6s ease-out;
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.card-footer {
+  margin-top: auto;
+}
+
+.card-action-btn {
+  width: 100%;
+}

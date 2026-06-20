@@ -1,0 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Default Theme: Professional Slate Navy (Stack Overflow / Udemy style Dark mode) */
+  --bg-main: #0f172a;
+  --bg-card: #1e293b;
+  --bg-card-hover: #334155;
+  --border-color: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  
+  --accent-color: #3b82f6; /* Trustworthy Royal Blue */
+  --accent-hover: #60a5fa;
+  --accent-glow: rgba(59, 130, 246, 0.15);
+  
+  --neon-teal: #10b981; /* Standard Green */
+  --neon-teal-glow: rgba(16, 185, 129, 0.1);
+  --neon-coral: #ef4444; /* Standard Red */
+  --neon-coral-glow: rgba(239, 68, 68, 0.1);
+  
+  --font-title: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  
+  --transition-smooth: all 0.2s ease-in-out;
+  --glass-bg: #1e293b;
+  --glass-border: #334155;
+  --glass-blur: none;
+  --shadow-premium: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+  --shadow-glow: 0 0 15px rgba(59, 130, 246, 0.1);
+  
+  --border-radius-sm: 6px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+}
+
+[data-theme="light"] {
+  /* Clean Professional Light Mode */
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --border-color: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  
+  --accent-color: #2563eb; /* Deep Trustworthy Blue */
+  --accent-hover: #1d4ed8;
+  --accent-glow: rgba(37, 99, 235, 0.08);
+  
+  --neon-teal: #059669; /* Darker Green */
+  --neon-teal-glow: rgba(5, 150, 105, 0.08);
+  --neon-coral: #dc2626; /* Darker Red */
+  --neon-coral-glow: rgba(220, 38, 38, 0.08);
+  
+  --glass-bg: #ffffff;
+  --glass-border: #e2e8f0;
+  --shadow-premium: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  --shadow-glow: 0 0 15px rgba(37, 99, 235, 0.05);
+}
