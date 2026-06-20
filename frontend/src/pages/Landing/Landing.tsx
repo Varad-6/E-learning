@@ -17,76 +17,32 @@ export const Landing: React.FC = () => {
   return (
     <div className="landing-page container">
       {/* Main Professional Landing Content - Optimized two-column layout for desktops */}
-      <section className="landing-hero animate-slide-left">
-        <div className="hero-left-content">
+      <section className="landing-hero animate-slide-left" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', width: '100%', maxWidth: '800px', margin: '40px auto 0 auto' }}>
+        <div className="hero-left-content" style={{ alignItems: 'center' }}>
           <div className="hero-brand-row">
             <BookOpen size={36} className="quote-icon" />
-            <h1 className="landing-title">Knowva</h1>
+            <h1 className="landing-title">Kiezen</h1>
           </div>
           
-          <blockquote className="educational-quote">
-            "Education is the most powerful weapon which you can use to change the world."
-            <cite>— Nelson Mandela</cite>
+          <blockquote className="educational-quote" style={{ borderLeft: 'none', borderTop: '3px solid var(--accent-color)', borderBottom: '3px solid var(--accent-color)', padding: '20px 0', width: '100%' }}>
+            "Excellence is not an act, but a habit of continuous improvement through daily choices."
+            <cite style={{ marginTop: '12px' }}>— Aristotle</cite>
           </blockquote>
 
           <p className="landing-lead-text">
-            Welcome to the Knowva workspace portal. Select one of the quick-login gateways below to log in as a Learner, Course Creator, or System Administrator, or proceed to the custom login screen.
+            Welcome to the Kiezen workspace portal. Select one of the quick-login gateways below to log in as a Learner, Course Creator, or System Administrator, or proceed to the custom login screen.
           </p>
 
           <Button 
             variant="primary" 
             onClick={() => navigate('/login')} 
-            className="go-to-login-btn"
+            className="go-to-login-btn tooltip-trigger"
+            data-tooltip="Proceed to custom login form with your credentials"
             rightIcon={<ArrowRight size={18} />}
+            style={{ alignSelf: 'center' }}
           >
             Go to Credentials Form
           </Button>
-        </div>
-
-        <div className="hero-right-preview glass-panel animate-fade-in">
-          <div className="preview-header">
-            <div className="live-indicator">
-              <span className="pulse-dot"></span>
-              <span className="live-text">Live Platform Monitor</span>
-            </div>
-            <span className="dept-badge">Operations Node</span>
-          </div>
-          
-          <div className="preview-stats-grid">
-            <div className="stat-card">
-              <p className="stat-val">12,482</p>
-              <p className="stat-label">Assigned Modules</p>
-            </div>
-            <div className="stat-card">
-              <p className="stat-val">98.4%</p>
-              <p className="stat-label">Compliance Rate</p>
-            </div>
-          </div>
-
-          <div className="preview-activity-feed">
-            <h4>Recent Activity Log</h4>
-            <div className="activity-item">
-              <span className="activity-dot active"></span>
-              <div className="activity-details">
-                <p className="activity-title">ABAP NetWeaver Dev assigned</p>
-                <p className="activity-time">2 mins ago • Engineering Dept</p>
-              </div>
-            </div>
-            <div className="activity-item">
-              <span className="activity-dot completed"></span>
-              <div className="activity-details">
-                <p className="activity-title">SAP FICO Ledger completed</p>
-                <p className="activity-time">45 mins ago • Finance Dept</p>
-              </div>
-            </div>
-            <div className="activity-item">
-              <span className="activity-dot pending"></span>
-              <div className="activity-details">
-                <p className="activity-title">New Course Schema published</p>
-                <p className="activity-time">3 hours ago • Operations</p>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -113,7 +69,8 @@ export const Landing: React.FC = () => {
             <Button
               variant="primary"
               onClick={() => handlePortalLogin('Employee', 'learner@company.com', 'Engineering')}
-              className="portal-login-btn"
+              className="portal-login-btn tooltip-trigger"
+              data-tooltip="Instant login as Learner (Employee)"
             >
               Enter Learner Dashboard
             </Button>
@@ -136,7 +93,8 @@ export const Landing: React.FC = () => {
             <Button
               variant="purple"
               onClick={() => handlePortalLogin('Manager', 'creator@company.com', 'Product')}
-              className="portal-login-btn"
+              className="portal-login-btn tooltip-trigger"
+              data-tooltip="Instant login as Course Creator (Manager)"
             >
               Enter Creator Dashboard
             </Button>
@@ -159,7 +117,8 @@ export const Landing: React.FC = () => {
             <Button
               variant="coral"
               onClick={() => handlePortalLogin('Admin', 'admin@company.com', 'Operations')}
-              className="portal-login-btn"
+              className="portal-login-btn tooltip-trigger"
+              data-tooltip="Instant login as System Administrator"
             >
               Enter Admin Dashboard
             </Button>

@@ -780,3 +780,57 @@
   border-color: var(--accent-color) !important;
   color: var(--accent-color) !important;
 }
+
+/* --- PROFILE WORKSPACE STRUCTURE AND METADATA CARD --- */
+.profile-dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 32px;
+  align-items: start;
+  margin-top: 24px;
+}
+
+.profile-side-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.profile-main-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Form field styles for profile editor */
+.profile-side-pane .form-select-field {
+  background-color: var(--bg-main) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  border-radius: var(--border-radius-sm) !important;
+  padding: 8px 12px !important;
+  font-size: 0.85rem !important;
+  width: 100%;
+  transition: var(--transition-smooth) !important;
+  font-family: inherit !important;
+}
+
+.profile-side-pane .form-select-field:focus {
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 0 0 2px var(--accent-glow) !important;
+  outline: none !important;
+}
+
+.profile-side-pane .profile-metadata-list input.form-select-field {
+  padding: 4px 8px !important;
+  height: 28px !important;
+  margin: -4px 0 !important;
+}
+
+@media (max-width: 992px) {
+  .profile-dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+

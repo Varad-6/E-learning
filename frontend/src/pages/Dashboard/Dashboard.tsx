@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { User, Users, ShieldAlert, Award, FileText, CheckCircle, PlusCircle, Bookmark, Layers, Menu } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import type { Course } from '../../types/schema';
@@ -79,9 +79,24 @@ const getModulesForCourse = (courseCode: string, progressPercent: number) => {
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState<string>('');
+  const [profileEmpId, setProfileEmpId] = useState<string>('');
+  const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false);
   const [role, setRole] = useState<string>('Employee');
   const [dept, setDept] = useState<string>('AI');
+
+  const [activeMainView, setActiveMainView] = useState<'dashboard' | 'profile'>('dashboard');
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('tab') === 'profile') {
+      setActiveMainView('profile');
+    } else {
+      setActiveMainView('dashboard');
+    }
+  }, [location.search]);
 
   // Helper for Manager mappings
   const getManagerForDept = (deptName: string): string => {
@@ -198,8 +213,42 @@ export const Dashboard: React.FC = () => {
       navigate('/login');
     } else {
       setEmail(savedEmail);
+      const activeRole = savedRole || 'Employee';
       if (savedRole) setRole(savedRole);
       if (savedDept) setDept(savedDept);
+
+      const emailPrefix = savedEmail ? savedEmail.split('@')[0] : '';
+      
+      // Initialize profile name/id based on role and localStorage
+      const savedName = localStorage.getItem('profileName');
+      const savedEmpId = localStorage.getItem('profileEmpId');
+      if (savedName) {
+        setProfileName(savedName);
+      } else {
+        if (emailPrefix === 'learner') {
+          setProfileName('Alice Smith');
+        } else if (emailPrefix === 'creator') {
+          setProfileName('Dr. Evelyn C.');
+        } else if (emailPrefix === 'admin') {
+          setProfileName('Systems Administrator');
+        } else {
+          setProfileName(emailPrefix || (activeRole === 'Employee' ? 'Alice Smith' : activeRole === 'Manager' ? 'Dr. Evelyn C.' : 'Systems Administrator'));
+        }
+      }
+      
+      if (savedEmpId) {
+        setProfileEmpId(savedEmpId);
+      } else {
+        if (emailPrefix === 'learner') {
+          setProfileEmpId('EMP-3041');
+        } else if (emailPrefix === 'creator') {
+          setProfileEmpId('MGR-1042');
+        } else if (emailPrefix === 'admin') {
+          setProfileEmpId('ADM-0001');
+        } else {
+          setProfileEmpId(emailPrefix || (activeRole === 'Employee' ? 'EMP-3041' : activeRole === 'Manager' ? 'MGR-1042' : 'ADM-0001'));
+        }
+      }
     }
   }, [navigate]);
 
@@ -287,14 +336,286 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="dashboard-page container animate-fade-in">
+      {/* 0. DETAILED PROFILE VIEW PANEL */}
+      {activeMainView === 'profile' && (
+        <div className="dashboard-layout-profile animate-fade-in">
+          {/* Header row with back-to-dashboard button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <button 
+                onClick={() => {
+                  navigate('/dashboard');
+                }} 
+                className="ide-drawer-toggle-btn tooltip-trigger" 
+                data-tooltip="Return to Dashboard Home"
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  padding: '10px 16px', 
+                  background: 'var(--border-color)', 
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: 'var(--border-radius-sm)', 
+                  color: 'var(--text-primary)', 
+                  cursor: 'pointer', 
+                  fontWeight: '600' 
+                }}
+              >
+                ← Back to Dashboard
+              </button>
+              <div className="pane-header" style={{ marginBottom: 0 }}>
+                <h3>My Profile Workspace</h3>
+                <p>Personal profile credentials and training reports center</p>
+              </div>
+            </div>
+            <span className="badge role" style={{ padding: '8px 14px', borderRadius: 'var(--border-radius-sm)' }}>
+              Connected Node: {email?.split('@')[0]}
+            </span>
+          </div>
+
+          <div className="profile-dashboard-grid">
+            {/* Left Pane - Profile details metadata */}
+            <div className="profile-side-pane">
+              <div className="sidebar-card glass-panel" style={{ padding: '28px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '24px', marginBottom: '20px' }}>
+                  <div className="avatar-circle" style={{ width: '80px', height: '80px', fontSize: '1.8rem', fontWeight: '800' }}>
+                    {profileName?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                  <div style={{ textAlign: 'center', width: '100%' }}>
+                    {isEditingProfile ? (
+                      <input
+                        type="text"
+                        className="form-select-field"
+                        value={profileName}
+                        onChange={(e) => setProfileName(e.target.value)}
+                        style={{ textAlign: 'center', fontSize: '1.1rem', fontWeight: '700', padding: '6px' }}
+                      />
+                    ) : (
+                      <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                        {profileName}
+                      </h3>
+                    )}
+                    <p style={{ fontSize: '0.78rem', color: 'var(--accent-color)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '6px' }}>
+                      {role} Workspace
+                    </p>
+                  </div>
+                </div>
+
+                <div className="profile-metadata-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.88rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Employee ID</span>
+                    {isEditingProfile ? (
+                      <input
+                        type="text"
+                        className="form-select-field"
+                        value={profileEmpId}
+                        onChange={(e) => setProfileEmpId(e.target.value)}
+                        style={{ padding: '6px', fontSize: '0.88rem', width: '160px', textAlign: 'right' }}
+                      />
+                    ) : (
+                      <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{profileEmpId}</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Corporate Email</span>
+                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{email}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Department</span>
+                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{dept}</span>
+                  </div>
+                  {role === 'Employee' && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Assigned Manager</span>
+                      <span style={{ fontWeight: '600', color: 'var(--accent-color)' }}>{getManagerForDept(dept)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Completed Courses</span>
+                    <span style={{ fontWeight: '600', color: 'var(--neon-teal)' }}>
+                      {role === 'Employee' ? myProgress.filter(p => p.progressPercent === 100).length : 'All'} Courses
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '4px' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Ongoing Modules</span>
+                    <span style={{ fontWeight: '600', color: 'var(--accent-color)' }}>
+                      {role === 'Employee' ? myProgress.filter(p => p.progressPercent < 100).length : '0'} In Progress
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '20px', paddingTop: '16px' }}>
+                  <Button
+                    variant={isEditingProfile ? 'primary' : 'outline'}
+                    style={{ width: '100%', fontSize: '0.82rem' }}
+                    onClick={() => {
+                      if (isEditingProfile) {
+                        localStorage.setItem('profileName', profileName);
+                        localStorage.setItem('profileEmpId', profileEmpId);
+                      }
+                      setIsEditingProfile(!isEditingProfile);
+                    }}
+                  >
+                    {isEditingProfile ? 'Save Profile' : 'Edit Profile Info'}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Status summary box */}
+              <div className="sidebar-card glass-panel" style={{ borderLeft: '3px solid var(--neon-teal)', padding: '20px' }}>
+                <h4 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--text-secondary)', letterSpacing: '0.03em', marginBottom: '8px' }}>Compliance Status</h4>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                  {role === 'Employee' && myProgress.some(p => p.progressPercent < 100) 
+                    ? 'Ongoing curriculums active. Ensure completion within compliance deadline nodes.'
+                    : 'System compliant. All assigned training certifications have been successfully verified.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Right Pane - Marks report & Course summaries */}
+            <div className="profile-main-pane">
+              
+              {/* Detailed Performance / Quiz Scores */}
+              <div className="roster-card glass-panel" style={{ padding: '28px', marginBottom: '24px' }}>
+                <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', border: 'none', padding: 0 }}>
+                  <Award size={18} className="icon-blue" />
+                  <span>Training Performance & Assessment Report</span>
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+                  List of completed and logged exam marks traces matching your curriculum.
+                </p>
+
+                <div className="scores-table-section">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                        <th style={{ padding: '12px 6px', color: 'var(--text-secondary)' }}>Module Code</th>
+                        <th style={{ padding: '12px 6px', color: 'var(--text-secondary)' }}>Assessment Name</th>
+                        <th style={{ padding: '12px 6px', color: 'var(--text-secondary)' }}>Passing Score</th>
+                        <th style={{ padding: '12px 6px', color: 'var(--text-secondary)', textAlign: 'right' }}>My Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {role === 'Employee' ? (
+                        <>
+                          <tr style={{ borderBottom: '1px solid var(--border-color)' }} className="tooltip-trigger" data-tooltip="AI Foundations Course Assessment">
+                            <td style={{ padding: '12px 6px' }}><code>AI-101</code></td>
+                            <td style={{ padding: '12px 6px' }}>Machine Learning Basics Quiz</td>
+                            <td style={{ padding: '12px 6px' }}>80 / 100</td>
+                            <td style={{ padding: '12px 6px', textAlign: 'right', fontWeight: '700', color: 'var(--neon-teal)' }}>88 / 100</td>
+                          </tr>
+                          <tr style={{ borderBottom: '1px solid var(--border-color)' }} className="tooltip-trigger" data-tooltip="AI Labs Assessment">
+                            <td style={{ padding: '12px 6px' }}><code>AI-101</code></td>
+                            <td style={{ padding: '12px 6px' }}>Neural Networks Lab Test</td>
+                            <td style={{ padding: '12px 6px' }}>80 / 100</td>
+                            <td style={{ padding: '12px 6px', textAlign: 'right', fontWeight: '700', color: 'var(--neon-teal)' }}>92 / 100</td>
+                          </tr>
+                          <tr style={{ borderBottom: '1px solid var(--border-color)' }} className="tooltip-trigger" data-tooltip="Sales Order processing quiz">
+                            <td style={{ padding: '12px 6px' }}><code>SD-102</code></td>
+                            <td style={{ padding: '12px 6px' }}>Shipping Conditions Matrix Quiz</td>
+                            <td style={{ padding: '12px 6px' }}>80 / 100</td>
+                            <td style={{ padding: '12px 6px', textAlign: 'right', fontWeight: '700', color: 'var(--text-secondary)' }}>65 / 100 (Pending)</td>
+                          </tr>
+                        </>
+                      ) : role === 'Manager' ? (
+                        <>
+                          <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '12px 6px' }}><code>FICO-202</code></td>
+                            <td style={{ padding: '12px 6px' }}>Asset Accounting Competency Exam</td>
+                            <td style={{ padding: '12px 6px' }}>80 / 100</td>
+                            <td style={{ padding: '12px 6px', textAlign: 'right', fontWeight: '700', color: 'var(--neon-teal)' }}>100 / 100</td>
+                          </tr>
+                        </>
+                      ) : (
+                        <tr>
+                          <td colSpan={4} style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                            No assessment marks required for Administrator workspace.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Categorized Course Modules */}
+              <div className="roster-card glass-panel" style={{ padding: '28px' }}>
+                <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', border: 'none', padding: 0 }}>
+                  <Layers size={18} className="icon-green" />
+                  <span>Module Status Details</span>
+                </h3>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Ongoing Courses */}
+                  <div>
+                    <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-color)', letterSpacing: '0.03em', marginBottom: '10px' }}>Ongoing Modules</h4>
+                    {role === 'Employee' && myProgress.some(p => p.progressPercent < 100) ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {myProgress.filter(p => p.progressPercent < 100).map(course => (
+                          <div key={course.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)' }}>
+                            <div>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{course.courseCode}</span>
+                              <p style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)' }}>{course.title}</p>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{course.progressPercent}%</span>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="tooltip-trigger"
+                                data-tooltip={`Resume study for ${course.courseCode}`}
+                                onClick={() => {
+                                  handleStudyIncrement(course.id);
+                                }}
+                              >
+                                Resume
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No ongoing modules found.</p>
+                    )}
+                  </div>
+
+                  {/* Completed Courses */}
+                  <div style={{ marginTop: '10px' }}>
+                    <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--neon-teal)', letterSpacing: '0.03em', marginBottom: '10px' }}>Completed Modules & Certificates</h4>
+                    {role === 'Employee' && myProgress.some(p => p.progressPercent === 100) ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {myProgress.filter(p => p.progressPercent === 100).map(course => (
+                          <div key={course.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)' }}>
+                            <div>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{course.courseCode}</span>
+                              <p style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)' }}>{course.title}</p>
+                            </div>
+                            <span className="row-success-badge" style={{ fontSize: '0.8rem' }}>
+                              Certified ✓
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No completed modules found.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner Common Details */}
-      <section className="dashboard-hero-banner glass-panel">
+      {activeMainView === 'dashboard' && (
+        <section className="dashboard-hero-banner glass-panel">
         <div className="hero-banner-profile">
           <div className="avatar-circle">
             <User size={32} />
           </div>
           <div className="profile-details">
-            <h2>Welcome Back, {email?.split('@')[0]}</h2>
+            <h2>Welcome Back, {profileName || email?.split('@')[0]}</h2>
             <div className="profile-badge-row">
               <span className="badge role">{role} Workspace</span>
               <span className="badge dept">{dept} Department</span>
@@ -357,11 +678,12 @@ export const Dashboard: React.FC = () => {
           )}
         </div>
       </section>
+      )}
 
       {/* Conditional Dashboard Views */}
       
       {/* 1. EMPLOYEE (LEARNER) VIEW */}
-      {role === 'Employee' && (
+      {activeMainView === 'dashboard' && role === 'Employee' && (
         <div className="dashboard-layout-employee animate-fade-in">
           <div className="pane-header">
             <h3>My Learning Curriculum</h3>
@@ -419,47 +741,6 @@ export const Dashboard: React.FC = () => {
 
             {/* Side Info Cards */}
             <div className="employee-sidebar">
-              {/* Profile Details Sidebar Card */}
-              <div className="sidebar-card glass-panel">
-                <div className="sidebar-card-title">
-                  <User size={18} className="sidebar-icon icon-blue" />
-                  <h3>My Profile</h3>
-                </div>
-                <div className="profile-metadata-list" style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Name</span>
-                    <span style={{ fontWeight: '600' }}>Alice Smith</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Employee Code</span>
-                    <span style={{ fontWeight: '600' }}>EMP-3041</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Email</span>
-                    <span style={{ fontWeight: '600' }}>{email || 'learner@company.com'}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Department</span>
-                    <span style={{ fontWeight: '600' }}>{dept}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Assigned Manager</span>
-                    <span style={{ fontWeight: '600', color: 'var(--accent-color)' }}>{getManagerForDept(dept)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Completed Courses</span>
-                    <span style={{ fontWeight: '600', color: 'var(--neon-teal)' }}>
-                      {myProgress.filter(p => p.progressPercent === 100).length} Course(s)
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '4px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>In Progress Courses</span>
-                    <span style={{ fontWeight: '600', color: 'var(--accent-color)' }}>
-                      {myProgress.filter(p => p.progressPercent < 100).length} Course(s)
-                    </span>
-                  </div>
-                </div>
-              </div>
 
               {/* Recent Course Sidebar Widget */}
               <div className="sidebar-card glass-panel" style={{ borderLeft: '3px solid var(--accent-color)' }}>
@@ -504,7 +785,7 @@ export const Dashboard: React.FC = () => {
                   <Award size={18} className="sidebar-icon icon-yellow" />
                   <h3>Completed Certificates</h3>
                 </div>
-                <p className="sidebar-card-subtitle">Your credentials verified on Knowva</p>
+                <p className="sidebar-card-subtitle">Your credentials verified on Kiezen</p>
                 
                 <div className="certificates-badge-list">
                   {myProgress.some(i => i.progressPercent === 100) ? (
@@ -530,7 +811,7 @@ export const Dashboard: React.FC = () => {
       )}
 
       {/* 2. CREATOR (MANAGER) VIEW */}
-      {role === 'Manager' && (
+      {activeMainView === 'dashboard' && role === 'Manager' && (
         <div className="dashboard-layout-manager animate-fade-in">
           {/* Side Drawer Toggle button & Dashboard header */}
           <div className="manager-workspace-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '28px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
@@ -589,7 +870,7 @@ export const Dashboard: React.FC = () => {
             <div className="drawer-overlay" onClick={() => setShowDrawer(false)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)', zIndex: 1000, display: 'flex', justifyContent: 'flex-start' }}>
               <div className="drawer-content glass-panel" onClick={(e) => e.stopPropagation()} style={{ width: '280px', height: '100%', backgroundColor: 'var(--bg-card)', borderRight: '1px solid var(--border-color)', padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px', animation: 'slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
                 <div className="drawer-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
-                  <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--text-primary)', fontSize: '1.15rem' }}>Knowva Manager</h3>
+                  <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--text-primary)', fontSize: '1.15rem' }}>Kiezen Manager</h3>
                   <button onClick={() => setShowDrawer(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '1.5rem', cursor: 'pointer', padding: 0, lineHeight: 1 }}>&times;</button>
                 </div>
                 <div className="drawer-menu-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1032,10 +1313,10 @@ export const Dashboard: React.FC = () => {
       )}
 
       {/* 3. ADMINISTRATOR VIEW */}
-      {role === 'Admin' && (
+      {activeMainView === 'dashboard' && role === 'Admin' && (
         <div className="dashboard-layout-admin">
           <div className="pane-header">
-            <h3>Knowva Administrative Control Center</h3>
+            <h3>Kiezen Administrative Control Center</h3>
             <p>System metrics, registered node components, and audit log schemas</p>
           </div>
 

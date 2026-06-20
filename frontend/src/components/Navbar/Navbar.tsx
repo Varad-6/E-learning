@@ -26,17 +26,17 @@ export const Navbar: React.FC = () => {
   return (
     <header className="navbar-header glass-panel">
       <div className="navbar-container container">
-        <Link to="/" className="navbar-logo">
+        <Link to="/" className="navbar-logo tooltip-trigger" data-tooltip="Kiezen Continuous Improvement Hub">
           <BookOpen className="logo-icon" size={24} />
-          <span className="logo-text">Knowva</span>
+          <span className="logo-text">Kiezen</span>
         </Link>
 
         <nav className="navbar-links">
-          <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>
+          <Link to="/" className={`nav-link tooltip-trigger ${location.pathname === '/' ? 'active' : ''}`} data-tooltip="Kiezen Homepage">
             Home
           </Link>
           {userEmail && (
-            <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>
+            <Link to="/dashboard" className={`nav-link tooltip-trigger ${location.pathname === '/dashboard' ? 'active' : ''}`} data-tooltip="Go to My Workspace Dashboard">
               Dashboard
             </Link>
           )}
@@ -47,14 +47,15 @@ export const Navbar: React.FC = () => {
 
           {userEmail ? (
             <div className="user-profile-menu">
-              <span className="user-badge" title={userEmail}>
+              <Link to="/dashboard?tab=profile" className="user-badge tooltip-trigger" data-tooltip="View My Profile Info & Training Report">
                 <User size={16} />
                 <span className="username-text">{userEmail.split('@')[0]}</span>
-              </span>
+              </Link>
               <Button
                 variant="outline"
                 onClick={handleLogout}
-                className="logout-btn"
+                className="logout-btn tooltip-trigger"
+                data-tooltip="Sign out of Kiezen session"
                 leftIcon={<LogOut size={16} />}
               >
                 Logout

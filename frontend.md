@@ -63,6 +63,18 @@ This file serves as our living documentation and changelog. As we implement part
   - [x] Add Department statistics grid & filter menus.
   - [x] Remove assignment panel form.
 
+### Phase 6: Rebranding to Kiezen, Profile Pages, and Tooltip Animations
+- [x] Rename platform to **Kiezen** (Continuous Improvement) and update quote
+- [x] Remove "Live Platform Monitor" indicators
+- [x] Implement full-page Profile tab view in Dashboard (routing query parameter `?tab=profile`)
+- [x] Build marks report list, ongoing progress course trackers, and certificates grids under Profile view
+- [x] Integrate hover tooltips (`data-tooltip`) and option pop-up micro-animations
+- [x] Remove "Kiezen Platform Overview" preview widget completely from Landing page and center the hero section layout
+- [x] Remove the profile details card from the Employee Dashboard sidebar
+- [x] Implement inline editable input fields for User Name and Employee ID inside the Profile Workspace, syncing updates to localStorage and the dashboard welcome greeting
+- [x] Apply professional CSS Grid rules and spacing parameters to align the Profile details side card and performance grids
+- [x] Redesign the website footer into a minimalist horizontal Support gateway navigation row, removing columns and description widgets
+
 ---
 
 ## 🛠️ Folder Structure

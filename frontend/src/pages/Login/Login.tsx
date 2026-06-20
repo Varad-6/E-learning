@@ -156,7 +156,7 @@ export const Login: React.FC = () => {
         <div className="login-left-pane">
           <div className="left-pane-overlay"></div>
           <div className="left-pane-content animate-slide-left">
-            <span className="left-pane-tag">Knowva</span>
+            <span className="left-pane-tag">Kiezen</span>
             <h2>Corporate Learning & Development Portal</h2>
             <p>
               Welcome to the unified training system. Sign in with your corporate employee credentials to view assigned pathways, complete modules, and manage compliance.
@@ -184,7 +184,7 @@ export const Login: React.FC = () => {
               <>
                 <div className="form-heading">
                   <h2>Sign In</h2>
-                  <p>Enter your credentials to access the Knowva platform.</p>
+                  <p>Enter your credentials to access the Kiezen platform.</p>
                 </div>
 
                 <form onSubmit={handleLoginSubmit} className="login-form">
