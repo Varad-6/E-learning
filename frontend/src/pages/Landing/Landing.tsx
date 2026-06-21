@@ -11,6 +11,22 @@ export const Landing: React.FC = () => {
     localStorage.setItem('isLoggedInEmail', email);
     localStorage.setItem('isLoggedInRole', role);
     localStorage.setItem('isLoggedInDept', dept);
+    localStorage.setItem('access_token', 'mock-demo-access-token');
+    localStorage.setItem('refresh_token', 'mock-demo-refresh-token');
+    
+    const nameMap: { [key: string]: string } = {
+      'learner@company.com': 'Alice Smith',
+      'creator@company.com': 'Dr. Evelyn C.',
+      'admin@company.com': 'Systems Administrator'
+    };
+    const codeMap: { [key: string]: string } = {
+      'learner@company.com': 'EMP-3041',
+      'creator@company.com': 'MGR-1042',
+      'admin@company.com': 'ADM-0001'
+    };
+    localStorage.setItem('profileName', nameMap[email] || 'Alice Smith');
+    localStorage.setItem('profileEmpId', codeMap[email] || 'EMP-3041');
+
     navigate('/dashboard');
   };
 

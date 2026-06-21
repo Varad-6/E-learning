@@ -208,8 +208,9 @@ export const Dashboard: React.FC = () => {
     const savedEmail = localStorage.getItem('isLoggedInEmail');
     const savedRole = localStorage.getItem('isLoggedInRole');
     const savedDept = localStorage.getItem('isLoggedInDept');
+    const accessToken = localStorage.getItem('access_token');
 
-    if (!savedEmail) {
+    if (!savedEmail || !accessToken) {
       navigate('/login');
     } else {
       setEmail(savedEmail);

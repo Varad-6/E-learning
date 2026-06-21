@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Lock, Mail, Users, Building, ShieldAlert } from 'lucide-react';
 import { Input } from '../../components/Input/Input';
 import { Button } from '../../components/Button/Button';
+import { apiCall } from '../../services/api';
 import './Login.css';
 
 export const Login: React.FC = () => {
@@ -16,7 +17,7 @@ export const Login: React.FC = () => {
   
   // Forgot Password / OTP states
   const [loginMode, setLoginMode] = useState<'signin' | 'forgot_email' | 'forgot_otp' | 'forgot_reset'>('signin');
-  const [resetEmail, setResetEmail] = useState('');
+  const [resetEmployeeCode, setResetEmployeeCode] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -55,65 +56,118 @@ export const Login: React.FC = () => {
     return Object.keys(tempErrors).length === 0;
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsLoading(true);
+    setErrors({});
     
-    // Simulate API request to Python backend
-    setTimeout(() => {
-      setIsLoading(false);
-      
+    try {
+      const response = await apiCall('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          employee_code: employeeCode,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrors({ form: data.detail || 'Login failed. Please verify credentials.' });
+        setIsLoading(false);
+        return;
+      }
+
+      // Save JWT tokens
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+
       // Save session credentials
-      localStorage.setItem('isLoggedInEmail', employeeCode.includes('@') ? employeeCode : `${employeeCode}@company.com`);
-      localStorage.setItem('isLoggedInRole', role);
+      localStorage.setItem('isLoggedInEmail', data.user.email);
+      
+      const backendRole = data.roles[0] || 'EMPLOYEE';
+      let mappedRole = 'Employee';
+      if (backendRole === 'MANAGER' || backendRole === 'CREATOR') mappedRole = 'Manager';
+      else if (backendRole === 'ADMIN') mappedRole = 'Admin';
+      
+      localStorage.setItem('isLoggedInRole', mappedRole);
       localStorage.setItem('isLoggedInDept', department);
       
-      // Navigate to role-based dashboard
+      // Sync profile details
+      const fullName = `${data.user.first_name} ${data.user.last_name}`;
+      localStorage.setItem('profileName', fullName);
+      localStorage.setItem('profileEmpId', data.user.employee_code);
+
+      setIsLoading(false);
       navigate('/dashboard');
-    }, 1200);
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrors({ form: err.message || 'Server connection failed. Is the backend running?' });
+    }
   };
 
-  const handleSendOTP = (e: React.FormEvent) => {
+  const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resetEmail.trim()) {
-      setErrors({ resetEmail: 'Email address is required.' });
-      return;
-    }
-    if (!resetEmail.includes('@')) {
-      setErrors({ resetEmail: 'Invalid email address.' });
+    if (!resetEmployeeCode.trim()) {
+      setErrors({ resetEmployeeCode: 'Employee code is required.' });
       return;
     }
     setIsLoading(true);
     setErrors({});
-    setTimeout(() => {
+    try {
+      const response = await apiCall('/api/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ employee_code: resetEmployeeCode }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setErrors({ form: data.detail || 'Failed to dispatch OTP.' });
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(false);
       setLoginMode('forgot_otp');
       setOtpTimer(30);
-      alert('A demo OTP verification code has been dispatched. Enter 123456 to continue.');
-    }, 1000);
+      alert('A security OTP code has been dispatched to your email.');
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrors({ form: err.message || 'Connection failed.' });
+    }
   };
 
-  const handleVerifyOTP = (e: React.FormEvent) => {
+  const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otpCode.trim()) {
       setErrors({ otpCode: 'OTP code is required.' });
       return;
     }
-    if (otpCode !== '123456') {
-      setErrors({ otpCode: 'Incorrect code. Enter 123456 to proceed.' });
-      return;
-    }
     setIsLoading(true);
     setErrors({});
-    setTimeout(() => {
+    try {
+      const response = await apiCall('/api/auth/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({
+          employee_code: resetEmployeeCode,
+          otp: otpCode
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setErrors({ form: data.detail || 'OTP verification failed.' });
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(false);
       setLoginMode('forgot_reset');
-    }, 1000);
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrors({ form: err.message || 'Connection failed.' });
+    }
   };
 
-  const handleResetPassword = (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     const tempErrors: { [key: string]: string } = {};
     if (!newPassword) {
@@ -130,15 +184,32 @@ export const Login: React.FC = () => {
     }
     setIsLoading(true);
     setErrors({});
-    setTimeout(() => {
+    try {
+      const response = await apiCall('/api/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          employee_code: resetEmployeeCode,
+          otp: otpCode,
+          new_password: newPassword
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setErrors({ form: data.detail || 'Password reset failed.' });
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(false);
       alert('Password has been successfully updated!');
       setLoginMode('signin');
-      setResetEmail('');
+      setResetEmployeeCode('');
       setOtpCode('');
       setNewPassword('');
       setConfirmPassword('');
-    }, 1000);
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrors({ form: err.message || 'Connection failed.' });
+    }
   };
 
   return (
@@ -187,6 +258,12 @@ export const Login: React.FC = () => {
                   <p>Enter your credentials to access the Kiezen platform.</p>
                 </div>
 
+                {errors.form && (
+                  <div className="form-info-banner" style={{ backgroundColor: 'var(--neon-coral-glow)', color: 'var(--neon-coral)', border: '1px solid var(--neon-coral)', marginBottom: '16px' }}>
+                    <ShieldAlert size={14} className="info-icon" style={{ color: 'var(--neon-coral)', marginRight: '8px' }} />
+                    <span>{errors.form}</span>
+                  </div>
+                )}
                 <form onSubmit={handleLoginSubmit} className="login-form">
                   {/* Employee Code / Email */}
                   <Input
@@ -295,17 +372,23 @@ export const Login: React.FC = () => {
               <>
                 <div className="form-heading">
                   <h2>Forgot Password</h2>
-                  <p>Enter your corporate email address to receive an OTP verification code.</p>
+                  <p>Enter your employee code to receive an OTP verification email.</p>
                 </div>
 
+                {errors.form && (
+                  <div className="form-info-banner" style={{ backgroundColor: 'var(--neon-coral-glow)', color: 'var(--neon-coral)', border: '1px solid var(--neon-coral)', marginBottom: '16px' }}>
+                    <ShieldAlert size={14} className="info-icon" style={{ color: 'var(--neon-coral)', marginRight: '8px' }} />
+                    <span>{errors.form}</span>
+                  </div>
+                )}
                 <form onSubmit={handleSendOTP} className="login-form">
                   <Input
-                    label="Corporate Email Address"
-                    placeholder="e.g. employee@company.com"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    error={errors.resetEmail}
-                    leftIcon={<Mail size={18} />}
+                    label="Employee Code"
+                    placeholder="e.g. EMP001"
+                    value={resetEmployeeCode}
+                    onChange={(e) => setResetEmployeeCode(e.target.value)}
+                    error={errors.resetEmployeeCode}
+                    leftIcon={<Users size={18} />}
                   />
 
                   <Button
@@ -336,9 +419,15 @@ export const Login: React.FC = () => {
               <>
                 <div className="form-heading">
                   <h2>Verify OTP</h2>
-                  <p>We have dispatched a 6-digit verification code to <strong>{resetEmail}</strong>.</p>
+                  <p>We have dispatched a 6-digit verification code to your email.</p>
                 </div>
 
+                {errors.form && (
+                  <div className="form-info-banner" style={{ backgroundColor: 'var(--neon-coral-glow)', color: 'var(--neon-coral)', border: '1px solid var(--neon-coral)', marginBottom: '16px' }}>
+                    <ShieldAlert size={14} className="info-icon" style={{ color: 'var(--neon-coral)', marginRight: '8px' }} />
+                    <span>{errors.form}</span>
+                  </div>
+                )}
                 <form onSubmit={handleVerifyOTP} className="login-form">
                   <Input
                     label="6-Digit Verification Code"
@@ -405,6 +494,12 @@ export const Login: React.FC = () => {
                   <p>Define a new secure password for your corporate profile.</p>
                 </div>
 
+                {errors.form && (
+                  <div className="form-info-banner" style={{ backgroundColor: 'var(--neon-coral-glow)', color: 'var(--neon-coral)', border: '1px solid var(--neon-coral)', marginBottom: '16px' }}>
+                    <ShieldAlert size={14} className="info-icon" style={{ color: 'var(--neon-coral)', marginRight: '8px' }} />
+                    <span>{errors.form}</span>
+                  </div>
+                )}
                 <form onSubmit={handleResetPassword} className="login-form">
                   <Input
                     label="New Password"

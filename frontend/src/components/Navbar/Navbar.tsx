@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { BookOpen, User, LogOut } from 'lucide-react';
 import { ThemeToggle } from '../ThemeToggle/ThemeToggle';
 import { Button } from '../Button/Button';
+import { apiCall, handleLogoutLocal } from '../../services/api';
 import './Navbar.css';
 
 export const Navbar: React.FC = () => {
@@ -15,10 +16,19 @@ export const Navbar: React.FC = () => {
     setUserEmail(email);
   }, [location]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedInEmail');
-    localStorage.removeItem('isLoggedInRole');
-    localStorage.removeItem('isLoggedInDept');
+  const handleLogout = async () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (refreshToken) {
+      try {
+        await apiCall('/api/auth/logout', {
+          method: 'POST',
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+      } catch (err) {
+        console.error('Logout API call failed:', err);
+      }
+    }
+    handleLogoutLocal();
     setUserEmail(null);
     navigate('/');
   };
