@@ -75,6 +75,20 @@ This file serves as our living documentation and changelog. As we implement part
 - [x] Apply professional CSS Grid rules and spacing parameters to align the Profile details side card and performance grids
 - [x] Redesign the website footer into a minimalist horizontal Support gateway navigation row, removing columns and description widgets
 
+### Phase 7: Advanced Course Creator & Native Drag-and-Drop Workspace
+- [x] Integrate mandatory star tags (`*`) across all creation fields (Title, Code, Description, Priority, Duration) in Creator Dashboard.
+- [x] Permanently display module syllabus quick-add builder for rapid sequential entries.
+- [x] Implement native HTML5 Drag & Drop composer block reordering with cursor movement feedback.
+- [x] Enforce visual typography spacing and bold H1/H2 rendering inside the live preview canvas.
+- [x] Support direct YouTube, Blog, Web, PDF/PPT attachments, and image/video link composition.
+- [x] Consolidate notebook editor notes and MCQ assessment builder tabs on the right utilities panel.
+
+### Phase 8: Landing, Login Refactoring & Simplified Manager Auditing Dashboard
+- [x] Remove the role select and department select fields from the sign-in form.
+- [x] Integrate animated success transitions with background wiping and custom splash GIF rendering.
+- [x] Direct Manager portal logins to land straight on Creator Studio (/creator/dashboard).
+- [x] Restrict Manager Dashboard view exclusively to the Employee Tracker and Auditing & Reporting tables.
+
 ---
 
 ## 🛠️ Folder Structure
@@ -137,3 +151,16 @@ This file serves as our living documentation and changelog. As we implement part
   - Designed draft resume/edit sub-tabs checking whether active workspace draft models are saved, transitioning cleanly to a fresh course assembly form.
   - Replaced team assignment forms with roster grid auditing logs letting managers inspect individual test performance percentages and marks overlays.
 - Rewrote end-to-end Playwright tests to align with rebranded texts and modernized navigation drawer selections.
+
+### [2026-06-22] - Advanced Course Creator & Native Drag-and-Drop Workspace
+- Added mandatory star marks (`*`) for all course fields (Title, Code, Description, Priority, Duration) in Creator Dashboard creation form.
+- Restructured Course Syllabus modules panel, making the quick module creation form permanently visible at the top of the modules canvas for seamless rapid entries.
+- Refactored Module Editor block composer, replacing legacy list sorting buttons with native HTML5 Drag and Drop reordering controls accompanied by an interactive grab cursor and `GripVertical` indicator.
+- Updated H1/H2 bold typography settings and accurate block margin spacing parameters inside the live preview canvas.
+- Integrated image/video direct upload URL blocks, and verified compilation build health (`npm run build`).
+
+### [2026-06-22] - Login Simplification, Splash Overlay, and Auditing Constraints
+- Removed Access Role select list and Department inputs from the login screen, autodetecting credentials dynamically via response claims.
+- Integrated a full-screen transition splash screen containing the custom loading GIF `/login_transition.gif` with adaptive dark/light background layouts.
+- Re-routed Creator/Manager logins to direct the session straight into the Creator Studio page instead of the general dashboard.
+- Restructured manager dashboard workspaces in `Dashboard.tsx` to omit course syllabus drafting panels, displaying solely the employee roster audit tables.

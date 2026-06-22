@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User, Users, ShieldAlert, Award, FileText, CheckCircle, PlusCircle, Bookmark, Layers, Menu } from 'lucide-react';
+import { User, Users, ShieldAlert, Award, FileText, CheckCircle, PlusCircle, Bookmark, Layers } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import type { Course } from '../../types/schema';
 import './Dashboard.css';
@@ -120,8 +120,7 @@ export const Dashboard: React.FC = () => {
   const [selectedCourseForModules, setSelectedCourseForModules] = useState<ProgressItem | null>(null);
 
   // Manager Dashboard Navigation & Workspace States
-  const [managerSubView, setManagerSubView] = useState<'my_courses' | 'create_course' | 'audit_reporting'>('my_courses');
-  const [showDrawer, setShowDrawer] = useState(false);
+  const [managerSubView, setManagerSubView] = useState<'my_courses' | 'create_course' | 'audit_reporting'>('audit_reporting');
   const [activeManagerFilterDept, setActiveManagerFilterDept] = useState<string>('All');
   
   // Manager Edit & Draft states
@@ -814,33 +813,11 @@ export const Dashboard: React.FC = () => {
       {/* 2. CREATOR (MANAGER) VIEW */}
       {activeMainView === 'dashboard' && role === 'Manager' && (
         <div className="dashboard-layout-manager animate-fade-in">
-          {/* Side Drawer Toggle button & Dashboard header */}
+          {/* Dashboard header */}
           <div className="manager-workspace-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '28px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <button 
-                className="ide-drawer-toggle-btn" 
-                onClick={() => setShowDrawer(true)} 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  width: '40px', 
-                  height: '40px', 
-                  background: 'var(--bg-card)', 
-                  border: '1px solid var(--border-color)', 
-                  borderRadius: 'var(--border-radius-sm)', 
-                  color: 'var(--text-primary)', 
-                  cursor: 'pointer',
-                  transition: 'var(--transition-smooth)'
-                }}
-                title="Open Navigation Menu"
-              >
-                <Menu size={20} />
-              </button>
               <div className="pane-header" style={{ marginBottom: 0 }}>
-                <h3 style={{ textTransform: 'capitalize' }}>
-                  {managerSubView === 'my_courses' ? 'My Courses Catalog' : managerSubView === 'create_course' ? 'Create & Build Syllabus' : 'Employee Audit Logs & Report'}
-                </h3>
+                <h3>Employee Audit Logs & Report</h3>
                 <p>Manager console node for department curriculum tracking</p>
               </div>
             </div>
@@ -865,41 +842,6 @@ export const Dashboard: React.FC = () => {
               </select>
             </div>
           </div>
-
-          {/* IDE SIDE NAVIGATION DRAWER */}
-          {showDrawer && (
-            <div className="drawer-overlay" onClick={() => setShowDrawer(false)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)', zIndex: 1000, display: 'flex', justifyContent: 'flex-start' }}>
-              <div className="drawer-content glass-panel" onClick={(e) => e.stopPropagation()} style={{ width: '280px', height: '100%', backgroundColor: 'var(--bg-card)', borderRight: '1px solid var(--border-color)', padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px', animation: 'slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
-                <div className="drawer-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
-                  <h3 style={{ fontFamily: 'var(--font-title)', color: 'var(--text-primary)', fontSize: '1.15rem' }}>Kiezen Manager</h3>
-                  <button onClick={() => setShowDrawer(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '1.5rem', cursor: 'pointer', padding: 0, lineHeight: 1 }}>&times;</button>
-                </div>
-                <div className="drawer-menu-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <button 
-                    className={`drawer-item ${managerSubView === 'create_course' ? 'active' : ''}`}
-                    onClick={() => { setManagerSubView('create_course'); setShowDrawer(false); }}
-                    style={{ padding: '12px 16px', textAlign: 'left', borderRadius: 'var(--border-radius-sm)', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem', color: managerSubView === 'create_course' ? 'var(--accent-color)' : 'var(--text-secondary)', backgroundColor: managerSubView === 'create_course' ? 'var(--accent-glow)' : 'transparent', transition: 'var(--transition-smooth)' }}
-                  >
-                    📝 Create Course
-                  </button>
-                  <button 
-                    className={`drawer-item ${managerSubView === 'my_courses' ? 'active' : ''}`}
-                    onClick={() => { setManagerSubView('my_courses'); setShowDrawer(false); }}
-                    style={{ padding: '12px 16px', textAlign: 'left', borderRadius: 'var(--border-radius-sm)', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem', color: managerSubView === 'my_courses' ? 'var(--accent-color)' : 'var(--text-secondary)', backgroundColor: managerSubView === 'my_courses' ? 'var(--accent-glow)' : 'transparent', transition: 'var(--transition-smooth)' }}
-                  >
-                    📚 My Courses
-                  </button>
-                  <button 
-                    className={`drawer-item ${managerSubView === 'audit_reporting' ? 'active' : ''}`}
-                    onClick={() => { setManagerSubView('audit_reporting'); setShowDrawer(false); }}
-                    style={{ padding: '12px 16px', textAlign: 'left', borderRadius: 'var(--border-radius-sm)', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '0.9rem', color: managerSubView === 'audit_reporting' ? 'var(--accent-color)' : 'var(--text-secondary)', backgroundColor: managerSubView === 'audit_reporting' ? 'var(--accent-glow)' : 'transparent', transition: 'var(--transition-smooth)' }}
-                  >
-                    📊 Auditing & Reporting
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* DYNAMIC VIEWS */}
           

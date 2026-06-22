@@ -12,8 +12,6 @@ export const Login: React.FC = () => {
   // Sign In states
   const [employeeCode, setEmployeeCode] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('Employee');
-  const [department, setDepartment] = useState('AI');
   
   // Forgot Password / OTP states
   const [loginMode, setLoginMode] = useState<'signin' | 'forgot_email' | 'forgot_otp' | 'forgot_reset'>('signin');
@@ -26,6 +24,7 @@ export const Login: React.FC = () => {
   // Loading and Error states
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [showTransition, setShowTransition] = useState(false);
 
   React.useEffect(() => {
     let interval: any;
@@ -93,7 +92,7 @@ export const Login: React.FC = () => {
       else if (backendRole === 'ADMIN') mappedRole = 'Admin';
       
       localStorage.setItem('isLoggedInRole', mappedRole);
-      localStorage.setItem('isLoggedInDept', department);
+      localStorage.setItem('isLoggedInDept', 'General');
       
       // Sync profile details
       const fullName = `${data.user.first_name} ${data.user.last_name}`;
@@ -101,7 +100,15 @@ export const Login: React.FC = () => {
       localStorage.setItem('profileEmpId', data.user.employee_code);
 
       setIsLoading(false);
-      navigate('/dashboard');
+      setShowTransition(true);
+
+      setTimeout(() => {
+        if (mappedRole === 'Manager') {
+          navigate('/creator/dashboard');
+        } else {
+          navigate('/dashboard');
+        }
+      }, 2500);
     } catch (err: any) {
       setIsLoading(false);
       setErrors({ form: err.message || 'Server connection failed. Is the backend running?' });
@@ -214,6 +221,16 @@ export const Login: React.FC = () => {
 
   return (
     <div className="login-page">
+      {showTransition && (
+        <div className="login-transition-overlay">
+          <div className="transition-content">
+            <img src="/login_transition.gif" alt="Loading Portal" className="transition-gif" />
+            <h3 className="transition-text">Establishing Secure Connection...</h3>
+            <p className="transition-subtext">Loading Kiezen Training Platform</p>
+          </div>
+        </div>
+      )}
+      
       {/* Back Button */}
       <div className="login-header-nav">
         <button onClick={() => navigate('/')} className="back-btn">
@@ -309,51 +326,7 @@ export const Login: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Role Dropdown */}
-                  <div className="select-group-container">
-                    <label className="select-label">
-                      <Users size={14} style={{ marginRight: '6px' }} />
-                      Access Role
-                    </label>
-                    <div className="select-wrapper">
-                      <select
-                        className="custom-select-field"
-                        value={role}
-                        onChange={(e) => setRole(e.target.value)}
-                      >
-                        <option value="Employee">Employee (Learner)</option>
-                        <option value="Manager">Manager (Creator)</option>
-                        <option value="Admin">Administrator</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Department Dropdown (Specific options) */}
-                  <div className="select-group-container">
-                    <label className="select-label">
-                      <Building size={14} style={{ marginRight: '6px' }} />
-                      Department
-                    </label>
-                    <div className="select-wrapper">
-                      <select
-                        className="custom-select-field"
-                        value={department}
-                        onChange={(e) => setDepartment(e.target.value)}
-                      >
-                        <option value="AI">AI</option>
-                        <option value="Sales and Distribution">Sales and Distribution</option>
-                        <option value="Material Management">Material Management</option>
-                        <option value="Production Planning">Production Planning</option>
-                        <option value="Basis">Basis</option>
-                        <option value="FICO Finance">FICO Finance</option>
-                        <option value="PS">PS (Project System)</option>
-                        <option value="ABAP">ABAP</option>
-                        <option value="Graphic Design">Graphic Design</option>
-                        <option value="HR and Admin">HR and Admin</option>
-                        <option value="Sales and Marketing">Sales and Marketing</option>
-                      </select>
-                    </div>
-                  </div>
+                  {/* Access role selection and department input fields removed for automated AD/LDAP role lookup */}
 
                   {/* Submit */}
                   <Button

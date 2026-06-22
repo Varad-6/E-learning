@@ -10,10 +10,13 @@ export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const email = localStorage.getItem('isLoggedInEmail');
+    const role = localStorage.getItem('isLoggedInRole');
     setUserEmail(email);
+    setUserRole(role);
   }, [location]);
 
   const handleLogout = async () => {
@@ -30,6 +33,7 @@ export const Navbar: React.FC = () => {
     }
     handleLogoutLocal();
     setUserEmail(null);
+    setUserRole(null);
     navigate('/');
   };
 
@@ -48,6 +52,11 @@ export const Navbar: React.FC = () => {
           {userEmail && (
             <Link to="/dashboard" className={`nav-link tooltip-trigger ${location.pathname === '/dashboard' ? 'active' : ''}`} data-tooltip="Go to My Workspace Dashboard">
               Dashboard
+            </Link>
+          )}
+          {userEmail && (userRole === 'Manager' || userRole === 'Admin') && (
+            <Link to="/creator/dashboard" className={`nav-link tooltip-trigger ${location.pathname.startsWith('/creator') ? 'active' : ''}`} data-tooltip="Go to Creator Course Studio">
+              Creator Studio
             </Link>
           )}
         </nav>

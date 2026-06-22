@@ -27,7 +27,11 @@ export const Landing: React.FC = () => {
     localStorage.setItem('profileName', nameMap[email] || 'Alice Smith');
     localStorage.setItem('profileEmpId', codeMap[email] || 'EMP-3041');
 
-    navigate('/dashboard');
+    if (role === 'Manager') {
+      navigate('/creator/dashboard');
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   return (
