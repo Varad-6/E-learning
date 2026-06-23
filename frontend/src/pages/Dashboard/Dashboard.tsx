@@ -396,7 +396,7 @@ export const Dashboard: React.FC = () => {
                       </h3>
                     )}
                     <p style={{ fontSize: '0.78rem', color: 'var(--accent-color)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '6px' }}>
-                      {role} Workspace
+                      {role === 'Manager' ? 'Department Head' : role} Workspace
                     </p>
                   </div>
                 </div>
@@ -426,7 +426,7 @@ export const Dashboard: React.FC = () => {
                   </div>
                   {role === 'Employee' && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Assigned Manager</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>Department Head</span>
                       <span style={{ fontWeight: '600', color: 'var(--accent-color)' }}>{getManagerForDept(dept)}</span>
                     </div>
                   )}
@@ -617,7 +617,7 @@ export const Dashboard: React.FC = () => {
           <div className="profile-details">
             <h2>Welcome Back, {profileName || email?.split('@')[0]}</h2>
             <div className="profile-badge-row">
-              <span className="badge role">{role} Workspace</span>
+              <span className="badge role">{role === 'Manager' ? 'Department Head' : role} Workspace</span>
               <span className="badge dept">{dept} Department</span>
             </div>
           </div>
@@ -817,8 +817,8 @@ export const Dashboard: React.FC = () => {
           <div className="manager-workspace-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '28px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <div className="pane-header" style={{ marginBottom: 0 }}>
-                <h3>Employee Audit Logs & Report</h3>
-                <p>Manager console node for department curriculum tracking</p>
+                <h3>{dept} Department Head View</h3>
+                <p>Department Head console node for department curriculum tracking</p>
               </div>
             </div>
             
@@ -930,7 +930,7 @@ export const Dashboard: React.FC = () => {
                       </div>
                       <div style={{ marginTop: '12px', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Dept Manager:</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>Department Head:</span>
                           <span style={{ fontWeight: '600' }}>{getManagerForDept(activeManagerFilterDept)}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1305,7 +1305,7 @@ export const Dashboard: React.FC = () => {
               <div className="admin-depts-card glass-panel">
                 <div className="depts-card-header">
                   <FileText size={18} className="depts-icon-purple" />
-                  <h3>Department Managers Registry</h3>
+                  <h3>Department Heads Registry</h3>
                 </div>
                 <p className="depts-card-subtitle">Node registries matching hierarchy database</p>
                 

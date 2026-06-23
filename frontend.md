@@ -164,3 +164,17 @@ This file serves as our living documentation and changelog. As we implement part
 - Integrated a full-screen transition splash screen containing the custom loading GIF `/login_transition.gif` with adaptive dark/light background layouts.
 - Re-routed Creator/Manager logins to direct the session straight into the Creator Studio page instead of the general dashboard.
 - Restructured manager dashboard workspaces in `Dashboard.tsx` to omit course syllabus drafting panels, displaying solely the employee roster audit tables.
+
+### [2026-06-23] - Course Approvals Workflow & Role Realignment
+- Rebranded "Manager" role references to "Department Head" in dashboard welcome banners, profiles, registries, and portals.
+- Extended "Creator Studio" route access to all logged-in roles (Employees, Department Heads, and Admins).
+- Created a Course approvals tab in Creator Studio scoped contextually:
+  - **Employees**: See own created courses status (`Draft`, `Pending`, `Approved`, `Rejected`), and can submit drafts for review.
+  - **Department Heads**: Review, Approve, and Reject courses belonging to their department.
+  - **Administrators**: Navigate a selector grid of all departments to approve/reject courses globally.
+- Designed an interactive Slide-over Review Drawer to inspect course metadata and module syllabus items.
+- Built a Rejection Feedback dialog prompting for notes, displaying active rejection notes directly on the owner's course cards for edit-resubmission flows.
+
+- Removed bright blue underline active slide indicators from both the global Navbar and general Dashboard tabs, replacing them with subtle theme-accent capsule background highlights.
+- Restored the 2.5-second full-screen loading splash overlay transition screen (`.login-transition-overlay`) in the credentials login process.
+- Replaced `<Link>` tags in the global Navbar with custom styled `div` buttons executing programmatic `navigate()` calls. This completely eliminates the browser's native hover preview status bar at the bottom-left of the screen.

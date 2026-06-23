@@ -103,20 +103,20 @@ export const Landing: React.FC = () => {
                 <Edit3 size={22} />
               </div>
               <div>
-                <h3>Creator Login</h3>
-                <p className="portal-role-info">Role: Manager (Product)</p>
+                <h3>Department Head Login</h3>
+                <p className="portal-role-info">Role: Department Head (Product)</p>
               </div>
             </div>
             <p className="portal-short-desc">
-              Log in as a course creator. View department rosters, assign courses to teams, and trace employee compliance progress.
+              Log in as a department head. View department rosters, assign courses to teams, and trace employee compliance progress.
             </p>
             <Button
               variant="purple"
               onClick={() => handlePortalLogin('Manager', 'creator@company.com', 'Product')}
               className="portal-login-btn tooltip-trigger"
-              data-tooltip="Instant login as Course Creator (Manager)"
+              data-tooltip="Instant login as Department Head"
             >
-              Enter Creator Dashboard
+              Enter Department Head Dashboard
             </Button>
           </div>
 

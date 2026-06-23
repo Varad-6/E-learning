@@ -6,6 +6,11 @@
   box-sizing: border-box;
 }
 
+*:focus, *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 html, body {
   width: 100%;
   min-height: 100vh;

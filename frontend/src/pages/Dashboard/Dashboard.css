@@ -741,22 +741,8 @@
 .tab-btn {
   position: relative;
   overflow: hidden;
-}
-
-.tab-btn::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background-color: var(--accent-color);
-  transform: translateY(2px);
-  transition: transform 0.2s ease-in-out;
-}
-
-.tab-btn.active::after {
-  transform: translateY(0);
+  border-radius: var(--border-radius-sm);
+  transition: var(--transition-smooth);
 }
 
 /* KEYFRAMES FOR TRANSITIONS & ANIMATIONS */
