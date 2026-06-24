@@ -11,6 +11,7 @@ This document traces the progress of the E-learning LMS backend development from
 | **Phase 0** | Authentication Module & Initial Scaffold | **Completed** | `cd4ec1a6712e` |
 | **Phase 1** | Core Domain Models & Migrations | **Completed** | `068da708842c` |
 | **Phase 2** | Pydantic Schemas & Validation | **Completed** | Phase 2 Schemas |
+| **Phase 3** | Service Layer Implementation | **Completed** | Phase 3 Services |
 
 ---
 
@@ -122,12 +123,36 @@ Standardize data validation, request parsing, and response serialization by crea
 
 ---
 
+### Phase 3: Service Layer Implementation
+
+#### Objective
+Implement the business logic layer of the application by creating service classes corresponding to each subdomain module. Handle transactional boundaries, validation logic, and proper HTTP error exceptions using FastAPI dependencies and SQLAlchemy Session models.
+
+#### Files Created
+- `app/services/course_service.py` — Handles course creation, update, retrieval, listing, publication status transitions, approval flow, and reviewer actions.
+- `app/services/enrollment_service.py` — Manages course enrollment flow, course progress logs (module content updates), auto-completion checks, and forced completion.
+- `app/services/quiz_service.py` — Handles quiz instantiation, question authoring, user attempts validation, and score calculation rules.
+- `app/services/department_service.py` — Manages department registration, configuration edits, and retrieval.
+- `app/services/admin_service.py` — Handles user creation (with secure password hashing), modifications, role assignment overrides, and user listing.
+
+#### Files Modified
+- None
+
+#### Database Changes
+- None
+
+#### Status
+**Completed**
+
+---
+
 ## Change Log
 
 Below is the change history showing git branches and commit IDs:
 
 | Commit ID | Branch | Message | Description |
 | :--- | :--- | :--- | :--- |
+| *Active Work* | `phase-2-schemas` | (Work Completed) | Implemented all Phase 3 Service Layer modules (`course_service`, `enrollment_service`, `quiz_service`, `department_service`, and `admin_service`). |
 | *Active Work* | `phase-2-schemas` | (Work Completed) | Implemented all Phase 2 Pydantic schemas and registered them under `app/schemas/__init__.py`. |
 | `79c8331` | `main` | Phase 1: course management models and migrations | Created core database models for E-learning system and registered migrations using Alembic. |
 | `09ecc1e` | `main` | Implemented login authentication module | Designed user authentication model, Otps, refresh tokens, services, and endpoints. |
