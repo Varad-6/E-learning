@@ -12,6 +12,7 @@ This document traces the progress of the E-learning LMS backend development from
 | **Phase 1** | Core Domain Models & Migrations | **Completed** | `068da708842c` |
 | **Phase 2** | Pydantic Schemas & Validation | **Completed** | Phase 2 Schemas |
 | **Phase 3** | Service Layer Implementation | **Completed** | Phase 3 Services |
+| **Phase 4** | API Routes Layer | **Completed** | Phase 4 Routes |
 
 ---
 
@@ -146,12 +147,79 @@ Implement the business logic layer of the application by creating service classe
 
 ---
 
+### Phase 4: API Routes Layer
+
+#### Objective
+Design and implement the HTTP endpoint routing layer of the E-learning LMS using FastAPI. Hook up the core business logic from services and standard schemas to ensure structured requests and JSON serialization. Enforce role-based access control (RBAC) via FastAPI dependency injection.
+
+#### Files Created
+- `app/api/course.py` — Course-related endpoints, approval states, publishing, and pagination list features.
+- `app/api/enrollment.py` — Enrollment paths, my-courses user summaries, and active progress logging.
+- `app/api/quiz.py` — Quiz setup, question mapping, user attempt submissions, and grading records retrieval.
+- `app/api/department.py` — Department details, lists, edits, and deletions.
+- `app/api/admin.py` — User management endpoints (creation, modifications, user query, role updates).
+
+#### Files Modified
+- `app/main.py` — Registered and integrated the five new API routers into the FastAPI application.
+- `app/services/course_service.py` — Added integration method `delete_course`.
+- `app/services/enrollment_service.py` — Added integration method `get_enrollment`.
+- `app/services/quiz_service.py` — Added integration method `get_quiz`.
+- `app/services/department_service.py` — Added integration method `delete_department`.
+
+#### Endpoint Summary
+- **Courses**:
+  - `GET /api/courses` — List courses with status filter and pagination (Authenticated Users)
+  - `GET /api/courses/{course_id}` — Get course details (Authenticated Users)
+  - `POST /api/courses` — Create a new course (Admins & Managers)
+  - `PUT /api/courses/{course_id}` — Edit course details (Admins & Managers)
+  - `DELETE /api/courses/{course_id}` — Remove a course (Admins & Managers)
+  - `POST /api/courses/{course_id}/publish` — Mark approved course as published (Admins & Managers)
+  - `POST /api/courses/{course_id}/submit-for-approval` — Submit draft course for approval review (Authenticated Users)
+  - `POST /api/courses/{course_id}/approve` — Approve pending course submission (Admins Only)
+  - `POST /api/courses/{course_id}/reject` — Reject pending course submission (Admins Only)
+- **Enrollments**:
+  - `POST /api/enrollments` — Enroll current user in a course, or enroll another user (Admins & Managers can enroll others)
+  - `GET /api/enrollments/my-courses` — Retrieve enrolled courses of current user (Enrolled User)
+  - `GET /api/enrollments/{enrollment_id}` — Get course enrollment progress metrics (Enrolled User, Admins, or Managers)
+  - `PUT /api/enrollments/{enrollment_id}/progress` — Update learning content unit progress (Enrolled User Only)
+  - `POST /api/enrollments/{enrollment_id}/complete` — Complete course enrollment explicitly (Enrolled User, Admins, or Managers)
+- **Quizzes**:
+  - `POST /api/quizzes` — Create new quiz (Admins & Managers)
+  - `GET /api/quizzes/{quiz_id}` — Retrieve quiz details (Authenticated Users)
+  - `POST /api/quizzes/{quiz_id}/questions` — Add a question to an existing quiz (Admins & Managers)
+  - `POST /api/quizzes/{quiz_id}/attempt` — Record user answers and grade attempt (Enrolled User)
+  - `GET /api/quizzes/{quiz_id}/results` — Fetch detailed attempt evaluation (Enrolled User)
+- **Departments**:
+  - `GET /api/departments` — List departments (Authenticated Users)
+  - `GET /api/departments/{department_id}` — Get department details (Authenticated Users)
+  - `POST /api/departments` — Create new department (Admins Only)
+  - `PUT /api/departments/{department_id}` — Update department details (Admins Only)
+  - `DELETE /api/departments/{department_id}` — Remove a department (Admins Only)
+- **Admin**:
+  - `POST /api/admin/users` — Create user (Admins Only)
+  - `PUT /api/admin/users/{user_id}` — Update user fields and status (Admins Only)
+  - `GET /api/admin/users` — List users (Admins Only)
+  - `POST /api/admin/users/{user_id}/roles` — Assign user role overrides (Admins Only)
+
+#### Authorization Rules
+- **General Access**: All endpoints require a valid access token in the `Authorization` header (`Bearer <JWT>`).
+- **Role Limits**: Role checks are enforced on endpoints using the `RequireRoles(...)` dependency:
+  - `ADMIN` role is required for user creation, updating, role changes, department mutations, and course approval reviews.
+  - `ADMIN` or `MANAGER` roles are required for course mutations, publication, and quiz questions creation.
+- **Resource Ownership**: Users can view only their own records (enrollments, quiz attempts, progress updates) unless they hold elevated (`ADMIN`/`MANAGER`) credentials.
+
+#### Status
+**Completed**
+
+---
+
 ## Change Log
 
 Below is the change history showing git branches and commit IDs:
 
 | Commit ID | Branch | Message | Description |
 | :--- | :--- | :--- | :--- |
+| *Active Work* | `phase-2-schemas` | (Work Completed) | Implemented all Phase 4 API routing endpoints, registered them under `app/main.py`, and verified the integration layer. |
 | *Active Work* | `phase-2-schemas` | (Work Completed) | Implemented all Phase 3 Service Layer modules (`course_service`, `enrollment_service`, `quiz_service`, `department_service`, and `admin_service`). |
 | *Active Work* | `phase-2-schemas` | (Work Completed) | Implemented all Phase 2 Pydantic schemas and registered them under `app/schemas/__init__.py`. |
 | `79c8331` | `main` | Phase 1: course management models and migrations | Created core database models for E-learning system and registered migrations using Alembic. |

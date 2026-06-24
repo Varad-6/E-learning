@@ -66,3 +66,15 @@ class DepartmentService:
     @staticmethod
     def list_departments(db: Session, skip: int = 0, limit: int = 100) -> List[Department]:
         return db.query(Department).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def delete_department(db: Session, department_id: UUID) -> None:
+        dept = db.query(Department).filter(Department.id == department_id).first()
+        if not dept:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Department with ID {department_id} not found."
+            )
+        db.delete(dept)
+        db.commit()
+

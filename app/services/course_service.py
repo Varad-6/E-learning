@@ -216,3 +216,15 @@ class CourseService:
         db.commit()
         db.refresh(db_approval)
         return db_approval
+
+    @staticmethod
+    def delete_course(db: Session, course_id: UUID) -> None:
+        db_course = db.query(Course).filter(Course.id == course_id).first()
+        if not db_course:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Course with ID {course_id} not found."
+            )
+        db.delete(db_course)
+        db.commit()
+

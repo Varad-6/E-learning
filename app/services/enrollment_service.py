@@ -161,3 +161,14 @@ class EnrollmentService:
             db.refresh(enrollment)
 
         return enrollment
+
+    @staticmethod
+    def get_enrollment(db: Session, enrollment_id: UUID) -> CourseEnrollment:
+        enrollment = db.query(CourseEnrollment).filter(CourseEnrollment.id == enrollment_id).first()
+        if not enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Enrollment with ID {enrollment_id} not found."
+            )
+        return enrollment
+

@@ -6,6 +6,11 @@ from fastapi.exceptions import RequestValidationError
 import logging
 
 from app.api.auth import router as auth_router
+from app.api.course import router as course_router
+from app.api.enrollment import router as enrollment_router
+from app.api.quiz import router as quiz_router
+from app.api.department import router as department_router
+from app.api.admin import router as admin_router
 
 # Configure basic logging
 logging.basicConfig(
@@ -15,10 +20,10 @@ logging.basicConfig(
 logger = logging.getLogger("app.main")
 
 app = FastAPI(
-    title="Enterprise LMS Authentication API",
+    title="Enterprise LMS API",
     description=(
-        "Production-grade backend authentication, token management, "
-        "and password reset services for the Enterprise Learning Management System (LMS)."
+        "Production-grade backend core services, course management, enrollments, "
+        "quizzes, departments, and user administration for the Enterprise Learning Management System (LMS)."
     ),
     version="1.0.0",
     docs_url="/docs",
@@ -36,6 +41,12 @@ app.add_middleware(
 
 # Register routes
 app.include_router(auth_router)
+app.include_router(course_router)
+app.include_router(enrollment_router)
+app.include_router(quiz_router)
+app.include_router(department_router)
+app.include_router(admin_router)
+
 
 # Exception Handlers
 @app.exception_handler(StarletteHTTPException)

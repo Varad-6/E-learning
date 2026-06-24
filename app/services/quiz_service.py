@@ -162,3 +162,14 @@ class QuizService:
             correct_answers_count=correct_count,
             passing_score=quiz.passing_score
         )
+
+    @staticmethod
+    def get_quiz(db: Session, quiz_id: UUID) -> Quiz:
+        quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
+        if not quiz:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Quiz with ID {quiz_id} not found."
+            )
+        return quiz
+
