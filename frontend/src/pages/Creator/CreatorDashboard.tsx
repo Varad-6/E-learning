@@ -5,6 +5,7 @@ import {
   ArrowLeft, Layers, CheckCircle2, ChevronRight
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
+import { apiCall } from '../../services/api';
 import './Creator.css';
 
 interface CourseData {
@@ -167,8 +168,15 @@ export const CreatorDashboard: React.FC = () => {
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
 
   // Navigation states
-  const [activeTab, setActiveTab] = useState<'my_courses' | 'approvals' | 'auditing'>('my_courses');
+  const [activeTab, setActiveTab] = useState<'my_courses' | 'approvals' | 'auditing' | 'departments'>('my_courses');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Draft' | 'Pending' | 'Approved' | 'Rejected'>('All');
+  
+  // Admin departments state
+  const [departmentsList, setDepartmentsList] = useState<{ id: string; name: string; code: string; description?: string }[]>([]);
+  const [newDeptCode, setNewDeptCode] = useState('');
+  const [newDeptName, setNewDeptName] = useState('');
+  const [newDeptDesc, setNewDeptDesc] = useState('');
+  const [isLoadingDepts, setIsLoadingDepts] = useState(false);
   
   // Admin approvals view
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
@@ -201,6 +209,22 @@ export const CreatorDashboard: React.FC = () => {
     setCreatorNameInput(savedName);
     setTargetDeptInput(savedDept);
 
+    const loadDepts = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/departments');
+        if (response.ok) {
+          const data = await response.json();
+          setDepartmentsList(data);
+          if (data.length > 0) {
+            setTargetDeptInput(data[0].code);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load departments', err);
+      }
+    };
+    loadDepts();
+
     // Initialize course database
     const localCourses = localStorage.getItem('creator_courses');
     if (localCourses) {
@@ -210,6 +234,28 @@ export const CreatorDashboard: React.FC = () => {
       localStorage.setItem('creator_courses', JSON.stringify(INITIAL_COURSES));
     }
   }, []);
+
+  // Handler: fetch departments for active tab
+  const fetchDepartments = async () => {
+    setIsLoadingDepts(true);
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/departments');
+      if (response.ok) {
+        const data = await response.json();
+        setDepartmentsList(data);
+      }
+    } catch (err) {
+      console.error('Failed to reload departments', err);
+    } finally {
+      setIsLoadingDepts(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'departments') {
+      fetchDepartments();
+    }
+  }, [activeTab]);
 
   // Sync Search Query Parameters (Global Bell navigation listeners)
   useEffect(() => {
@@ -297,6 +343,59 @@ export const CreatorDashboard: React.FC = () => {
     
     setErrors(tempErrors);
     return Object.keys(tempErrors).length === 0;
+  };
+
+  const handleCreateDeptSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDeptCode.trim() || !newDeptName.trim()) {
+      triggerToast('Department Code and Name are required.', 'error');
+      return;
+    }
+
+    try {
+      const response = await apiCall('/api/departments', {
+        method: 'POST',
+        body: JSON.stringify({
+          code: newDeptCode.trim(),
+          name: newDeptName.trim(),
+          description: newDeptDesc.trim() || null
+        })
+      });
+
+      if (response.ok) {
+        triggerToast('Department created successfully!', 'success');
+        setNewDeptCode('');
+        setNewDeptName('');
+        setNewDeptDesc('');
+        fetchDepartments(); // Reload
+      } else {
+        const data = await response.json();
+        triggerToast(data.detail || 'Failed to create department.', 'error');
+      }
+    } catch (err: any) {
+      triggerToast(err.message || 'Connection error.', 'error');
+    }
+  };
+
+  const handleDeleteDept = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this department? Users and courses linked to it may lose their mapping.')) {
+      return;
+    }
+
+    try {
+      const response = await apiCall(`/api/departments/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.status === 204 || response.ok) {
+        triggerToast('Department deleted successfully.', 'success');
+        fetchDepartments(); // Reload
+      } else {
+        triggerToast('Failed to delete department.', 'error');
+      }
+    } catch (err: any) {
+      triggerToast(err.message || 'Connection error.', 'error');
+    }
   };
 
   const handleCreateSubmit = (e: React.FormEvent) => {
@@ -513,6 +612,15 @@ export const CreatorDashboard: React.FC = () => {
           >
             Studio Analytics
           </button>
+          {isAdmin && (
+            <button 
+              className={`sidebar-tab-btn ${activeTab === 'departments' ? 'active' : ''}`}
+              onClick={() => setActiveTab('departments')}
+              style={{ borderLeft: '2px solid var(--accent-color)' }}
+            >
+              🏢 Departments
+            </button>
+          )}
         </div>
       )}
 
@@ -815,6 +923,102 @@ export const CreatorDashboard: React.FC = () => {
         </div>
       )}
 
+      {activeTab === 'departments' && isAdmin && (
+        <div className="departments-canvas animate-fade-in" style={{ paddingBottom: '40px' }}>
+          <div className="pane-header" style={{ marginBottom: '28px' }}>
+            <h2>🏢 Enterprise Department Manager</h2>
+            <p>Define global training branches, coordinate departmental structures, and manage registries.</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '30px', alignItems: 'flex-start' }}>
+            {/* Create Department Form Card */}
+            <div className="glass-panel" style={{ padding: '28px', borderRadius: 'var(--border-radius-md)' }}>
+              <h3 style={{ marginBottom: '16px', fontSize: '1.2rem', fontWeight: '700' }}>+ Create New Department</h3>
+              <form onSubmit={handleCreateDeptSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
+                  <div className="form-group-spaced" style={{ marginBottom: 0 }}>
+                    <label className="form-label-styled">Department Code <span className="required-star">*</span></label>
+                    <input 
+                      type="text" 
+                      className="form-input-styled" 
+                      placeholder="e.g. AI" 
+                      value={newDeptCode}
+                      onChange={(e) => setNewDeptCode(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group-spaced" style={{ marginBottom: 0 }}>
+                    <label className="form-label-styled">Department Name <span className="required-star">*</span></label>
+                    <input 
+                      type="text" 
+                      className="form-input-styled" 
+                      placeholder="e.g. Artificial Intelligence" 
+                      value={newDeptName}
+                      onChange={(e) => setNewDeptName(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="form-group-spaced" style={{ marginBottom: 0 }}>
+                  <label className="form-label-styled">Description</label>
+                  <input 
+                    type="text" 
+                    className="form-input-styled" 
+                    placeholder="e.g. Artificial Intelligence engineering courses and tracks" 
+                    value={newDeptDesc}
+                    onChange={(e) => setNewDeptDesc(e.target.value)}
+                  />
+                </div>
+                <Button variant="primary" type="submit" style={{ marginTop: '10px', alignSelf: 'flex-end' }}>
+                  Create Department
+                </Button>
+              </form>
+            </div>
+
+            {/* Department List Grid */}
+            <div className="glass-panel" style={{ padding: '28px', borderRadius: 'var(--border-radius-md)' }}>
+              <h3 style={{ marginBottom: '16px', fontSize: '1.2rem', fontWeight: '700' }}>Active Corporate Departments</h3>
+              <div className="logs-table-wrapper" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {isLoadingDepts ? (
+                  <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', textAlign: 'center', padding: '20px 0' }}>Loading department nodes...</p>
+                ) : departmentsList.length === 0 ? (
+                  <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', textAlign: 'center', padding: '20px 0' }}>No active departments found. Create one using the form.</p>
+                ) : (
+                  <table className="logs-table" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th>Code</th>
+                        <th>Department Name</th>
+                        <th>Description</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {departmentsList.map(dept => (
+                        <tr key={dept.id}>
+                          <td><span className="log-action-badge" style={{ backgroundColor: 'var(--accent-glow)', color: 'var(--accent-color)' }}>{dept.code}</span></td>
+                          <td style={{ fontWeight: '600' }}>{dept.name}</td>
+                          <td style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{dept.description || 'N/A'}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            <Button 
+                              variant="outline" 
+                              onClick={() => handleDeleteDept(dept.id)}
+                              style={{ color: 'var(--neon-coral)', borderColor: 'rgba(239,68,68,0.2)', padding: '4px 8px', fontSize: '0.75rem' }}
+                            >
+                              Delete
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Slide-over Review Drawer Overlay */}
       {reviewCourse && (
         <div className="modal-overlay review-overlay" onClick={() => setReviewCourse(null)}>
@@ -1029,9 +1233,12 @@ export const CreatorDashboard: React.FC = () => {
                     value={targetDeptInput}
                     onChange={(e) => setTargetDeptInput(e.target.value)}
                   >
-                    {DEPARTMENTS.map(d => (
-                      <option key={d} value={d}>{d}</option>
+                    {departmentsList.map(d => (
+                      <option key={d.id} value={d.code}>{d.name} ({d.code})</option>
                     ))}
+                    {departmentsList.length === 0 && (
+                      <option value="AI">AI</option>
+                    )}
                   </select>
                 </div>
               </div>

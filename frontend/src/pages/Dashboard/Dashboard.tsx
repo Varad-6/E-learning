@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { User, Users, ShieldAlert, Award, FileText, CheckCircle, PlusCircle, Bookmark, Layers } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import type { Course } from '../../types/schema';
+import { getBadgeForCompletions } from '../../services/badge';
+import type { Badge } from '../../services/badge';
 import './Dashboard.css';
 
 // Mock DB courses matching schema
@@ -88,6 +90,8 @@ export const Dashboard: React.FC = () => {
   const [dept, setDept] = useState<string>('AI');
 
   const [activeMainView, setActiveMainView] = useState<'dashboard' | 'profile'>('dashboard');
+  const [celebratedBadge, setCelebratedBadge] = useState<Badge | null>(null);
+  const [showBadgeOverlay, setShowBadgeOverlay] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -254,15 +258,31 @@ export const Dashboard: React.FC = () => {
 
   // Handler: Standard Employee Study Action
   const handleStudyIncrement = (itemId: string) => {
-    setMyProgress(prev =>
-      prev.map(item => {
+    let justCompleted = false;
+    
+    setMyProgress(prev => {
+      const updatedProgress = prev.map(item => {
         if (item.id === itemId) {
           const updated = Math.min(item.progressPercent + 20, 100);
+          if (item.progressPercent < 100 && updated === 100) {
+            justCompleted = true;
+          }
           return { ...item, progressPercent: updated };
         }
         return item;
-      })
-    );
+      });
+      
+      if (justCompleted) {
+        const newCompletedCount = updatedProgress.filter(p => p.progressPercent === 100).length;
+        const newBadge = getBadgeForCompletions(newCompletedCount);
+        if (newBadge) {
+          setCelebratedBadge(newBadge);
+          setShowBadgeOverlay(true);
+        }
+      }
+      
+      return updatedProgress;
+    });
   };
 
   // Handler: Creator Creates New Course
@@ -436,6 +456,37 @@ export const Dashboard: React.FC = () => {
                       {role === 'Employee' ? myProgress.filter(p => p.progressPercent === 100).length : 'All'} Courses
                     </span>
                   </div>
+                  {role === 'Employee' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginTop: '4px' }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Kiezen Achievement Badge</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {(() => {
+                          const badge = getBadgeForCompletions(myProgress.filter(p => p.progressPercent === 100).length);
+                          if (!badge) return <span style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>No badges earned yet. Complete a course to earn one!</span>;
+                          return (
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              background: badge.color,
+                              color: '#fff',
+                              width: '100%',
+                              boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
+                              animation: 'pulseGlow 3s infinite'
+                            }}>
+                              <span style={{ fontSize: '1.5rem' }}>{badge.icon}</span>
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>{badge.name}</span>
+                                <span style={{ fontSize: '0.68rem', opacity: 0.9 }}>Level {badge.step} of 10</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '4px' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Ongoing Modules</span>
                     <span style={{ fontWeight: '600', color: 'var(--accent-color)' }}>
@@ -1173,7 +1224,32 @@ export const Dashboard: React.FC = () => {
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <p style={{ fontSize: '0.9rem' }}>Employee Node: <strong>{selectedAuditEmp.name} ({selectedAuditEmp.code})</strong></p>
-                      <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Registered Email: {selectedAuditEmp.email}</p>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>Registered Email: {selectedAuditEmp.email}</p>
+                      
+                      {/* Show current achievement badge in Audit Drawer */}
+                      {(() => {
+                        const badgeObj = getBadgeForCompletions(selectedAuditEmp.coursesTaken);
+                        if (!badgeObj) return null;
+                        return (
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            background: badgeObj.color,
+                            color: '#fff',
+                            marginBottom: '16px',
+                            boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                          }}>
+                            <span style={{ fontSize: '1.4rem' }}>{badgeObj.icon}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontWeight: '700', fontSize: '0.82rem' }}>{badgeObj.name}</span>
+                              <span style={{ fontSize: '0.65rem', opacity: 0.9 }}>Level {badgeObj.step} Achiever ({selectedAuditEmp.coursesTaken} Completed Courses)</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                       
                       <div className="scores-table-section" style={{ marginTop: '12px' }}>
                         <h4 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--accent-color)', letterSpacing: '0.03em', marginBottom: '8px' }}>Test Scores & Marks Report</h4>
@@ -1225,27 +1301,52 @@ export const Dashboard: React.FC = () => {
                         <th>Email Contact</th>
                         <th>Active Course</th>
                         <th>Courses Taken</th>
+                        <th>Badge Earned</th>
                         <th>Current Completion</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {roster.map((emp) => (
-                        <tr key={emp.id} onClick={() => setSelectedAuditEmp(emp)} style={{ cursor: 'pointer' }}>
-                          <td className="emp-name-cell" style={{ color: 'var(--accent-color)' }}>{emp.name}</td>
-                          <td><code>{emp.code}</code></td>
-                          <td>{emp.email}</td>
-                          <td><span className="emp-course-badge">{emp.assignedCourse}</span></td>
-                          <td style={{ fontWeight: '600', paddingLeft: '24px' }}>{emp.coursesTaken}</td>
-                          <td>
-                            <div className="roster-progress-group">
-                              <div className="mini-bar-container">
-                                <div className="mini-bar-fill" style={{ width: `${emp.progressPercent}%` }}></div>
+                      {roster.map((emp) => {
+                        const badgeObj = getBadgeForCompletions(emp.coursesTaken);
+                        return (
+                          <tr key={emp.id} onClick={() => setSelectedAuditEmp(emp)} style={{ cursor: 'pointer' }}>
+                            <td className="emp-name-cell" style={{ color: 'var(--accent-color)' }}>{emp.name}</td>
+                            <td><code>{emp.code}</code></td>
+                            <td>{emp.email}</td>
+                            <td><span className="emp-course-badge">{emp.assignedCourse}</span></td>
+                            <td style={{ fontWeight: '600', paddingLeft: '24px' }}>{emp.coursesTaken}</td>
+                            <td>
+                              {badgeObj ? (
+                                <span className="employee-badge-tag" style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '4px 10px',
+                                  borderRadius: '12px',
+                                  background: badgeObj.color,
+                                  color: '#fff',
+                                  fontSize: '0.72rem',
+                                  fontWeight: '700',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}>
+                                  <span>{badgeObj.icon}</span>
+                                  <span>{badgeObj.name}</span>
+                                </span>
+                              ) : (
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontStyle: 'italic' }}>None</span>
+                              )}
+                            </td>
+                            <td>
+                              <div className="roster-progress-group">
+                                <div className="mini-bar-container">
+                                  <div className="mini-bar-fill" style={{ width: `${emp.progressPercent}%` }}></div>
+                                </div>
+                                <span className="roster-percent-text">{emp.progressPercent}%</span>
                               </div>
-                              <span className="roster-percent-text">{emp.progressPercent}%</span>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1387,6 +1488,81 @@ export const Dashboard: React.FC = () => {
               )}
               <Button variant="outline" onClick={() => setSelectedCourseForModules(null)}>Close Syllabus</Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Badge Celebration Overlay Modal */}
+      {showBadgeOverlay && celebratedBadge && (
+        <div 
+          className="modal-overlay" 
+          style={{ 
+            position: 'fixed', 
+            inset: 0, 
+            backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+            backdropFilter: 'blur(12px)',
+            zIndex: 1500, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            animation: 'fadeIn 0.3s ease-out'
+          }}
+        >
+          <div 
+            className="badge-celebration-card glass-panel" 
+            style={{ 
+              padding: '40px', 
+              maxWidth: '480px', 
+              width: '90%', 
+              borderRadius: 'var(--border-radius-lg)', 
+              backgroundColor: 'var(--bg-card)', 
+              border: '2px solid rgba(255,215,0,0.4)', 
+              boxShadow: '0 0 40px rgba(255, 215, 0, 0.15)',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '20px'
+            }}
+          >
+            <div 
+              style={{ 
+                fontSize: '5rem', 
+                filter: 'drop-shadow(0 0 15px rgba(255, 215, 0, 0.4))',
+                transform: 'scale(1.2)',
+                margin: '10px 0'
+              }}
+            >
+              {celebratedBadge.icon}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--accent-color)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em' }}>New Achievement Badge Gained!</span>
+              <h2 style={{ fontSize: '1.8rem', color: '#fff', fontWeight: '800', margin: 0 }}>{celebratedBadge.name}</h2>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Step {celebratedBadge.step} of 10 completed</span>
+            </div>
+
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: '0 10px' }}>
+              {celebratedBadge.description}
+            </p>
+
+            <div style={{ width: '100%', height: '2px', background: 'linear-gradient(90deg, transparent, var(--border-color), transparent)', margin: '10px 0' }}></div>
+
+            <Button 
+              variant="primary" 
+              onClick={() => {
+                setShowBadgeOverlay(false);
+                setCelebratedBadge(null);
+              }}
+              style={{ 
+                padding: '12px 32px', 
+                fontWeight: '700', 
+                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                animation: 'pulseGlow 2s infinite'
+              }}
+            >
+              Accept Badge
+            </Button>
           </div>
         </div>
       )}

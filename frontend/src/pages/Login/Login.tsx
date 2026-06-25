@@ -12,6 +12,8 @@ export const Login: React.FC = () => {
   // Sign In states
   const [employeeCode, setEmployeeCode] = useState('');
   const [password, setPassword] = useState('');
+  const [departmentsList, setDepartmentsList] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [selectedDeptId, setSelectedDeptId] = useState('');
   
   // Forgot Password / OTP states
   const [loginMode, setLoginMode] = useState<'signin' | 'forgot_email' | 'forgot_otp' | 'forgot_reset'>('signin');
@@ -36,6 +38,24 @@ export const Login: React.FC = () => {
     return () => clearInterval(interval);
   }, [otpTimer, loginMode]);
 
+  React.useEffect(() => {
+    const fetchDepts = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/departments');
+        if (response.ok) {
+          const data = await response.json();
+          setDepartmentsList(data);
+          if (data.length > 0) {
+            setSelectedDeptId(data[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch departments on login page', err);
+      }
+    };
+    fetchDepts();
+  }, []);
+
   const validateForm = () => {
     const tempErrors: { [key: string]: string } = {};
     
@@ -59,6 +79,11 @@ export const Login: React.FC = () => {
     e.preventDefault();
     if (!validateForm()) return;
 
+    if (!selectedDeptId) {
+      setErrors({ form: 'Department selection is required.' });
+      return;
+    }
+
     setIsLoading(true);
     setErrors({});
     
@@ -68,6 +93,7 @@ export const Login: React.FC = () => {
         body: JSON.stringify({
           employee_code: employeeCode,
           password: password,
+          department_id: selectedDeptId,
         }),
       });
 
@@ -92,7 +118,15 @@ export const Login: React.FC = () => {
       else if (backendRole === 'ADMIN') mappedRole = 'Admin';
       
       localStorage.setItem('isLoggedInRole', mappedRole);
-      localStorage.setItem('isLoggedInDept', 'General');
+      
+      // Sync department info
+      const selectedDept = departmentsList.find(d => d.id === selectedDeptId);
+      if (selectedDept) {
+        localStorage.setItem('isLoggedInDept', selectedDept.code);
+        localStorage.setItem('profileDeptId', selectedDept.id);
+      } else {
+        localStorage.setItem('isLoggedInDept', 'General');
+      }
       
       // Sync profile details
       const fullName = `${data.user.first_name} ${data.user.last_name}`;
@@ -326,7 +360,23 @@ export const Login: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Access role selection and department input fields removed for automated AD/LDAP role lookup */}
+                  {/* Department select input */}
+                  <div className="form-group-spaced" style={{ marginTop: '16px' }}>
+                    <label className="form-label-styled" style={{ display: 'block', fontSize: '0.88rem', fontWeight: '600', marginBottom: '8px' }}>
+                      Select Department <span className="required-star">*</span>
+                    </label>
+                    <select
+                      className="form-select-styled"
+                      value={selectedDeptId}
+                      onChange={(e) => setSelectedDeptId(e.target.value)}
+                      required
+                    >
+                      <option value="">-- Choose Department --</option>
+                      {departmentsList.map(d => (
+                        <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                      ))}
+                    </select>
+                  </div>
 
                   {/* Submit */}
                   <Button

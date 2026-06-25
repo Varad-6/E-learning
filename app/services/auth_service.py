@@ -51,6 +51,35 @@ class AuthService:
         # Extract roles
         roles = [r.name for r in user.roles]
 
+        # Verify department if provided and not an admin
+        if request.department_id and "ADMIN" not in roles:
+            from uuid import UUID
+            try:
+                dept_uuid = UUID(request.department_id)
+            except ValueError:
+                dept_uuid = None
+            
+            if dept_uuid:
+                from app.models.department import Department
+                dept = db.query(Department).filter(Department.id == dept_uuid).first()
+                if not dept:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Selected department does not exist"
+                    )
+                
+                # If user already has a department, it must match
+                if user.department_id and user.department_id != dept_uuid:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Access denied: You do not belong to the {dept.name} department."
+                    )
+                
+                # If user doesn't have a department, assign them
+                if not user.department_id:
+                    user.department_id = dept_uuid
+                    db.commit()
+
         # JWT claims
         claims = {
             "user_id": str(user.id),

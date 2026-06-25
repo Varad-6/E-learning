@@ -3,14 +3,44 @@ from app.database.session import SessionLocal
 from app.models.user import User
 from app.models.role import Role
 from app.models.user_role import UserRole
+from app.models.department import Department
 from app.core.security import get_password_hash
 
 db = SessionLocal()
 try:
-    # Clear old entries to avoid conflicts
+    # Clear old entries to avoid conflicts (respecting FK order)
     db.query(UserRole).delete()
     db.query(User).delete()
+    db.query(Department).delete()
     db.query(Role).delete()
+    db.commit()
+
+    # Create Departments
+    dept_ai = Department(
+        id=uuid.UUID('d00d00d0-0000-0000-0000-000000000001'),
+        code='AI',
+        name='Artificial Intelligence',
+        description='AI and Machine Learning engineering department'
+    )
+    dept_fico = Department(
+        id=uuid.UUID('d00d00d0-0000-0000-0000-000000000002'),
+        code='FICO',
+        name='FICO Finance',
+        description='Financial Accounting and Controlling department'
+    )
+    dept_abap = Department(
+        id=uuid.UUID('d00d00d0-0000-0000-0000-000000000003'),
+        code='ABAP',
+        name='ABAP Development',
+        description='ABAP programming department'
+    )
+    dept_hr = Department(
+        id=uuid.UUID('d00d00d0-0000-0000-0000-000000000004'),
+        code='HR',
+        name='HR and Admin',
+        description='Human Resources and Administration department'
+    )
+    db.add_all([dept_ai, dept_fico, dept_abap, dept_hr])
     db.commit()
 
     # Create Roles
@@ -28,6 +58,7 @@ try:
         last_name='Doe',
         email='john.doe@lms.com',
         password_hash=get_password_hash('Employee@1234'),
+        department_id=dept_ai.id,
         is_active=True,
         is_deleted=False,
         must_change_password=True
@@ -39,6 +70,7 @@ try:
         last_name='User',
         email='admin@lms.com',
         password_hash=get_password_hash('Temp@123'),
+        department_id=dept_hr.id,
         is_active=True,
         is_deleted=False,
         must_change_password=True
@@ -50,6 +82,7 @@ try:
         last_name='User',
         email='manager@lms.com',
         password_hash=get_password_hash('Manager@123'),
+        department_id=dept_ai.id,
         is_active=True,
         is_deleted=False,
         must_change_password=True
@@ -63,7 +96,7 @@ try:
     ur3 = UserRole(user_id=mgr_user.id, role_id=manager_role.id)
     db.add_all([ur1, ur2, ur3])
     db.commit()
-    print('Successfully seeded database with test users!')
+    print('Successfully seeded database with departments, roles, and test users!')
 except Exception as e:
     db.rollback()
     print(f'Error seeding: {e}')
