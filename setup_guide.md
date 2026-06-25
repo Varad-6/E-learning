@@ -6,19 +6,14 @@ Follow these steps to set up and run the PostgreSQL database in Docker, migrate 
 
 ## 1. Start the Database Container in Docker
 
-Make sure Docker Desktop is open and running on your Mac.
+Make sure Docker Desktop is open and running.
 
-### A. Free Port 5432 (If Needed)
-If you have another container (like `leetpeers-db`) already using port 5432, stop it first:
+### Run the PostgreSQL Container using Docker Compose
+Create and start the PostgreSQL container defined in `docker-compose.yml`:
 ```bash
-docker stop leetpeers-db
+docker compose up -d
 ```
-
-### B. Run the PostgreSQL Container
-Create and start a new PostgreSQL container named `elearning-db`:
-```bash
-docker run --name elearning-db -e POSTGRES_DB=elearning -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:15
-```
+This starts the `elearning-postgres` container, mapping port `5433` on the host to port `5432` in the container to avoid port conflicts with any host-level PostgreSQL service running on port `5432`.
 
 ---
 
@@ -26,7 +21,7 @@ docker run --name elearning-db -e POSTGRES_DB=elearning -e POSTGRES_USER=postgre
 
 The backend is configured to use the `.env` file in the project root containing:
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/elearning
+DATABASE_URL=postgresql://elearning_user:postgres@localhost:5433/elearning
 ```
 
 ### A. Activate Python Virtual Environment
