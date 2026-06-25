@@ -20,6 +20,11 @@ from app.schemas.course import (
     ModuleContentCreate,
     ModuleContentResponse,
     CourseStatus,
+    ModuleCreate,
+    ModuleUpdate,
+    ModuleResponse,
+    ModuleListResponse,
+    ModuleContentUpdate,
 )
 from app.schemas.enrollment import (
     EnrollmentCreate,
@@ -73,6 +78,12 @@ __all__ = [
     "ModuleContentCreate",
     "ModuleContentResponse",
     "CourseStatus",
+    "ModuleCreate",
+    "ModuleUpdate",
+    "ModuleResponse",
+    "ModuleListResponse",
+    "ModuleContentUpdate",
+
     # Enrollment
     "EnrollmentCreate",
     "EnrollmentResponse",

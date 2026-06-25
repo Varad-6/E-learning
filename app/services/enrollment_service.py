@@ -73,24 +73,40 @@ class EnrollmentService:
 
     @staticmethod
     def update_progress(db: Session, user_id: UUID, request: ProgressUpdate) -> UserCourseProgress:
-        # Find active enrollment for the module content's course
-        enrollment = db.query(CourseEnrollment).join(
-            Course, Course.id == CourseEnrollment.course_id
-        ).join(
-            CourseModule, CourseModule.course_id == Course.id
-        ).join(
-            ModuleContent, ModuleContent.module_id == CourseModule.id
-        ).filter(
+        # 1. Validate module exists
+        module = db.query(CourseModule).filter(CourseModule.id == request.module_id).first()
+        if not module:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Module with ID {request.module_id} not found."
+            )
+
+        # 2. Validate content exists and belongs to module
+        content = db.query(ModuleContent).filter(
+            ModuleContent.id == request.content_id
+        ).first()
+        if not content:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Content with ID {request.content_id} not found."
+            )
+        if content.module_id != request.module_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Content does not belong to the specified module."
+            )
+
+        # 3. Validate module belongs to enrolled course (and active enrollment exists)
+        enrollment = db.query(CourseEnrollment).filter(
             CourseEnrollment.user_id == user_id,
-            CourseModule.id == request.module_id,
-            ModuleContent.id == request.content_id,
+            CourseEnrollment.course_id == module.course_id,
             CourseEnrollment.status != "dropped"
         ).first()
 
         if not enrollment:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Active course enrollment matching module and content not found."
+                detail="Active course enrollment matching this course module not found."
             )
 
         # Update enrollment status to in_progress if currently enrolled

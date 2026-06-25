@@ -11,6 +11,7 @@ from app.api.enrollment import router as enrollment_router
 from app.api.quiz import router as quiz_router
 from app.api.department import router as department_router
 from app.api.admin import router as admin_router
+from app.api.module import router as module_router
 
 # Configure basic logging
 logging.basicConfig(
@@ -46,6 +47,8 @@ app.include_router(enrollment_router)
 app.include_router(quiz_router)
 app.include_router(department_router)
 app.include_router(admin_router)
+app.include_router(module_router)
+
 
 
 # Exception Handlers

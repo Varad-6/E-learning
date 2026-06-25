@@ -13,6 +13,7 @@ This document traces the progress of the E-learning LMS backend development from
 | **Phase 2** | Pydantic Schemas & Validation | **Completed** | Phase 2 Schemas |
 | **Phase 3** | Service Layer Implementation | **Completed** | Phase 3 Services |
 | **Phase 4** | API Routes Layer | **Completed** | Phase 4 Routes |
+| **Phase 5** | Module & Content Management | **Completed** | Phase 5 Modules |
 
 ---
 
@@ -213,12 +214,54 @@ Design and implement the HTTP endpoint routing layer of the E-learning LMS using
 
 ---
 
+### Phase 5 - Module & Content Management
+
+#### Objective
+Implement the complete module management and content layer of the LMS application. Expose endpoints and services to administer modules and learning contents within courses, validating nested resource hierarchies, checking progress update bounds, and aligning API interfaces for frontend screen components.
+
+#### Files Created
+- `app/api/module.py` — Exposes REST routes for course modules and learning contents.
+- `app/services/module_service.py` — Core logic representing module CRUD operations, sequential listings, and content updates.
+
+#### Files Modified
+- `app/main.py` — Registered and integrated the new `module_router` into the FastAPI instance.
+- `app/schemas/course.py` — Appended schemas `ModuleCreate`, `ModuleUpdate`, `ModuleResponse`, `ModuleListResponse`, and `ModuleContentUpdate`.
+- `app/schemas/__init__.py` — Exposed the new module/content schemas.
+- `app/services/enrollment_service.py` — Refactored progress validation rules to strictly check module existence, content boundaries, and course matching in `update_progress`.
+
+#### Database Changes
+- None (The schema is fully compatible with existing SQLAlchemy database tables `course_modules` and `module_contents`).
+
+#### API Endpoints
+- `POST /api/modules` — Create a new course module (Admins & Managers)
+- `GET /api/modules` — List all modules globally (Authenticated Users)
+- `GET /api/modules/{module_id}` — Retrieve details of a module by ID (Authenticated Users)
+- `PUT /api/modules/{module_id}` — Update a module sequence/details (Admins & Managers)
+- `DELETE /api/modules/{module_id}` — Delete a module and nested contents (Admins & Managers)
+- `GET /api/courses/{course_id}/modules` — Retrieve all modules for a course in sequence (Authenticated Users)
+- `POST /api/modules/{module_id}/contents` — Create a learning content item in a module (Admins & Managers)
+- `GET /api/modules/{module_id}/contents` — List contents within a module sequentially (Authenticated Users)
+- `GET /api/contents/{content_id}` — Retrieve a content item detail (Authenticated Users)
+- `PUT /api/contents/{content_id}` — Edit learning content details (Admins & Managers)
+- `DELETE /api/contents/{content_id}` — Remove content unit from a module (Admins & Managers)
+
+#### Frontend Integration Notes
+- Direct sequence mapping: Sequence fields (`sequence_no`) are returned directly in lists to enable seamless ordering on frontend screens.
+- Auto-progress linkage: Creating or completing content units immediately triggers recalculation of course completion status on progress tracking screens.
+- Embedded structure: `ModuleResponse` embeds nested `contents: List[ModuleContentResponse]` to prevent redundant API fetches on Module Detail and Viewer screens.
+
+#### Status
+**Completed**
+
+---
+
 ## Change Log
 
 Below is the change history showing git branches and commit IDs:
 
 | Commit ID | Branch | Message | Description |
 | :--- | :--- | :--- | :--- |
+| *Active Work* | `phase-2-schemas` | (Work Completed) | Implemented Phase 5 Module & Content management service, schemas, and routes, and updated enrollment progress validation. |
 | *Active Work* | `phase-2-schemas` | (Work Completed) | Implemented all Phase 4 API routing endpoints, registered them under `app/main.py`, and verified the integration layer. |
 | *Active Work* | `phase-2-schemas` | (Work Completed) | Implemented all Phase 3 Service Layer modules (`course_service`, `enrollment_service`, `quiz_service`, `department_service`, and `admin_service`). |
 | *Active Work* | `phase-2-schemas` | (Work Completed) | Implemented all Phase 2 Pydantic schemas and registered them under `app/schemas/__init__.py`. |

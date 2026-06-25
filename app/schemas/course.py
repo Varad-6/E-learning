@@ -84,3 +84,39 @@ class CourseResponse(BaseModel):
 class CourseListResponse(BaseModel):
     courses: List[CourseResponse]
     total: int
+
+class ModuleCreate(BaseModel):
+    course_id: UUID = Field(..., description="ID of the course this module belongs to")
+    title: str = Field(..., description="Title of the course module")
+    description: Optional[str] = Field(None, description="Detailed description of the module")
+    sequence_no: int = Field(..., description="Display order sequence number")
+
+class ModuleUpdate(BaseModel):
+    title: Optional[str] = Field(None, description="Title of the course module")
+    description: Optional[str] = Field(None, description="Detailed description of the module")
+    sequence_no: Optional[int] = Field(None, description="Display order sequence number")
+
+class ModuleResponse(BaseModel):
+    id: UUID
+    course_id: UUID
+    title: str
+    description: Optional[str] = None
+    sequence_no: int
+    created_at: datetime
+    contents: List[ModuleContentResponse] = []
+
+    class Config:
+        from_attributes = True
+
+class ModuleListResponse(BaseModel):
+    modules: List[ModuleResponse]
+    total: int
+
+class ModuleContentUpdate(BaseModel):
+    title: Optional[str] = Field(None, description="Title of the module content")
+    content_type: Optional[str] = Field(None, description="Type of content (e.g., video, document, quiz, article)")
+    file_path: Optional[str] = Field(None, description="Path or URL to the content file")
+    duration_seconds: Optional[int] = Field(None, description="Duration in seconds if applicable")
+    sequence_no: Optional[int] = Field(None, description="Display order sequence number")
+    is_active: Optional[bool] = Field(None, description="Whether this content is active")
+
