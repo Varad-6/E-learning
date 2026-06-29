@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Plus, BookOpen, Clock, X, AlertTriangle, ShieldAlert,
-  ArrowLeft, Layers, CheckCircle2, ChevronRight
+  ArrowLeft, Layers, CheckCircle2, ChevronRight, Bookmark
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
@@ -37,21 +37,10 @@ interface AppNotification {
 interface ToastMsg {
   id: string;
   message: string;
-  type: 'success' | 'warning' | 'info';
+  type: 'success' | 'warning' | 'info' | 'error';
 }
 
-const DEPARTMENTS = [
-  'AI',
-  'Sales and Marketing',
-  'SAP MM',
-  'SAP PP',
-  'SAP FICO',
-  'SAP ABAP',
-  'SAP Basis',
-  'HR and Admin',
-  'SAP SD',
-  'Accounts'
-];
+
 
 const INITIAL_COURSES: CourseData[] = [
   { 
@@ -168,8 +157,10 @@ export const CreatorDashboard: React.FC = () => {
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
 
   // Navigation states
-  const [activeTab, setActiveTab] = useState<'my_courses' | 'approvals' | 'auditing' | 'departments'>('my_courses');
+  const [activeTab, setActiveTab] = useState<'my_courses' | 'approvals' | 'auditing' | 'departments' | 'view_courses'>('my_courses');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Draft' | 'Pending' | 'Approved' | 'Rejected'>('All');
+  const [myProgress, setMyProgress] = useState<any[]>([]);
+  const [selectedCourseForModules, setSelectedCourseForModules] = useState<any | null>(null);
   
   // Admin departments state
   const [departmentsList, setDepartmentsList] = useState<{ id: string; name: string; code: string; description?: string }[]>([]);
@@ -196,6 +187,64 @@ export const CreatorDashboard: React.FC = () => {
   const [creatorNameInput, setCreatorNameInput] = useState('');
   const [targetDeptInput, setTargetDeptInput] = useState('AI');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  const fetchDBCourses = async () => {
+    try {
+      const response = await apiCall('/api/courses');
+      if (response.ok) {
+        const data = await response.json();
+        const dbCourses = data.courses || [];
+        const mapped = dbCourses.map((c: any) => {
+          let frontendStatus: 'Draft' | 'Pending' | 'Approved' | 'Rejected' = 'Draft';
+          const backendStatus = c.status?.toLowerCase();
+          if (backendStatus === 'pending') frontendStatus = 'Pending';
+          else if (backendStatus === 'approved') frontendStatus = 'Approved';
+          else if (backendStatus === 'rejected') frontendStatus = 'Rejected';
+          
+          return {
+            id: c.id,
+            course_code: c.course_code,
+            title: c.title,
+            description: c.description || '',
+            priority: c.priority || 'Medium',
+            duration: c.duration || '10 hours',
+            is_published: c.is_published,
+            status: frontendStatus,
+            creatorName: c.creator_name || 'John Doe',
+            creatorRole: c.creator_role || 'Employee',
+            departmentName: c.department_name || 'AI',
+            createdDate: c.created_at ? c.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+            rejectionReason: c.rejection_reason || undefined
+          };
+        });
+        setCourses(mapped);
+        localStorage.setItem('creator_courses', JSON.stringify(mapped));
+      }
+
+      // Fetch enrollments for learner view tab
+      const enrollRes = await apiCall('/api/enrollments/my-courses');
+      if (enrollRes.ok) {
+        const enrollData = await enrollRes.json();
+        const mappedProgress = enrollData.map((e: any) => {
+          let progress = 0;
+          if (e.status === 'completed') progress = 100;
+          else if (e.status === 'in_progress') progress = 50;
+
+          return {
+            id: e.id,
+            courseId: e.course_id,
+            courseCode: e.course_code || 'AI-101',
+            title: e.course_title || 'Enrolled Course',
+            progressPercent: progress,
+            difficulty: 'Beginner' as const
+          };
+        });
+        setMyProgress(mappedProgress);
+      }
+    } catch (err) {
+      console.error('Failed to load courses from DB:', err);
+    }
+  };
 
   useEffect(() => {
     // Sync user details
@@ -225,7 +274,7 @@ export const CreatorDashboard: React.FC = () => {
     };
     loadDepts();
 
-    // Initialize course database
+    // Initialize course database from cache first
     const localCourses = localStorage.getItem('creator_courses');
     if (localCourses) {
       setCourses(JSON.parse(localCourses));
@@ -233,6 +282,9 @@ export const CreatorDashboard: React.FC = () => {
       setCourses(INITIAL_COURSES);
       localStorage.setItem('creator_courses', JSON.stringify(INITIAL_COURSES));
     }
+    
+    // Sync with database
+    fetchDBCourses();
   }, []);
 
   // Handler: fetch departments for active tab
@@ -290,11 +342,7 @@ export const CreatorDashboard: React.FC = () => {
     }
   }, [location.search, courses, role, navigate]);
 
-  // Update Courses Helper
-  const syncCourses = (updated: CourseData[]) => {
-    setCourses(updated);
-    localStorage.setItem('creator_courses', JSON.stringify(updated));
-  };
+
 
   // Dispatch Global Notifications Event Helper
   const dispatchNotification = (newNotif: AppNotification) => {
@@ -308,7 +356,7 @@ export const CreatorDashboard: React.FC = () => {
   };
 
   // Toast Trigger Helper
-  const triggerToast = (message: string, type: 'success' | 'warning' | 'info' = 'success') => {
+  const triggerToast = (message: string, type: 'success' | 'warning' | 'info' | 'error' = 'success') => {
     const id = `t_${Date.now()}`;
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
@@ -398,45 +446,77 @@ export const CreatorDashboard: React.FC = () => {
     }
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
-    const isAdmin = role === 'Admin';
-    const newCourse: CourseData = {
-      id: `c_${Date.now()}`,
-      course_code: courseCode.trim().toUpperCase(),
-      title: title.trim(),
-      description: description.trim(),
-      priority,
-      duration: duration.trim(),
-      is_published: isAdmin,
-      status: isAdmin ? 'Approved' : 'Draft',
-      creatorName: creatorNameInput.trim(),
-      creatorRole: role === 'Manager' ? 'Department Head' : role,
-      departmentName: targetDeptInput,
-      createdDate: new Date().toISOString().split('T')[0]
-    };
+    const targetDept = departmentsList.find(d => d.code === targetDeptInput || d.name === targetDeptInput);
+    const departmentId = targetDept ? targetDept.id : null;
 
-    const updated = [newCourse, ...courses];
-    syncCourses(updated);
-    triggerToast(isAdmin ? 'Course created and published globally!' : 'Course draft created successfully!', 'success');
-    handleCloseCreateModal();
+    try {
+      const payload = {
+        course_code: courseCode.trim().toUpperCase(),
+        title: title.trim(),
+        description: description.trim(),
+        difficulty_level: 'Beginner',
+        department_id: departmentId,
+        duration: duration.trim(),
+        priority: priority
+      };
+
+      const res = await apiCall('/api/courses', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        triggerToast(errData.detail || 'Failed to create course in DB.', 'warning');
+        return;
+      }
+
+      const dbCourse = await res.json();
+      const isAdmin = role === 'Admin';
+      
+      if (isAdmin) {
+        // Auto-submit and Auto-approve for admin
+        await apiCall(`/api/courses/${dbCourse.id}/submit-for-approval`, { method: 'POST' });
+        await apiCall(`/api/courses/${dbCourse.id}/approve`, { method: 'POST' });
+        await apiCall(`/api/courses/${dbCourse.id}/publish`, { method: 'POST' });
+      }
+
+      triggerToast(isAdmin ? 'Course created and published globally!' : 'Course draft created successfully!', 'success');
+      handleCloseCreateModal();
+      await fetchDBCourses();
+    } catch (err) {
+      console.error('Failed to create course:', err);
+      triggerToast('Connection error. Failed to create course.', 'error');
+    }
   };
 
   // Lifecycle Transitions
-  const handleSubmitForReview = (courseId: string, e: React.MouseEvent) => {
+  const handleSubmitForReview = async (courseId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const course = courses.find(c => c.id === courseId);
     if (!course) return;
 
-    const updated = courses.map(c => {
-      if (c.id === courseId) {
-        return { ...c, status: 'Pending' as const };
+    try {
+      const res = await apiCall(`/api/courses/${courseId}/submit-for-approval`, {
+        method: 'POST'
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        triggerToast(err.detail || 'Failed to submit course for approval.', 'warning');
+        return;
       }
-      return c;
-    });
-    syncCourses(updated);
+
+      await fetchDBCourses();
+      triggerToast('Submitted for Department Head approval!', 'info');
+    } catch (err) {
+      console.error('Failed to submit course for review:', err);
+      triggerToast('Connection error. Failed to submit course.', 'error');
+    }
 
     // Dispatch notification to department heads
     const newNotif: AppNotification = {
@@ -449,25 +529,33 @@ export const CreatorDashboard: React.FC = () => {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     dispatchNotification(newNotif);
-    triggerToast('Submitted for Department Head approval!', 'info');
   };
 
-  const handleApprove = (courseId: string) => {
+  const handleApprove = async (courseId: string) => {
     const course = courses.find(c => c.id === courseId);
     if (!course) return;
 
-    const updated = courses.map(c => {
-      if (c.id === courseId) {
-        return { 
-          ...c, 
-          status: 'Approved' as const, 
-          is_published: true, 
-          rejectionReason: undefined 
-        };
+    try {
+      const res = await apiCall(`/api/courses/${courseId}/approve`, {
+        method: 'POST'
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        triggerToast(err.detail || 'Failed to approve course.', 'warning');
+        return;
       }
-      return c;
-    });
-    syncCourses(updated);
+
+      // Also publish it
+      await apiCall(`/api/courses/${courseId}/publish`, { method: 'POST' });
+
+      await fetchDBCourses();
+      triggerToast('Course approved and published successfully!', 'success');
+      setReviewCourse(null);
+    } catch (err) {
+      console.error('Failed to approve course:', err);
+      triggerToast('Connection error. Failed to approve course.', 'error');
+    }
 
     // Dispatch notification to employee creator
     const newNotif: AppNotification = {
@@ -479,8 +567,6 @@ export const CreatorDashboard: React.FC = () => {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     dispatchNotification(newNotif);
-    triggerToast('Course approved and published successfully!', 'success');
-    setReviewCourse(null);
   };
 
   const handleRejectClick = (course: CourseData, e?: React.MouseEvent) => {
@@ -489,22 +575,29 @@ export const CreatorDashboard: React.FC = () => {
     setRejectionText('');
   };
 
-  const handleRejectSubmit = () => {
+  const handleRejectSubmit = async () => {
     if (!rejectionText.trim() || !rejectionCourse) return;
     const courseId = rejectionCourse.id;
 
-    const updated = courses.map(c => {
-      if (c.id === courseId) {
-        return { 
-          ...c, 
-          status: 'Rejected' as const, 
-          is_published: false, 
-          rejectionReason: rejectionText.trim() 
-        };
+    try {
+      const res = await apiCall(`/api/courses/${courseId}/reject?rejection_reason=${encodeURIComponent(rejectionText.trim())}`, {
+        method: 'POST'
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        triggerToast(err.detail || 'Failed to reject course.', 'warning');
+        return;
       }
-      return c;
-    });
-    syncCourses(updated);
+
+      await fetchDBCourses();
+      triggerToast('Course review rejected with feedback notes.', 'warning');
+      setRejectionCourse(null);
+      setReviewCourse(null);
+    } catch (err) {
+      console.error('Failed to reject course:', err);
+      triggerToast('Connection error. Failed to reject course.', 'error');
+    }
 
     // Dispatch notification to employee creator
     const newNotif: AppNotification = {
@@ -516,10 +609,52 @@ export const CreatorDashboard: React.FC = () => {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     dispatchNotification(newNotif);
-    triggerToast('Course review rejected with feedback notes.', 'warning');
+  };
+
+  const handleEnrollCourse = async (courseId: string) => {
+    try {
+      const response = await apiCall('/api/enrollments', {
+        method: 'POST',
+        body: JSON.stringify({
+          course_id: courseId
+        })
+      });
+
+      if (response.ok) {
+        await fetchDBCourses();
+        triggerToast('Enrolled successfully! Course is now added to your learning curriculum.', 'success');
+      } else {
+        const err = await response.json();
+        triggerToast(err.detail || 'Enrollment failed.', 'warning');
+      }
+    } catch (err) {
+      console.error('Failed to enroll in course:', err);
+    }
+  };
+
+  const handleStudyIncrement = async (itemId: string) => {
+    const enrollment = myProgress.find(p => p.id === itemId);
+    if (!enrollment) return;
     
-    setRejectionCourse(null);
-    setReviewCourse(null);
+    let targetProgress = Math.min(enrollment.progressPercent + 20, 100);
+    
+    try {
+      if (targetProgress === 100) {
+        const res = await apiCall(`/api/enrollments/${itemId}/complete`, { method: 'POST' });
+        if (res.ok) {
+          triggerToast(`Congratulations! You have completed the course and earned a certificate.`, 'success');
+        }
+      }
+      
+      setMyProgress(prev => prev.map(item => {
+        if (item.id === itemId) {
+          return { ...item, progressPercent: targetProgress };
+        }
+        return item;
+      }));
+    } catch (err) {
+      console.error('Failed to update progress in backend:', err);
+    }
   };
 
   // Scoped views based on active profile
@@ -545,7 +680,7 @@ export const CreatorDashboard: React.FC = () => {
   const pendingApprovals = courses.filter(c => {
     if (c.status !== 'Pending') return false;
     if (isAdmin) {
-      return selectedDept ? c.departmentName === selectedDept : true;
+      return selectedDept ? (c.departmentName === selectedDept || departmentsList.find(d => d.code === selectedDept)?.name === c.departmentName) : true;
     }
     if (isDeptHead) {
       return c.departmentName === dept;
@@ -611,6 +746,12 @@ export const CreatorDashboard: React.FC = () => {
             onClick={() => setActiveTab('auditing')}
           >
             Studio Analytics
+          </button>
+          <button 
+            className={`sidebar-tab-btn ${activeTab === 'view_courses' ? 'active' : ''}`}
+            onClick={() => setActiveTab('view_courses')}
+          >
+            🎓 View Courses
           </button>
           {isAdmin && (
             <button 
@@ -748,13 +889,13 @@ export const CreatorDashboard: React.FC = () => {
               </div>
 
               <div className="dept-selector-grid">
-                {DEPARTMENTS.map(deptName => {
-                  const pendingCount = courses.filter(c => c.status === 'Pending' && c.departmentName === deptName).length;
+                {departmentsList.map(deptNode => {
+                  const pendingCount = courses.filter(c => c.status === 'Pending' && (c.departmentName === deptNode.name || c.departmentName === deptNode.code)).length;
                   return (
                     <div 
-                      key={deptName} 
+                      key={deptNode.id} 
                       className={`dept-selector-card glass-panel glow-hover ${pendingCount > 0 ? 'has-pending' : ''}`}
-                      onClick={() => setSelectedDept(deptName)}
+                      onClick={() => setSelectedDept(deptNode.code)}
                     >
                       <div className="dept-card-header-row">
                         <div className="dept-icon-box">
@@ -764,8 +905,8 @@ export const CreatorDashboard: React.FC = () => {
                           <span className="pending-badge-count">{pendingCount} Pending</span>
                         )}
                       </div>
-                      <h3>{deptName}</h3>
-                      <p>View courses designed by employees in the {deptName} team.</p>
+                      <h3>{deptNode.name}</h3>
+                      <p>View courses designed by employees in the {deptNode.name} ({deptNode.code}) team.</p>
                       
                       <div className="dept-card-footer">
                         <span>Inspect Approvals</span>
@@ -1154,6 +1295,206 @@ export const CreatorDashboard: React.FC = () => {
               >
                 Confirm Reject
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 5: View Courses (Learner view for Manager/Admin) */}
+      {activeTab === 'view_courses' && (
+        <div className="dashboard-layout-employee animate-fade-in" style={{ paddingBottom: '40px' }}>
+          <div className="pane-header" style={{ marginBottom: '28px' }}>
+            <h2>🎓 Curriculum Preview (Learner View)</h2>
+            <p>Inspect active learning pathways and course catalogs from a learner perspective.</p>
+          </div>
+
+          <div className="employee-learning-grid" style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '30px', alignItems: 'flex-start' }}>
+            <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* Enrolled Courses */}
+              <div className="enrolled-courses-section">
+                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px' }}>
+                  Active Enrolled Courses
+                </h4>
+                {myProgress.length === 0 ? (
+                  <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', padding: '10px 0' }}>No active course enrollments. Enroll in a course below to start!</p>
+                ) : (
+                  myProgress.map((item) => (
+                    <div key={item.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px', padding: '20px', borderRadius: 'var(--border-radius-md)' }}>
+                      <div className="course-row-info">
+                        <span className="course-row-code">{item.courseCode}</span>
+                        <h4>{item.title}</h4>
+                        <span className="course-row-difficulty">{item.difficulty}</span>
+                      </div>
+
+                      <div className="course-row-tracker" style={{ marginTop: '12px' }}>
+                        <div className="progress-bar-group">
+                          <div className="progress-bar-container" style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px' }}>
+                            <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%`, height: '100%', backgroundColor: 'var(--accent-color)', borderRadius: '3px' }}></div>
+                          </div>
+                          <div className="progress-label-row" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.8rem' }}>
+                            <span>{item.progressPercent}% Completed</span>
+                            {item.progressPercent === 100 && (
+                              <span className="row-success-badge" style={{ color: 'var(--neon-teal)', display: 'flex', alignItems: 'center' }}>
+                                <CheckCircle2 size={12} style={{ marginRight: '4px' }} /> Certified
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                          <Button
+                            variant="outline"
+                            onClick={() => setSelectedCourseForModules(item)}
+                            style={{ flex: 1 }}
+                          >
+                            View Course
+                          </Button>
+                          
+                          {item.progressPercent === 100 && (
+                            <Button
+                              variant="outline"
+                              disabled
+                              style={{ flex: 1 }}
+                            >
+                              Certified
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Available Courses to Enroll */}
+              <div className="available-courses-section" style={{ marginTop: '20px' }}>
+                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px' }}>
+                  Available Catalog Courses
+                </h4>
+                {courses.filter(c => c.status === 'Approved' && !myProgress.some(p => p.courseId === c.id)).length === 0 ? (
+                  <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', padding: '10px 0' }}>No new courses available to enroll.</p>
+                ) : (
+                  courses
+                    .filter(c => c.status === 'Approved' && !myProgress.some(p => p.courseId === c.id))
+                    .map((course) => (
+                      <div key={course.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px', padding: '20px', borderRadius: 'var(--border-radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="course-row-info" style={{ flex: 1, paddingRight: '20px' }}>
+                          <span className="course-row-code">{course.course_code}</span>
+                          <h4>{course.title}</h4>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{course.description}</p>
+                          <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            <span>Difficulty: {course.priority}</span>
+                            <span>Duration: {course.duration}</span>
+                          </div>
+                        </div>
+                        <div style={{ minWidth: '150px' }}>
+                          <Button
+                            variant="primary"
+                            onClick={() => handleEnrollCourse(course.id)}
+                            style={{ width: '100%' }}
+                          >
+                            Start Course
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+
+            </div>
+
+            {/* Side Info Cards */}
+            <div className="employee-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="sidebar-card glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', borderLeft: '3px solid var(--accent-color)' }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', margin: 0, fontWeight: '700' }}>
+                  <Bookmark size={18} style={{ color: 'var(--accent-color)' }} />
+                  Recent Course Activity
+                </h3>
+                {myProgress.some(p => p.progressPercent < 100) ? (() => {
+                  const recent = myProgress.find(p => p.progressPercent < 100) || myProgress[0];
+                  return (
+                    <div style={{ marginTop: '12px' }}>
+                      <p style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>{recent.title}</p>
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.03em', margin: 0 }}>
+                        Active Code: {recent.courseCode}
+                      </p>
+                      
+                      <div className="progress-bar-container" style={{ marginTop: '10px', height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
+                        <div className="progress-bar-fill" style={{ width: `${recent.progressPercent}%`, height: '100%', backgroundColor: 'var(--accent-color)', borderRadius: '2px' }}></div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        <span>{recent.progressPercent}% Complete</span>
+                      </div>
+
+                      <Button
+                        variant="primary"
+                        onClick={() => handleStudyIncrement(recent.id)}
+                        style={{ width: '100%', marginTop: '12px', padding: '8px 16px', fontSize: '0.82rem' }}
+                      >
+                        Resume Course
+                      </Button>
+                    </div>
+                  );
+                })() : (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '10px' }}>All assigned courses completed! Check your certifications.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modules Syllabus Modal Overlay */}
+      {selectedCourseForModules && (
+        <div className="modal-overlay" onClick={() => setSelectedCourseForModules(null)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal-content-card glass-panel" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '580px', padding: '30px', borderRadius: 'var(--border-radius-md)' }}>
+            <div className="modal-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '14px', marginBottom: '20px' }}>
+              <div>
+                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{selectedCourseForModules.courseCode} Modules</span>
+                <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0 }}>{selectedCourseForModules.title}</h3>
+              </div>
+              <button onClick={() => setSelectedCourseForModules(null)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '1.5rem', cursor: 'pointer', padding: 0, lineHeight: 1 }}>&times;</button>
+            </div>
+
+            <div className="timeline-syllabus-list" style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '350px', overflowY: 'auto', paddingRight: '6px' }}>
+              {[
+                { title: 'Introduction & Development Environment Setup', duration: '2 hours', isCompleted: selectedCourseForModules.progressPercent >= 30 },
+                { title: 'Core Principles & API Integration Practices', duration: '3 hours', isCompleted: selectedCourseForModules.progressPercent >= 60 },
+                { title: 'Advanced Debugging, Optimization, and Deployments', duration: '4 hours', isCompleted: selectedCourseForModules.progressPercent === 100 }
+              ].map((mod, index) => (
+                <div key={index} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '2px solid var(--accent-color)', backgroundColor: mod.isCompleted ? 'var(--accent-color)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 'bold', color: mod.isCompleted ? '#000' : 'var(--text-primary)' }}>
+                      {mod.isCompleted ? '✓' : index + 1}
+                    </div>
+                    {index < 2 && <div style={{ width: '2px', height: '35px', backgroundColor: 'rgba(255,255,255,0.1)', marginTop: '4px' }}></div>}
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: '0.9rem', margin: 0, color: mod.isCompleted ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{mod.title}</h4>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Duration: {mod.duration}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="modal-footer-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px', marginTop: '20px' }}>
+              {selectedCourseForModules.progressPercent < 100 && (
+                <Button 
+                  variant="primary" 
+                  onClick={() => {
+                    handleStudyIncrement(selectedCourseForModules.id);
+                    setSelectedCourseForModules((prev: any) => {
+                      if (!prev) return null;
+                      return { ...prev, progressPercent: Math.min(prev.progressPercent + 20, 100) };
+                    });
+                  }}
+                >
+                  Simulate Module Progress (+20%)
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setSelectedCourseForModules(null)}>Close Syllabus</Button>
             </div>
           </div>
         </div>

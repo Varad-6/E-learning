@@ -54,6 +54,8 @@ class CourseCreate(BaseModel):
     description: Optional[str] = Field(None, description="Detailed description of the course")
     difficulty_level: str = Field(..., description="Difficulty level (e.g., beginner, intermediate, advanced)")
     department_id: Optional[UUID] = Field(None, description="Associated department ID")
+    duration: Optional[str] = Field(None, description="Duration of the course")
+    priority: Optional[str] = Field(None, description="Priority of the course")
 
 class CourseUpdate(BaseModel):
     course_code: Optional[str] = Field(None, description="Unique code identifying the course")
@@ -63,6 +65,8 @@ class CourseUpdate(BaseModel):
     department_id: Optional[UUID] = Field(None, description="Associated department ID")
     is_published: Optional[bool] = Field(None, description="Whether the course is published")
     status: Optional[CourseStatus] = Field(None, description="Status of the course")
+    duration: Optional[str] = Field(None, description="Duration of the course")
+    priority: Optional[str] = Field(None, description="Priority of the course")
 
 class CourseResponse(BaseModel):
     id: UUID
@@ -74,6 +78,12 @@ class CourseResponse(BaseModel):
     created_by: Optional[UUID] = None
     department_id: Optional[UUID] = None
     status: CourseStatus
+    duration: Optional[str] = None
+    priority: Optional[str] = None
+    creator_name: Optional[str] = None
+    creator_role: Optional[str] = None
+    department_name: Optional[str] = None
+    rejection_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     modules: List[CourseModuleResponse] = []

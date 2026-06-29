@@ -185,6 +185,17 @@ export const Navbar: React.FC = () => {
               Creator Studio
             </div>
           )}
+          {userEmail && userRole === 'Admin' && (
+            <div 
+              onClick={() => navigate('/admin/users')} 
+              className={`nav-link tooltip-trigger ${location.pathname.startsWith('/admin') ? 'active' : ''}`} 
+              style={{ cursor: 'pointer' }}
+              role="button"
+              data-tooltip="Go to User Administration Studio"
+            >
+              User Studio
+            </div>
+          )}
         </nav>
 
         <div className="navbar-actions">

@@ -36,7 +36,9 @@ class CourseService:
             department_id=request.department_id,
             created_by=user_id,
             status="draft",
-            is_published=False
+            is_published=False,
+            duration=request.duration,
+            priority=request.priority
         )
         db.add(db_course)
         db.commit()
@@ -80,6 +82,10 @@ class CourseService:
             db_course.is_published = request.is_published
         if request.status is not None:
             db_course.status = request.status.value if hasattr(request.status, 'value') else request.status
+        if request.duration is not None:
+            db_course.duration = request.duration
+        if request.priority is not None:
+            db_course.priority = request.priority
 
         db.commit()
         db.refresh(db_course)

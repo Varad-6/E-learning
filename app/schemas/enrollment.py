@@ -19,6 +19,8 @@ class EnrollmentResponse(BaseModel):
     user_id: UUID
     course_id: UUID
     status: EnrollmentStatus
+    course_code: Optional[str] = None
+    course_title: Optional[str] = None
     enrolled_at: datetime
     completed_at: Optional[datetime] = None
 

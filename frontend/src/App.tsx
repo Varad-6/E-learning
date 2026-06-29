@@ -9,6 +9,7 @@ import { Dashboard } from './pages/Dashboard/Dashboard';
 import { CreatorDashboard } from './pages/Creator/CreatorDashboard';
 import { CourseSyllabus } from './pages/Creator/CourseSyllabus';
 import { ModuleEditor } from './pages/Creator/ModuleEditor';
+import { UserAdminStudio } from './pages/Admin/UserAdminStudio';
 import './styles/index.css';
 
 const AppContent: React.FC = () => {
@@ -26,12 +27,14 @@ const AppContent: React.FC = () => {
           <Route path="/creator/dashboard" element={<CreatorDashboard />} />
           <Route path="/creator/course/:courseId" element={<CourseSyllabus />} />
           <Route path="/creator/course/:courseId/module/:moduleId" element={<ModuleEditor />} />
+          <Route path="/admin/users" element={<UserAdminStudio />} />
         </Routes>
       </main>
       {!isAuthPage && <Footer />}
     </div>
   );
 };
+
 
 const App: React.FC = () => {
   return (

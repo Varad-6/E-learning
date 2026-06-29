@@ -5,6 +5,7 @@ import { Button } from '../../components/Button/Button';
 import type { Course } from '../../types/schema';
 import { getBadgeForCompletions } from '../../services/badge';
 import type { Badge } from '../../services/badge';
+import { apiCall } from '../../services/api';
 import './Dashboard.css';
 
 // Mock DB courses matching schema
@@ -207,6 +208,49 @@ export const Dashboard: React.FC = () => {
     { id: 'a3', timestamp: '2026-06-20 10:15:22', actor: 'system_daemon', action: 'DB_BACKUP', target: 'schema_v2', details: 'Completed snapshot snap_9294' }
   ]);
 
+  const fetchDBCourses = async () => {
+    try {
+      const response = await apiCall('/api/courses');
+      if (response.ok) {
+        const data = await response.json();
+        const dbCourses = data.courses || [];
+        const mapped = dbCourses.map((c: any) => ({
+          id: c.id,
+          course_code: c.course_code,
+          title: c.title,
+          description: c.description || '',
+          difficulty_level: c.difficulty_level || 'Beginner',
+          is_published: c.is_published,
+          status: c.status
+        }));
+        setManagedCourses(mapped);
+      }
+
+      const enrollRes = await apiCall('/api/enrollments/my-courses');
+      if (enrollRes.ok) {
+        const enrollData = await enrollRes.json();
+        const mappedProgress = enrollData.map((e: any) => {
+          let progress = 0;
+          if (e.status === 'completed') progress = 100;
+          else if (e.status === 'in_progress') progress = 50;
+
+          return {
+            id: e.id,
+            courseCode: e.course_code || 'AI-101',
+            title: e.course_title || 'Enrolled Course',
+            progressPercent: progress,
+            difficulty: 'Beginner' as const
+          };
+        });
+        if (mappedProgress.length > 0) {
+          setMyProgress(mappedProgress);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load courses from DB in dashboard:', err);
+    }
+  };
+
   useEffect(() => {
     const savedEmail = localStorage.getItem('isLoggedInEmail');
     const savedRole = localStorage.getItem('isLoggedInRole');
@@ -253,6 +297,8 @@ export const Dashboard: React.FC = () => {
           setProfileEmpId(emailPrefix || (activeRole === 'Employee' ? 'EMP-3041' : activeRole === 'Manager' ? 'MGR-1042' : 'ADM-0001'));
         }
       }
+      
+      fetchDBCourses();
     }
   }, [navigate]);
 
@@ -283,6 +329,27 @@ export const Dashboard: React.FC = () => {
       
       return updatedProgress;
     });
+  };
+
+  const handleEnrollCourse = async (courseId: string) => {
+    try {
+      const response = await apiCall('/api/enrollments', {
+        method: 'POST',
+        body: JSON.stringify({
+          course_id: courseId
+        })
+      });
+
+      if (response.ok) {
+        await fetchDBCourses();
+        alert('Enrolled successfully! Course is now added to your learning curriculum.');
+      } else {
+        const err = await response.json();
+        alert(err.detail || 'Enrollment failed.');
+      }
+    } catch (err) {
+      console.error('Failed to enroll in course:', err);
+    }
   };
 
   // Handler: Creator Creates New Course
@@ -742,52 +809,98 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div className="employee-learning-grid">
-            <div className="employee-courses-list">
-              {myProgress.map((item) => (
-                <div key={item.id} className="course-progress-row glass-panel glow-hover">
-                  <div className="course-row-info">
-                    <span className="course-row-code">{item.courseCode}</span>
-                    <h4>{item.title}</h4>
-                    <span className="course-row-difficulty">{item.difficulty}</span>
-                  </div>
-
-                  <div className="course-row-tracker">
-                    <div className="progress-bar-group">
-                      <div className="progress-bar-container">
-                        <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%` }}></div>
+            <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* Enrolled Courses */}
+              <div className="enrolled-courses-section">
+                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px' }}>
+                  Active Enrolled Courses
+                </h4>
+                {myProgress.length === 0 ? (
+                  <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', padding: '10px 0' }}>No active course enrollments. Enroll in a course below to start!</p>
+                ) : (
+                  myProgress.map((item) => (
+                    <div key={item.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px' }}>
+                      <div className="course-row-info">
+                        <span className="course-row-code">{item.courseCode}</span>
+                        <h4>{item.title}</h4>
+                        <span className="course-row-difficulty">{item.difficulty}</span>
                       </div>
-                      <div className="progress-label-row">
-                        <span>{item.progressPercent}% Completed</span>
-                        {item.progressPercent === 100 && (
-                          <span className="row-success-badge">
-                            <CheckCircle size={12} style={{ marginRight: '4px' }} /> Certified
-                          </span>
-                        )}
+
+                      <div className="course-row-tracker">
+                        <div className="progress-bar-group">
+                          <div className="progress-bar-container">
+                            <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%` }}></div>
+                          </div>
+                          <div className="progress-label-row">
+                            <span>{item.progressPercent}% Completed</span>
+                            {item.progressPercent === 100 && (
+                              <span className="row-success-badge">
+                                <CheckCircle size={12} style={{ marginRight: '4px' }} /> Certified
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                          <Button
+                            variant="outline"
+                            onClick={() => setSelectedCourseForModules(item)}
+                            style={{ flex: 1 }}
+                          >
+                            View Course
+                          </Button>
+                          
+                          {item.progressPercent === 100 && (
+                            <Button
+                              variant="outline"
+                              disabled
+                              style={{ flex: 1 }}
+                            >
+                              Certified
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  ))
+                )}
+              </div>
 
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
-                      <Button
-                        variant="outline"
-                        onClick={() => setSelectedCourseForModules(item)}
-                        style={{ flex: 1 }}
-                      >
-                        View Course
-                      </Button>
-                      
-                      {item.progressPercent === 100 && (
-                        <Button
-                          variant="outline"
-                          disabled
-                          style={{ flex: 1 }}
-                        >
-                          Certified
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {/* Available Courses to Enroll */}
+              <div className="available-courses-section" style={{ marginTop: '20px' }}>
+                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px' }}>
+                  Available Department Courses
+                </h4>
+                {managedCourses.filter((c: any) => (c.status === 'approved' || c.is_published) && !myProgress.some((p: any) => p.courseId === c.id) && (!c.department_id || c.department_id === localStorage.getItem('profileDeptId'))).length === 0 ? (
+                  <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', padding: '10px 0' }}>No new courses available in your department.</p>
+                ) : (
+                  managedCourses
+                    .filter((c: any) => (c.status === 'approved' || c.is_published) && !myProgress.some((p: any) => p.courseId === c.id) && (!c.department_id || c.department_id === localStorage.getItem('profileDeptId')))
+                    .map((course) => (
+                      <div key={course.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="course-row-info" style={{ flex: 1, paddingRight: '20px' }}>
+                          <span className="course-row-code">{course.course_code}</span>
+                          <h4>{course.title}</h4>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{course.description}</p>
+                          <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            <span>Difficulty: {course.difficulty_level}</span>
+                          </div>
+                        </div>
+                        <div style={{ minWidth: '150px' }}>
+                          <Button
+                            variant="primary"
+                            onClick={() => handleEnrollCourse(course.id)}
+                            style={{ width: '100%' }}
+                          >
+                            Start Course
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+
             </div>
 
             {/* Side Info Cards */}

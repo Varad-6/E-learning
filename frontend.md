@@ -87,7 +87,13 @@ This file serves as our living documentation and changelog. As we implement part
 - [x] Remove the role select and department select fields from the sign-in form.
 - [x] Integrate animated success transitions with background wiping and custom splash GIF rendering.
 - [x] Direct Manager portal logins to land straight on Creator Studio (/creator/dashboard).
-- [x] Restrict Manager Dashboard view exclusively to the Employee Tracker and Auditing & Reporting tables.
+### Phase 9: Admin User Administration Studio
+- [x] Upgraded backend schemas (`AdminUserResponse` and `UserListResponse`) to include full role and department details.
+- [x] Created a dedicated, professional `UserAdminStudio` layout for Admin role in `/admin/users`.
+- [x] Implemented searchable/filterable directory of registered corporate users with custom tags.
+- [x] Built User creation form with temporary password generation tool and department list mapping.
+- [x] Integrated active account toggle status (suspension) and soft deletion capabilities.
+- [x] Wrote automated Playwright E2E verification test suite for Admin user lifecycle checks.
 
 ---
 

@@ -1,7 +1,8 @@
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 from uuid import UUID
-from app.schemas.user import UserResponse
+from app.schemas.user import UserResponse, RoleResponse
+from app.schemas.department import DepartmentResponse
 
 class UserCreate(BaseModel):
     employee_code: str = Field(..., description="Unique employee code of the user")
@@ -21,10 +22,15 @@ class UserUpdate(BaseModel):
     is_deleted: Optional[bool] = Field(None, description="Whether the user is marked as deleted")
     must_change_password: Optional[bool] = Field(None, description="Whether the user must change password on next login")
 
+class AdminUserResponse(UserResponse):
+    roles: List[RoleResponse] = []
+    department: Optional[DepartmentResponse] = None
+
 class UserListResponse(BaseModel):
-    users: List[UserResponse]
+    users: List[AdminUserResponse]
     total: int
 
 class RoleAssignmentRequest(BaseModel):
     user_id: UUID = Field(..., description="ID of the user to assign roles to")
     roles: List[str] = Field(..., description="List of role names to assign to the user")
+

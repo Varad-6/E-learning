@@ -4,15 +4,14 @@ from uuid import UUID
 
 from app.core.dependencies import get_db, RequireRoles
 from app.models.user import User
-from app.schemas.user import UserResponse
-from app.schemas.admin import UserCreate, UserUpdate, UserListResponse, RoleAssignmentRequest
+from app.schemas.admin import UserCreate, UserUpdate, UserListResponse, RoleAssignmentRequest, AdminUserResponse
 from app.services.admin_service import AdminService
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 @router.post(
     "/users",
-    response_model=UserResponse,
+    response_model=AdminUserResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create User",
     description="Create a new user profile with default configurations. Restricted to Admins."
@@ -26,7 +25,7 @@ def create_user(
 
 @router.put(
     "/users/{user_id}",
-    response_model=UserResponse,
+    response_model=AdminUserResponse,
     status_code=status.HTTP_200_OK,
     summary="Update User",
     description="Update user account information and statuses. Restricted to Admins."
@@ -58,7 +57,7 @@ def list_users(
 
 @router.post(
     "/users/{user_id}/roles",
-    response_model=UserResponse,
+    response_model=AdminUserResponse,
     status_code=status.HTTP_200_OK,
     summary="Assign User Roles",
     description="Assign user roles. Restricted to Admins."

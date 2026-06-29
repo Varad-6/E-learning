@@ -7,30 +7,60 @@ import './Landing.css';
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
 
-  const handlePortalLogin = (role: string, email: string, dept: string) => {
-    localStorage.setItem('isLoggedInEmail', email);
-    localStorage.setItem('isLoggedInRole', role);
-    localStorage.setItem('isLoggedInDept', dept);
-    localStorage.setItem('access_token', 'mock-demo-access-token');
-    localStorage.setItem('refresh_token', 'mock-demo-refresh-token');
-    
-    const nameMap: { [key: string]: string } = {
-      'learner@company.com': 'Alice Smith',
-      'creator@company.com': 'Dr. Evelyn C.',
-      'admin@company.com': 'Systems Administrator'
-    };
-    const codeMap: { [key: string]: string } = {
-      'learner@company.com': 'EMP-3041',
-      'creator@company.com': 'MGR-1042',
-      'admin@company.com': 'ADM-0001'
-    };
-    localStorage.setItem('profileName', nameMap[email] || 'Alice Smith');
-    localStorage.setItem('profileEmpId', codeMap[email] || 'EMP-3041');
-
+  const handlePortalLogin = async (role: string, email: string, dept: string) => {
+    console.log(`Portal login for ${email}`);
+    let empCode = 'EMP001';
+    let password = 'Employee@1234';
     if (role === 'Manager') {
-      navigate('/creator/dashboard');
-    } else {
-      navigate('/dashboard');
+      empCode = 'MGR001';
+      password = 'Manager@123';
+    } else if (role === 'Admin') {
+      empCode = 'ADM001';
+      password = 'Temp@123';
+    }
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          employee_code: empCode,
+          password: password
+        })
+      });
+
+      if (!res.ok) {
+        alert('Quick login failed. Make sure database is seeded and backend is running.');
+        return;
+      }
+
+      const data = await res.json();
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+      localStorage.setItem('isLoggedInEmail', data.user.email);
+      
+      const backendRole = data.roles[0] || 'EMPLOYEE';
+      let mappedRole = 'Employee';
+      if (backendRole === 'MANAGER' || backendRole === 'CREATOR') mappedRole = 'Manager';
+      else if (backendRole === 'ADMIN') mappedRole = 'Admin';
+      
+      localStorage.setItem('isLoggedInRole', mappedRole);
+      localStorage.setItem('isLoggedInDept', dept);
+      
+      const fullName = `${data.user.first_name} ${data.user.last_name}`;
+      localStorage.setItem('profileName', fullName);
+      localStorage.setItem('profileEmpId', data.user.employee_code);
+
+      if (mappedRole === 'Manager') {
+        navigate('/creator/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      console.error('Quick login connection error:', err);
+      alert('Cannot connect to backend server. Make sure it is running on http://127.0.0.1:8000.');
     }
   };
 

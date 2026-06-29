@@ -53,12 +53,12 @@ def get_course(
     response_model=CourseResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Course",
-    description="Create a new course. Restricted to Admins and Managers."
+    description="Create a new course. Restricted to Admins, Managers, and Employees."
 )
 def create_course(
     request: CourseCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER"))
+    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER", "EMPLOYEE"))
 ):
     return CourseService.create_course(db, request=request, user_id=current_user.id)
 
@@ -67,13 +67,13 @@ def create_course(
     response_model=CourseResponse,
     status_code=status.HTTP_200_OK,
     summary="Update Course",
-    description="Update course details. Restricted to Admins and Managers."
+    description="Update course details. Restricted to Admins, Managers, and Employees."
 )
 def update_course(
     course_id: UUID,
     request: CourseUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER"))
+    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER", "EMPLOYEE"))
 ):
     return CourseService.update_course(db, course_id=course_id, request=request)
 
@@ -122,12 +122,12 @@ def submit_for_approval(
     "/{course_id}/approve",
     status_code=status.HTTP_200_OK,
     summary="Approve Course",
-    description="Approve a pending course approval request. Restricted to Admins."
+    description="Approve a pending course approval request. Restricted to Admins and Managers."
 )
 def approve_course(
     course_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN"))
+    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER"))
 ):
     return CourseService.approve_course(db, course_id=course_id, reviewer_id=current_user.id)
 
@@ -135,13 +135,13 @@ def approve_course(
     "/{course_id}/reject",
     status_code=status.HTTP_200_OK,
     summary="Reject Course",
-    description="Reject a pending course approval request with a reason. Restricted to Admins."
+    description="Reject a pending course approval request with a reason. Restricted to Admins and Managers."
 )
 def reject_course(
     course_id: UUID,
     rejection_reason: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN"))
+    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER"))
 ):
     return CourseService.reject_course(
         db, course_id=course_id, reviewer_id=current_user.id, rejection_reason=rejection_reason

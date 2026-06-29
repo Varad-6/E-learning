@@ -19,3 +19,15 @@ class CourseEnrollment(Base):
     user = relationship("User", back_populates="enrollments")
     course = relationship("Course", back_populates="enrollments")
     progress_records = relationship("UserCourseProgress", back_populates="enrollment", cascade="all, delete-orphan")
+
+    @property
+    def course_code(self) -> str:
+        if self.course:
+            return self.course.course_code
+        return ""
+
+    @property
+    def course_title(self) -> str:
+        if self.course:
+            return self.course.title
+        return ""
