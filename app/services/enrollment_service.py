@@ -179,6 +179,29 @@ class EnrollmentService:
         return enrollment
 
     @staticmethod
+    def update_progress_percent(db: Session, enrollment_id: UUID, percent: int) -> CourseEnrollment:
+        enrollment = db.query(CourseEnrollment).filter(CourseEnrollment.id == enrollment_id).first()
+        if not enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Enrollment with ID {enrollment_id} not found."
+            )
+        
+        enrollment.progress_percent = percent
+        if percent >= 100:
+            enrollment.status = "completed"
+            if not enrollment.completed_at:
+                enrollment.completed_at = datetime.now(timezone.utc)
+        elif percent > 0:
+            enrollment.status = "in_progress"
+        else:
+            enrollment.status = "enrolled"
+            
+        db.commit()
+        db.refresh(enrollment)
+        return enrollment
+
+    @staticmethod
     def get_enrollment(db: Session, enrollment_id: UUID) -> CourseEnrollment:
         enrollment = db.query(CourseEnrollment).filter(CourseEnrollment.id == enrollment_id).first()
         if not enrollment:

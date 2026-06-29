@@ -10,15 +10,18 @@ import { CreatorDashboard } from './pages/Creator/CreatorDashboard';
 import { CourseSyllabus } from './pages/Creator/CourseSyllabus';
 import { ModuleEditor } from './pages/Creator/ModuleEditor';
 import { UserAdminStudio } from './pages/Admin/UserAdminStudio';
+import { ViewCourses } from './pages/ViewCourses/ViewCourses';
+import { CoursePlayer } from './pages/CoursePlayer/CoursePlayer';
 import './styles/index.css';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/login';
+  const isPlayerPage = location.pathname.startsWith('/course-player');
 
   return (
     <div className="app-container" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {!isAuthPage && <Navbar />}
+      {!isAuthPage && !isPlayerPage && <Navbar />}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -28,9 +31,11 @@ const AppContent: React.FC = () => {
           <Route path="/creator/course/:courseId" element={<CourseSyllabus />} />
           <Route path="/creator/course/:courseId/module/:moduleId" element={<ModuleEditor />} />
           <Route path="/admin/users" element={<UserAdminStudio />} />
+          <Route path="/view-courses" element={<ViewCourses />} />
+          <Route path="/course-player/:enrollmentId" element={<CoursePlayer />} />
         </Routes>
       </main>
-      {!isAuthPage && <Footer />}
+      {!isAuthPage && !isPlayerPage && <Footer />}
     </div>
   );
 };

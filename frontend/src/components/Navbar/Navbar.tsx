@@ -59,6 +59,21 @@ export const Navbar: React.FC = () => {
     };
   }, [location]);
 
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.notif-badge-trigger-wrapper')) {
+        setIsNotifOpen(false);
+      }
+    };
+    if (isNotifOpen) {
+      document.addEventListener('click', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('click', handleOutsideClick);
+    };
+  }, [isNotifOpen]);
+
   const handleLogout = async () => {
     const refreshToken = localStorage.getItem('refresh_token');
     if (refreshToken) {
@@ -105,6 +120,12 @@ export const Navbar: React.FC = () => {
     const updated = notifications.map(n => n.id === notif.id ? { ...n, isRead: true } : n);
     syncNotifications(updated);
     setIsNotifOpen(false);
+
+    const course = coursesList.find((c: any) => c.id === notif.courseId);
+    if (notif.type === 'submission' && course && course.status !== 'Pending') {
+      alert(`This course (${course.title}) has already been reviewed and is currently ${course.status}.`);
+      return;
+    }
 
     if (notif.type === 'submission') {
       // Navigate to Approvals dashboard and open review drawer
@@ -194,6 +215,17 @@ export const Navbar: React.FC = () => {
               data-tooltip="Go to User Administration Studio"
             >
               User Studio
+            </div>
+          )}
+          {userEmail && (userRole === 'Admin' || userRole === 'Manager') && (
+            <div 
+              onClick={() => navigate('/view-courses')} 
+              className={`nav-link tooltip-trigger ${location.pathname === '/view-courses' ? 'active' : ''}`} 
+              style={{ cursor: 'pointer' }}
+              role="button"
+              data-tooltip="Go to Curriculum Preview & Study Workspace"
+            >
+              View Courses
             </div>
           )}
         </nav>

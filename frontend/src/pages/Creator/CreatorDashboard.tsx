@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Plus, BookOpen, Clock, X, AlertTriangle, ShieldAlert,
-  ArrowLeft, Layers, CheckCircle2, ChevronRight, Bookmark
+  ArrowLeft, Layers, ChevronRight, CheckCircle2
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
@@ -157,10 +157,8 @@ export const CreatorDashboard: React.FC = () => {
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
 
   // Navigation states
-  const [activeTab, setActiveTab] = useState<'my_courses' | 'approvals' | 'auditing' | 'departments' | 'view_courses'>('my_courses');
+  const [activeTab, setActiveTab] = useState<'my_courses' | 'approvals' | 'auditing' | 'departments'>('my_courses');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Draft' | 'Pending' | 'Approved' | 'Rejected'>('All');
-  const [myProgress, setMyProgress] = useState<any[]>([]);
-  const [selectedCourseForModules, setSelectedCourseForModules] = useState<any | null>(null);
   
   // Admin departments state
   const [departmentsList, setDepartmentsList] = useState<{ id: string; name: string; code: string; description?: string }[]>([]);
@@ -221,26 +219,7 @@ export const CreatorDashboard: React.FC = () => {
         localStorage.setItem('creator_courses', JSON.stringify(mapped));
       }
 
-      // Fetch enrollments for learner view tab
-      const enrollRes = await apiCall('/api/enrollments/my-courses');
-      if (enrollRes.ok) {
-        const enrollData = await enrollRes.json();
-        const mappedProgress = enrollData.map((e: any) => {
-          let progress = 0;
-          if (e.status === 'completed') progress = 100;
-          else if (e.status === 'in_progress') progress = 50;
-
-          return {
-            id: e.id,
-            courseId: e.course_id,
-            courseCode: e.course_code || 'AI-101',
-            title: e.course_title || 'Enrolled Course',
-            progressPercent: progress,
-            difficulty: 'Beginner' as const
-          };
-        });
-        setMyProgress(mappedProgress);
-      }
+      // Done fetching courses
     } catch (err) {
       console.error('Failed to load courses from DB:', err);
     }
@@ -611,51 +590,6 @@ export const CreatorDashboard: React.FC = () => {
     dispatchNotification(newNotif);
   };
 
-  const handleEnrollCourse = async (courseId: string) => {
-    try {
-      const response = await apiCall('/api/enrollments', {
-        method: 'POST',
-        body: JSON.stringify({
-          course_id: courseId
-        })
-      });
-
-      if (response.ok) {
-        await fetchDBCourses();
-        triggerToast('Enrolled successfully! Course is now added to your learning curriculum.', 'success');
-      } else {
-        const err = await response.json();
-        triggerToast(err.detail || 'Enrollment failed.', 'warning');
-      }
-    } catch (err) {
-      console.error('Failed to enroll in course:', err);
-    }
-  };
-
-  const handleStudyIncrement = async (itemId: string) => {
-    const enrollment = myProgress.find(p => p.id === itemId);
-    if (!enrollment) return;
-    
-    let targetProgress = Math.min(enrollment.progressPercent + 20, 100);
-    
-    try {
-      if (targetProgress === 100) {
-        const res = await apiCall(`/api/enrollments/${itemId}/complete`, { method: 'POST' });
-        if (res.ok) {
-          triggerToast(`Congratulations! You have completed the course and earned a certificate.`, 'success');
-        }
-      }
-      
-      setMyProgress(prev => prev.map(item => {
-        if (item.id === itemId) {
-          return { ...item, progressPercent: targetProgress };
-        }
-        return item;
-      }));
-    } catch (err) {
-      console.error('Failed to update progress in backend:', err);
-    }
-  };
 
   // Scoped views based on active profile
   const isDeptHead = role === 'Manager';
@@ -747,12 +681,7 @@ export const CreatorDashboard: React.FC = () => {
           >
             Studio Analytics
           </button>
-          <button 
-            className={`sidebar-tab-btn ${activeTab === 'view_courses' ? 'active' : ''}`}
-            onClick={() => setActiveTab('view_courses')}
-          >
-            🎓 View Courses
-          </button>
+
           {isAdmin && (
             <button 
               className={`sidebar-tab-btn ${activeTab === 'departments' ? 'active' : ''}`}
@@ -1234,19 +1163,27 @@ export const CreatorDashboard: React.FC = () => {
             </div>
 
             <div className="drawer-footer-actions">
-              <Button 
-                variant="outline" 
-                className="reject-action-btn"
-                onClick={(e) => handleRejectClick(reviewCourse, e)}
-              >
-                Reject Course
-              </Button>
-              <Button 
-                variant="primary" 
-                onClick={() => handleApprove(reviewCourse.id)}
-              >
-                Approve & Publish
-              </Button>
+              {reviewCourse.status === 'Pending' ? (
+                <>
+                  <Button 
+                    variant="outline" 
+                    className="reject-action-btn"
+                    onClick={(e) => handleRejectClick(reviewCourse, e)}
+                  >
+                    Reject Course
+                  </Button>
+                  <Button 
+                    variant="primary" 
+                    onClick={() => handleApprove(reviewCourse.id)}
+                  >
+                    Approve & Publish
+                  </Button>
+                </>
+              ) : (
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'italic', textAlign: 'center', width: '100%', padding: '10px 0' }}>
+                  This course is already {reviewCourse.status} and cannot be modified.
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1300,205 +1237,7 @@ export const CreatorDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 5: View Courses (Learner view for Manager/Admin) */}
-      {activeTab === 'view_courses' && (
-        <div className="dashboard-layout-employee animate-fade-in" style={{ paddingBottom: '40px' }}>
-          <div className="pane-header" style={{ marginBottom: '28px' }}>
-            <h2>🎓 Curriculum Preview (Learner View)</h2>
-            <p>Inspect active learning pathways and course catalogs from a learner perspective.</p>
-          </div>
 
-          <div className="employee-learning-grid" style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '30px', alignItems: 'flex-start' }}>
-            <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              
-              {/* Enrolled Courses */}
-              <div className="enrolled-courses-section">
-                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px' }}>
-                  Active Enrolled Courses
-                </h4>
-                {myProgress.length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', padding: '10px 0' }}>No active course enrollments. Enroll in a course below to start!</p>
-                ) : (
-                  myProgress.map((item) => (
-                    <div key={item.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px', padding: '20px', borderRadius: 'var(--border-radius-md)' }}>
-                      <div className="course-row-info">
-                        <span className="course-row-code">{item.courseCode}</span>
-                        <h4>{item.title}</h4>
-                        <span className="course-row-difficulty">{item.difficulty}</span>
-                      </div>
-
-                      <div className="course-row-tracker" style={{ marginTop: '12px' }}>
-                        <div className="progress-bar-group">
-                          <div className="progress-bar-container" style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px' }}>
-                            <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%`, height: '100%', backgroundColor: 'var(--accent-color)', borderRadius: '3px' }}></div>
-                          </div>
-                          <div className="progress-label-row" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.8rem' }}>
-                            <span>{item.progressPercent}% Completed</span>
-                            {item.progressPercent === 100 && (
-                              <span className="row-success-badge" style={{ color: 'var(--neon-teal)', display: 'flex', alignItems: 'center' }}>
-                                <CheckCircle2 size={12} style={{ marginRight: '4px' }} /> Certified
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-                          <Button
-                            variant="outline"
-                            onClick={() => setSelectedCourseForModules(item)}
-                            style={{ flex: 1 }}
-                          >
-                            View Course
-                          </Button>
-                          
-                          {item.progressPercent === 100 && (
-                            <Button
-                              variant="outline"
-                              disabled
-                              style={{ flex: 1 }}
-                            >
-                              Certified
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Available Courses to Enroll */}
-              <div className="available-courses-section" style={{ marginTop: '20px' }}>
-                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px' }}>
-                  Available Catalog Courses
-                </h4>
-                {courses.filter(c => c.status === 'Approved' && !myProgress.some(p => p.courseId === c.id)).length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', padding: '10px 0' }}>No new courses available to enroll.</p>
-                ) : (
-                  courses
-                    .filter(c => c.status === 'Approved' && !myProgress.some(p => p.courseId === c.id))
-                    .map((course) => (
-                      <div key={course.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px', padding: '20px', borderRadius: 'var(--border-radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div className="course-row-info" style={{ flex: 1, paddingRight: '20px' }}>
-                          <span className="course-row-code">{course.course_code}</span>
-                          <h4>{course.title}</h4>
-                          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{course.description}</p>
-                          <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                            <span>Difficulty: {course.priority}</span>
-                            <span>Duration: {course.duration}</span>
-                          </div>
-                        </div>
-                        <div style={{ minWidth: '150px' }}>
-                          <Button
-                            variant="primary"
-                            onClick={() => handleEnrollCourse(course.id)}
-                            style={{ width: '100%' }}
-                          >
-                            Start Course
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                )}
-              </div>
-
-            </div>
-
-            {/* Side Info Cards */}
-            <div className="employee-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div className="sidebar-card glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', borderLeft: '3px solid var(--accent-color)' }}>
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', margin: 0, fontWeight: '700' }}>
-                  <Bookmark size={18} style={{ color: 'var(--accent-color)' }} />
-                  Recent Course Activity
-                </h3>
-                {myProgress.some(p => p.progressPercent < 100) ? (() => {
-                  const recent = myProgress.find(p => p.progressPercent < 100) || myProgress[0];
-                  return (
-                    <div style={{ marginTop: '12px' }}>
-                      <p style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>{recent.title}</p>
-                      <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.03em', margin: 0 }}>
-                        Active Code: {recent.courseCode}
-                      </p>
-                      
-                      <div className="progress-bar-container" style={{ marginTop: '10px', height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
-                        <div className="progress-bar-fill" style={{ width: `${recent.progressPercent}%`, height: '100%', backgroundColor: 'var(--accent-color)', borderRadius: '2px' }}></div>
-                      </div>
-                      
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        <span>{recent.progressPercent}% Complete</span>
-                      </div>
-
-                      <Button
-                        variant="primary"
-                        onClick={() => handleStudyIncrement(recent.id)}
-                        style={{ width: '100%', marginTop: '12px', padding: '8px 16px', fontSize: '0.82rem' }}
-                      >
-                        Resume Course
-                      </Button>
-                    </div>
-                  );
-                })() : (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '10px' }}>All assigned courses completed! Check your certifications.</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modules Syllabus Modal Overlay */}
-      {selectedCourseForModules && (
-        <div className="modal-overlay" onClick={() => setSelectedCourseForModules(null)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="modal-content-card glass-panel" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '580px', padding: '30px', borderRadius: 'var(--border-radius-md)' }}>
-            <div className="modal-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '14px', marginBottom: '20px' }}>
-              <div>
-                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{selectedCourseForModules.courseCode} Modules</span>
-                <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0 }}>{selectedCourseForModules.title}</h3>
-              </div>
-              <button onClick={() => setSelectedCourseForModules(null)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '1.5rem', cursor: 'pointer', padding: 0, lineHeight: 1 }}>&times;</button>
-            </div>
-
-            <div className="timeline-syllabus-list" style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '350px', overflowY: 'auto', paddingRight: '6px' }}>
-              {[
-                { title: 'Introduction & Development Environment Setup', duration: '2 hours', isCompleted: selectedCourseForModules.progressPercent >= 30 },
-                { title: 'Core Principles & API Integration Practices', duration: '3 hours', isCompleted: selectedCourseForModules.progressPercent >= 60 },
-                { title: 'Advanced Debugging, Optimization, and Deployments', duration: '4 hours', isCompleted: selectedCourseForModules.progressPercent === 100 }
-              ].map((mod, index) => (
-                <div key={index} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '2px solid var(--accent-color)', backgroundColor: mod.isCompleted ? 'var(--accent-color)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 'bold', color: mod.isCompleted ? '#000' : 'var(--text-primary)' }}>
-                      {mod.isCompleted ? '✓' : index + 1}
-                    </div>
-                    {index < 2 && <div style={{ width: '2px', height: '35px', backgroundColor: 'rgba(255,255,255,0.1)', marginTop: '4px' }}></div>}
-                  </div>
-                  <div>
-                    <h4 style={{ fontSize: '0.9rem', margin: 0, color: mod.isCompleted ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{mod.title}</h4>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Duration: {mod.duration}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="modal-footer-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px', marginTop: '20px' }}>
-              {selectedCourseForModules.progressPercent < 100 && (
-                <Button 
-                  variant="primary" 
-                  onClick={() => {
-                    handleStudyIncrement(selectedCourseForModules.id);
-                    setSelectedCourseForModules((prev: any) => {
-                      if (!prev) return null;
-                      return { ...prev, progressPercent: Math.min(prev.progressPercent + 20, 100) };
-                    });
-                  }}
-                >
-                  Simulate Module Progress (+20%)
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => setSelectedCourseForModules(null)}>Close Syllabus</Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Course Creation Modal Overlay */}
       {isCreateModalOpen && (

@@ -118,3 +118,24 @@ def complete_course(
             detail="Permission denied: Cannot modify completion status of another user's enrollment."
         )
     return EnrollmentService.complete_course(db, enrollment_id=enrollment_id)
+
+@router.put(
+    "/{enrollment_id}/progress-percent",
+    response_model=EnrollmentResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update progress percentage",
+    description="Directly update the completion percentage of a course enrollment."
+)
+def update_progress_percent(
+    enrollment_id: UUID,
+    percent: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    enrollment = EnrollmentService.get_enrollment(db, enrollment_id=enrollment_id)
+    if enrollment.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied: Cannot update progress for another user."
+        )
+    return EnrollmentService.update_progress_percent(db, enrollment_id=enrollment_id, percent=percent)

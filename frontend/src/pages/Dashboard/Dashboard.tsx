@@ -814,12 +814,12 @@ export const Dashboard: React.FC = () => {
               {/* Enrolled Courses */}
               <div className="enrolled-courses-section">
                 <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px' }}>
-                  Active Enrolled Courses
+                  Active Enrolled Courses ({myProgress.filter(p => p.progressPercent < 100).length})
                 </h4>
-                {myProgress.length === 0 ? (
+                {myProgress.filter(p => p.progressPercent < 100).length === 0 ? (
                   <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', padding: '10px 0' }}>No active course enrollments. Enroll in a course below to start!</p>
                 ) : (
-                  myProgress.map((item) => (
+                  myProgress.filter(p => p.progressPercent < 100).map((item) => (
                     <div key={item.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px' }}>
                       <div className="course-row-info">
                         <span className="course-row-code">{item.courseCode}</span>
@@ -834,32 +834,17 @@ export const Dashboard: React.FC = () => {
                           </div>
                           <div className="progress-label-row">
                             <span>{item.progressPercent}% Completed</span>
-                            {item.progressPercent === 100 && (
-                              <span className="row-success-badge">
-                                <CheckCircle size={12} style={{ marginRight: '4px' }} /> Certified
-                              </span>
-                            )}
                           </div>
                         </div>
 
                         <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                           <Button
-                            variant="outline"
-                            onClick={() => setSelectedCourseForModules(item)}
+                            variant="primary"
+                            onClick={() => navigate(`/course-player/${item.id}`)}
                             style={{ flex: 1 }}
                           >
-                            View Course
+                            {item.progressPercent > 0 ? 'Resume Course' : 'Start Course'}
                           </Button>
-                          
-                          {item.progressPercent === 100 && (
-                            <Button
-                              variant="outline"
-                              disabled
-                              style={{ flex: 1 }}
-                            >
-                              Certified
-                            </Button>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -901,6 +886,35 @@ export const Dashboard: React.FC = () => {
                 )}
               </div>
 
+              {/* Completed Courses */}
+              <div className="completed-courses-section" style={{ marginTop: '24px' }}>
+                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px' }}>
+                  Completed Courses ({myProgress.filter(p => p.progressPercent === 100).length})
+                </h4>
+                {myProgress.filter(p => p.progressPercent === 100).length === 0 ? (
+                  <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', padding: '10px 0' }}>No completed courses yet. Keep learning to earn certificates!</p>
+                ) : (
+                  myProgress.filter(p => p.progressPercent === 100).map((item) => (
+                    <div key={item.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderColor: '#10b981' }}>
+                      <div className="course-row-info">
+                        <span className="course-row-code" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>✓ Certified</span>
+                        <h4 style={{ marginTop: '4px' }}>{item.title}</h4>
+                        <span className="course-row-difficulty">{item.difficulty}</span>
+                      </div>
+                      <div>
+                        <Button
+                          variant="outline"
+                          onClick={() => alert(`Showing digital certificate for ${item.title}`)}
+                          leftIcon={<Award size={14} />}
+                        >
+                          View Certificate
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
             </div>
 
             {/* Side Info Cards */}
@@ -931,7 +945,7 @@ export const Dashboard: React.FC = () => {
 
                       <Button
                         variant="primary"
-                        onClick={() => handleStudyIncrement(recent.id)}
+                        onClick={() => navigate(`/course-player/${recent.id}`)}
                         style={{ width: '100%', marginTop: '12px', padding: '8px 16px', fontSize: '0.82rem' }}
                       >
                         Resume Course

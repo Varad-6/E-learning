@@ -21,6 +21,7 @@ class EnrollmentResponse(BaseModel):
     status: EnrollmentStatus
     course_code: Optional[str] = None
     course_title: Optional[str] = None
+    progress_percent: int = 0
     enrolled_at: datetime
     completed_at: Optional[datetime] = None
 
