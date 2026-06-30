@@ -95,7 +95,16 @@ This file serves as our living documentation and changelog. As we implement part
 - [x] Integrated active account toggle status (suspension) and soft deletion capabilities.
 - [x] Wrote automated Playwright E2E verification test suite for Admin user lifecycle checks.
 
+### Phase 10: Senior Course Player Overhaul & Locks
+- [x] Built left-side curriculum drawer panel with slide animation toggle.
+- [x] Enforced sequential locking progression to prevent skipping modules before completing previous assessments.
+- [x] Added right-side persistent Notes Pad workspace with download notes text file capability and localStorage persistence.
+- [x] Upgraded video slide player to support local video uploads and YouTube embedded parameters.
+- [x] Integrated end-of-module interactive MCQ quiz with unlock flags.
+- [x] Rendered global theme toggle inside player header for full Light/Dark mode transitions.
+
 ---
+
 
 ## 🛠️ Folder Structure
 ```
@@ -184,3 +193,12 @@ This file serves as our living documentation and changelog. As we implement part
 - Removed bright blue underline active slide indicators from both the global Navbar and general Dashboard tabs, replacing them with subtle theme-accent capsule background highlights.
 - Restored the 2.5-second full-screen loading splash overlay transition screen (`.login-transition-overlay`) in the credentials login process.
 - Replaced `<Link>` tags in the global Navbar with custom styled `div` buttons executing programmatic `navigate()` calls. This completely eliminates the browser's native hover preview status bar at the bottom-left of the screen.
+
+### [2026-06-29] - Senior Course Player Overhaul & Locks
+- Overhauled [CoursePlayer.tsx](file:///C:/Users/Varad/Documents/GitHub/E-learning/frontend/src/pages/CoursePlayer/CoursePlayer.tsx) to integrate a left-side curriculum drawer panel with slide animation toggle.
+- Enforced sequential module locking progression to prevent skipping modules before completing previous assessments.
+- Integrated a right-side Study Notes pad widget with save and download text file features.
+- Upgraded the media player to support YouTube video embed rendering alongside custom local file uploads.
+- Built interactive module quiz questions with score verification and next module unlocks.
+- Provided global theme toggling hooks support to support Light/Dark theme transitions inside the player.
+
