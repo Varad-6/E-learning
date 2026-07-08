@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api/enrollments", tags=["Enrollments"])
     response_model=EnrollmentResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Enroll in Course",
-    description="Enroll a user in a published course. Users can enroll themselves, or Admins/Managers can enroll others."
+    description="Enroll a user in a published course. Users can enroll themselves, or System Admins/Course Managers can enroll others."
 )
 def enroll_user(
     request: EnrollmentCreate,
@@ -28,7 +28,7 @@ def enroll_user(
     target_user_id = current_user.id
     if request.user_id and request.user_id != current_user.id:
         user_roles = [r.name for r in current_user.roles]
-        if "ADMIN" not in user_roles and "MANAGER" not in user_roles:
+        if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Permission denied: Cannot enroll other users."
@@ -55,7 +55,7 @@ def get_my_enrollments(
     response_model=EnrollmentResponse,
     status_code=status.HTTP_200_OK,
     summary="Get Enrollment",
-    description="Retrieve enrollment details by enrollment ID. Accessible by the enrolled user, Admin, or Manager."
+    description="Retrieve enrollment details by enrollment ID. Accessible by the enrolled user, System Admin, or Course Manager."
 )
 def get_enrollment(
     enrollment_id: UUID,
@@ -66,7 +66,7 @@ def get_enrollment(
     
     # Permission check
     user_roles = [r.name for r in current_user.roles]
-    if enrollment.user_id != current_user.id and "ADMIN" not in user_roles and "MANAGER" not in user_roles:
+    if enrollment.user_id != current_user.id and "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied: Cannot view other users' enrollments."
@@ -101,7 +101,7 @@ def update_progress(
     response_model=EnrollmentResponse,
     status_code=status.HTTP_200_OK,
     summary="Complete Course",
-    description="Mark a course enrollment as completed. Accessible by the enrolled user, Admin, or Manager."
+    description="Mark a course enrollment as completed. Accessible by the enrolled user, System Admin, or Course Manager."
 )
 def complete_course(
     enrollment_id: UUID,
@@ -112,7 +112,7 @@ def complete_course(
     
     # Permission check
     user_roles = [r.name for r in current_user.roles]
-    if enrollment.user_id != current_user.id and "ADMIN" not in user_roles and "MANAGER" not in user_roles:
+    if enrollment.user_id != current_user.id and "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied: Cannot modify completion status of another user's enrollment."

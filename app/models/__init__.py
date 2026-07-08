@@ -14,6 +14,7 @@ from app.models.quiz import Quiz
 from app.models.quiz_question import QuizQuestion
 from app.models.quiz_attempt import QuizAttempt
 from app.models.course_approval import CourseApproval
+from app.models.user_module_note import UserModuleNote
 
 __all__ = [
     "Base",
@@ -32,4 +33,5 @@ __all__ = [
     "QuizQuestion",
     "QuizAttempt",
     "CourseApproval",
+    "UserModuleNote",
 ]

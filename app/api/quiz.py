@@ -18,12 +18,12 @@ router = APIRouter(prefix="/api/quizzes", tags=["Quizzes"])
     response_model=QuizResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Quiz",
-    description="Create a new quiz. Restricted to Admins and Managers."
+    description="Create a new quiz. Restricted to System Admin and Course Manager."
 )
 def create_quiz(
     request: QuizCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
     return QuizService.create_quiz(db, request=request)
 
@@ -46,13 +46,13 @@ def get_quiz(
     response_model=QuizQuestionResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Quiz Question",
-    description="Add a new question to a quiz. Restricted to Admins and Managers."
+    description="Add a new question to a quiz. Restricted to System Admin and Course Manager."
 )
 def create_question(
     quiz_id: UUID,
     request: QuizQuestionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
     return QuizService.create_question(db, quiz_id=quiz_id, request=request)
 

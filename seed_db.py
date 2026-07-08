@@ -48,11 +48,12 @@ try:
         db_depts[code] = dept
 
     # Check and Create Roles
-    role_names = ['ADMIN', 'MANAGER', 'EMPLOYEE']
+    role_names = ['SYSTEM_ADMIN', 'HR_ADMIN', 'COURSE_MANAGER', 'EMPLOYEE']
     role_ids = {
-        'ADMIN': uuid.UUID('a0a0a0a0-0000-0000-0000-000000000001'),
-        'MANAGER': uuid.UUID('a0a0a0a0-0000-0000-0000-000000000002'),
-        'EMPLOYEE': uuid.UUID('a0a0a0a0-0000-0000-0000-000000000003')
+        'SYSTEM_ADMIN': uuid.UUID('a0a0a0a0-0000-0000-0000-000000000001'),
+        'COURSE_MANAGER': uuid.UUID('a0a0a0a0-0000-0000-0000-000000000002'),
+        'EMPLOYEE': uuid.UUID('a0a0a0a0-0000-0000-0000-000000000003'),
+        'HR_ADMIN': uuid.UUID('a0a0a0a0-0000-0000-0000-000000000004')
     }
     
     db_roles = {}
@@ -85,7 +86,7 @@ try:
             'email': 'admin@lms.com',
             'password_hash': get_password_hash('Temp@123'),
             'department_id': db_depts['HR'].id,
-            'role': 'ADMIN'
+            'role': 'SYSTEM_ADMIN'
         },
         {
             'id': uuid.UUID('55555555-5555-5555-5555-555555555555'),
@@ -95,7 +96,17 @@ try:
             'email': 'manager@lms.com',
             'password_hash': get_password_hash('Manager@123'),
             'department_id': db_depts['AI'].id,
-            'role': 'MANAGER'
+            'role': 'COURSE_MANAGER'
+        },
+        {
+            'id': uuid.UUID('77777777-7777-7777-7777-777777777777'),
+            'employee_code': 'HR001',
+            'first_name': 'HR Admin',
+            'last_name': 'User',
+            'email': 'hr@lms.com',
+            'password_hash': get_password_hash('HrAdmin@123'),
+            'department_id': db_depts['HR'].id,
+            'role': 'HR_ADMIN'
         }
     ]
 
@@ -123,8 +134,24 @@ try:
             db.add(ur)
             db.commit()
         else:
-            # Check if role link exists, if not add it
+            # Update user's name/email/department/password_hash if needed
+            user.first_name = u_info['first_name']
+            user.last_name = u_info['last_name']
+            user.email = u_info['email']
+            user.password_hash = u_info['password_hash']
+            user.department_id = u_info['department_id']
+            db.commit()
+            
+            # Ensure the correct role is linked and clean up old/incorrect roles
             role_obj = db_roles[u_info['role']]
+            
+            # Remove any user_roles that don't match the new role for this seed user
+            db.query(UserRole).filter(
+                UserRole.user_id == user.id,
+                UserRole.role_id != role_obj.id
+            ).delete()
+            db.commit()
+
             role_link = db.query(UserRole).filter(
                 UserRole.user_id == user.id, 
                 UserRole.role_id == role_obj.id

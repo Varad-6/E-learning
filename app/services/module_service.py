@@ -7,7 +7,7 @@ from app.models.course import Course
 from app.models.course_module import CourseModule
 from app.models.module_content import ModuleContent
 from app.schemas.course import (
-    ModuleCreate, ModuleUpdate, ModuleContentCreate, ModuleContentUpdate
+    ModuleCreate, ModuleUpdate, ModuleContentCreate, ModuleContentUpdate, ReorderItem
 )
 
 class ModuleService:
@@ -102,7 +102,9 @@ class ModuleService:
             file_path=request.file_path,
             duration_seconds=request.duration_seconds,
             sequence_no=request.sequence_no,
-            is_active=request.is_active
+            is_active=request.is_active,
+            value=request.value,
+            label=request.label
         )
         db.add(db_content)
         db.commit()
@@ -130,6 +132,10 @@ class ModuleService:
             db_content.sequence_no = request.sequence_no
         if request.is_active is not None:
             db_content.is_active = request.is_active
+        if request.value is not None:
+            db_content.value = request.value
+        if request.label is not None:
+            db_content.label = request.label
 
         db.commit()
         db.refresh(db_content)
@@ -179,3 +185,19 @@ class ModuleService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Module with ID {module_id} does not belong to course with ID {course_id}."
             )
+
+    @staticmethod
+    def reorder_modules(db: Session, items: List[ReorderItem]) -> None:
+        for item in items:
+            db_module = db.query(CourseModule).filter(CourseModule.id == item.id).first()
+            if db_module:
+                db_module.sequence_no = item.sequence_no
+        db.commit()
+
+    @staticmethod
+    def reorder_contents(db: Session, items: List[ReorderItem]) -> None:
+        for item in items:
+            db_content = db.query(ModuleContent).filter(ModuleContent.id == item.id).first()
+            if db_content:
+                db_content.sequence_no = item.sequence_no
+        db.commit()

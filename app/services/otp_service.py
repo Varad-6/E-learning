@@ -27,17 +27,17 @@ class OTPService:
         return otp_code
 
     @staticmethod
-    def verify_otp(db: Session, employee_code: str, otp_code: str) -> PasswordResetOTP:
+    def verify_otp(db: Session, email: str, otp_code: str) -> PasswordResetOTP:
         """Verify if the OTP exists, has not expired, and has not been used."""
         user = db.query(User).filter(
-            User.employee_code == employee_code, 
+            User.email == email, 
             User.is_deleted == False
         ).first()
         
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User with specified employee code not found",
+                detail="User with specified email address not found",
             )
 
         db_otp = db.query(PasswordResetOTP).filter(

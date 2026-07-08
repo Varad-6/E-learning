@@ -9,13 +9,10 @@ export const Landing: React.FC = () => {
 
   const handlePortalLogin = async (role: string, email: string, dept: string) => {
     console.log(`Portal login for ${email}`);
-    let empCode = 'EMP001';
     let password = 'Employee@1234';
     if (role === 'Manager') {
-      empCode = 'MGR001';
       password = 'Manager@123';
     } else if (role === 'Admin') {
-      empCode = 'ADM001';
       password = 'Temp@123';
     }
 
@@ -26,7 +23,7 @@ export const Landing: React.FC = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          employee_code: empCode,
+          email: email,
           password: password
         })
       });
@@ -43,8 +40,8 @@ export const Landing: React.FC = () => {
       
       const backendRole = data.roles[0] || 'EMPLOYEE';
       let mappedRole = 'Employee';
-      if (backendRole === 'MANAGER' || backendRole === 'CREATOR') mappedRole = 'Manager';
-      else if (backendRole === 'ADMIN') mappedRole = 'Admin';
+      if (backendRole === 'COURSE_MANAGER') mappedRole = 'Manager';
+      else if (backendRole === 'SYSTEM_ADMIN' || backendRole === 'HR_ADMIN') mappedRole = 'Admin';
       
       localStorage.setItem('isLoggedInRole', mappedRole);
       localStorage.setItem('isLoggedInDept', dept);
@@ -118,7 +115,7 @@ export const Landing: React.FC = () => {
             </p>
             <Button
               variant="primary"
-              onClick={() => handlePortalLogin('Employee', 'learner@company.com', 'Engineering')}
+              onClick={() => handlePortalLogin('Employee', 'john.doe@lms.com', 'Engineering')}
               className="portal-login-btn tooltip-trigger"
               data-tooltip="Instant login as Learner (Employee)"
             >
@@ -142,7 +139,7 @@ export const Landing: React.FC = () => {
             </p>
             <Button
               variant="purple"
-              onClick={() => handlePortalLogin('Manager', 'creator@company.com', 'Product')}
+              onClick={() => handlePortalLogin('Manager', 'manager@lms.com', 'Product')}
               className="portal-login-btn tooltip-trigger"
               data-tooltip="Instant login as Department Head"
             >
@@ -166,7 +163,7 @@ export const Landing: React.FC = () => {
             </p>
             <Button
               variant="coral"
-              onClick={() => handlePortalLogin('Admin', 'admin@company.com', 'Operations')}
+              onClick={() => handlePortalLogin('Admin', 'admin@lms.com', 'Operations')}
               className="portal-login-btn tooltip-trigger"
               data-tooltip="Instant login as System Administrator"
             >

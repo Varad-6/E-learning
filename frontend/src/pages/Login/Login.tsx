@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Lock, Mail, Users, Building, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Lock, Mail, Building, ShieldAlert } from 'lucide-react';
 import { Input } from '../../components/Input/Input';
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
@@ -10,13 +10,13 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
   
   // Sign In states
-  const [employeeCode, setEmployeeCode] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [departmentsList, setDepartmentsList] = useState<{ id: string; name: string; code: string }[]>([]);
   
   // Forgot Password / OTP states
   const [loginMode, setLoginMode] = useState<'signin' | 'forgot_email' | 'forgot_otp' | 'forgot_reset'>('signin');
-  const [resetEmployeeCode, setResetEmployeeCode] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -54,11 +54,12 @@ export const Login: React.FC = () => {
 
   const validateForm = () => {
     const tempErrors: { [key: string]: string } = {};
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     
-    if (!employeeCode.trim()) {
-      tempErrors.employeeCode = 'Employee Code or Email is required.';
-    } else if (employeeCode.length < 3) {
-      tempErrors.employeeCode = 'Must be at least 3 characters.';
+    if (!email.trim()) {
+      tempErrors.email = 'Corporate Email is required.';
+    } else if (!emailRegex.test(email)) {
+      tempErrors.email = 'Corporate Email address is invalid (invalid domain or suffix).';
     }
 
     if (!password) {
@@ -82,7 +83,7 @@ export const Login: React.FC = () => {
       const response = await apiCall('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({
-          employee_code: employeeCode,
+          email: email,
           password: password,
         }),
       });
@@ -104,8 +105,8 @@ export const Login: React.FC = () => {
       
       const backendRole = data.roles[0] || 'EMPLOYEE';
       let mappedRole = 'Employee';
-      if (backendRole === 'MANAGER' || backendRole === 'CREATOR') mappedRole = 'Manager';
-      else if (backendRole === 'ADMIN') mappedRole = 'Admin';
+      if (backendRole === 'COURSE_MANAGER') mappedRole = 'Manager';
+      else if (backendRole === 'SYSTEM_ADMIN' || backendRole === 'HR_ADMIN') mappedRole = 'Admin';
       
       localStorage.setItem('isLoggedInRole', mappedRole);
       
@@ -141,8 +142,12 @@ export const Login: React.FC = () => {
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resetEmployeeCode.trim()) {
-      setErrors({ resetEmployeeCode: 'Employee code is required.' });
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!resetEmail.trim()) {
+      setErrors({ resetEmail: 'Email address is required.' });
+      return;
+    } else if (!emailRegex.test(resetEmail)) {
+      setErrors({ resetEmail: 'Email format is invalid.' });
       return;
     }
     setIsLoading(true);
@@ -150,7 +155,7 @@ export const Login: React.FC = () => {
     try {
       const response = await apiCall('/api/auth/forgot-password', {
         method: 'POST',
-        body: JSON.stringify({ employee_code: resetEmployeeCode }),
+        body: JSON.stringify({ email: resetEmail }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -180,7 +185,7 @@ export const Login: React.FC = () => {
       const response = await apiCall('/api/auth/verify-otp', {
         method: 'POST',
         body: JSON.stringify({
-          employee_code: resetEmployeeCode,
+          email: resetEmail,
           otp: otpCode
         }),
       });
@@ -219,7 +224,7 @@ export const Login: React.FC = () => {
       const response = await apiCall('/api/auth/reset-password', {
         method: 'POST',
         body: JSON.stringify({
-          employee_code: resetEmployeeCode,
+          email: resetEmail,
           otp: otpCode,
           new_password: newPassword
         }),
@@ -233,7 +238,7 @@ export const Login: React.FC = () => {
       setIsLoading(false);
       alert('Password has been successfully updated!');
       setLoginMode('signin');
-      setResetEmployeeCode('');
+      setResetEmail('');
       setOtpCode('');
       setNewPassword('');
       setConfirmPassword('');
@@ -306,13 +311,14 @@ export const Login: React.FC = () => {
                   </div>
                 )}
                 <form onSubmit={handleLoginSubmit} className="login-form">
-                  {/* Employee Code / Email */}
+                  {/* Corporate Email */}
                   <Input
-                    label="Employee Code or Email"
-                    placeholder="e.g. EMP-2035 or employee@company.com"
-                    value={employeeCode}
-                    onChange={(e) => setEmployeeCode(e.target.value)}
-                    error={errors.employeeCode}
+                    label="Corporate Email Address"
+                    placeholder="e.g. employee@company.com"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    error={errors.email}
                     leftIcon={<Mail size={18} />}
                   />
 
@@ -350,8 +356,6 @@ export const Login: React.FC = () => {
                     </div>
                   </div>
 
-
-
                   {/* Submit */}
                   <Button
                     type="submit"
@@ -369,7 +373,7 @@ export const Login: React.FC = () => {
               <>
                 <div className="form-heading">
                   <h2>Forgot Password</h2>
-                  <p>Enter your employee code to receive an OTP verification email.</p>
+                  <p>Enter your corporate email address to receive an OTP verification email.</p>
                 </div>
 
                 {errors.form && (
@@ -380,12 +384,13 @@ export const Login: React.FC = () => {
                 )}
                 <form onSubmit={handleSendOTP} className="login-form">
                   <Input
-                    label="Employee Code"
-                    placeholder="e.g. EMP001"
-                    value={resetEmployeeCode}
-                    onChange={(e) => setResetEmployeeCode(e.target.value)}
-                    error={errors.resetEmployeeCode}
-                    leftIcon={<Users size={18} />}
+                    label="Corporate Email Address"
+                    placeholder="e.g. employee@company.com"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    error={errors.resetEmail}
+                    leftIcon={<Mail size={18} />}
                   />
 
                   <Button

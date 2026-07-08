@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Play, Pause, Check, Volume2, RotateCcw,
   BookOpen, ChevronDown, ChevronRight, HelpCircle, Award, 
-  FileText, Download, Menu, X, Lock, Unlock, Sun, Moon
+  FileText, Download, Menu, X, Lock, Unlock
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
@@ -485,7 +485,7 @@ export const CoursePlayer: React.FC = () => {
     const questionsList = getActiveQuizQuestions();
     let correctCount = 0;
     
-    questionsList.forEach((q, idx) => {
+    questionsList.forEach((q: any, idx: number) => {
       if (quizAnswers[idx] === q.correctAnswer) {
         correctCount++;
       }

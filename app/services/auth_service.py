@@ -25,14 +25,14 @@ class AuthService:
         """Authenticate user, verify status/password, and return JWT tokens with user data."""
         # Find active user
         user = db.query(User).filter(
-            User.employee_code == request.employee_code, 
+            User.email == request.email, 
             User.is_deleted == False
         ).first()
 
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid employee code or password"
+                detail="Invalid email address or password"
             )
 
         if not user.is_active:
@@ -45,14 +45,14 @@ class AuthService:
         if not verify_password(request.password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid employee code or password"
+                detail="Invalid email address or password"
             )
 
         # Extract roles
         roles = [r.name for r in user.roles]
 
         # Verify department if provided and not an admin
-        if request.department_id and "ADMIN" not in roles:
+        if request.department_id and "SYSTEM_ADMIN" not in roles:
             from uuid import UUID
             try:
                 dept_uuid = UUID(request.department_id)
@@ -139,7 +139,7 @@ class AuthService:
     def forgot_password(db: Session, request: ForgotPasswordRequest) -> None:
         """Trigger OTP generation and dispatch email for password resets."""
         user = db.query(User).filter(
-            User.employee_code == request.employee_code,
+            User.email == request.email,
             User.is_deleted == False
         ).first()
 
@@ -147,7 +147,7 @@ class AuthService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Employee code not found"
+                detail="Email address not found"
             )
 
         if not user.is_active:
@@ -166,13 +166,13 @@ class AuthService:
     def verify_otp(db: Session, request: VerifyOTPRequest) -> None:
         """Verify OTP validity without resetting password yet."""
         # Simply verifying will check existence, expiration, and use state
-        OTPService.verify_otp(db, request.employee_code, request.otp)
+        OTPService.verify_otp(db, request.email, request.otp)
 
     @staticmethod
     def reset_password(db: Session, request: ResetPasswordRequest) -> None:
         """Verify OTP and update user password with new hash."""
         # Verify OTP
-        db_otp = OTPService.verify_otp(db, request.employee_code, request.otp)
+        db_otp = OTPService.verify_otp(db, request.email, request.otp)
 
         # Validate password strength
         if not validate_password_strength(request.new_password):

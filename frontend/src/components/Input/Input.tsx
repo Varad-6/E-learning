@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import './Input.css';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -8,8 +9,12 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, leftIcon, className = '', id, ...props }, ref) => {
+  ({ label, error, leftIcon, className = '', id, type, ...props }, ref) => {
     const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+    const [showPassword, setShowPassword] = useState(false);
+
+    const isPassword = type === 'password';
+    const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
 
     return (
       <div className={`input-group-container ${error ? 'input-has-error' : ''} ${className}`}>
@@ -23,9 +28,20 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             id={inputId}
             ref={ref}
-            className={`custom-input-field ${leftIcon ? 'has-left-icon' : ''}`}
+            type={inputType}
+            className={`custom-input-field ${leftIcon ? 'has-left-icon' : ''} ${isPassword ? 'has-right-icon' : ''}`}
             {...props}
           />
+          {isPassword && (
+            <button
+              type="button"
+              className="input-password-toggle"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          )}
         </div>
         {error && <span className="input-error-msg">{error}</span>}
       </div>
@@ -34,3 +50,4 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 );
 
 Input.displayName = 'Input';
+

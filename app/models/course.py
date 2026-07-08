@@ -38,11 +38,8 @@ class Course(Base):
     @property
     def creator_role(self) -> str:
         if self.creator and self.creator.roles:
-            # Return manager/department head if the database role is MANAGER
             r_name = self.creator.roles[0].name
-            if r_name == "MANAGER":
-                return "Department Head"
-            return r_name.title()
+            return r_name.replace("_", " ").title()
         return "Employee"
 
     @property

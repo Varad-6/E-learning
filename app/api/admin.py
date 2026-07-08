@@ -14,12 +14,12 @@ router = APIRouter(prefix="/api/admin", tags=["Admin"])
     response_model=AdminUserResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create User",
-    description="Create a new user profile with default configurations. Restricted to Admins."
+    description="Create a new user profile with default configurations. Restricted to System Admin and HR Admin."
 )
 def create_user(
     request: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
     return AdminService.create_user(db, request=request)
 
@@ -28,13 +28,13 @@ def create_user(
     response_model=AdminUserResponse,
     status_code=status.HTTP_200_OK,
     summary="Update User",
-    description="Update user account information and statuses. Restricted to Admins."
+    description="Update user account information and statuses. Restricted to System Admin and HR Admin."
 )
 def update_user(
     user_id: UUID,
     request: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
     return AdminService.update_user(db, user_id=user_id, request=request)
 
@@ -43,13 +43,13 @@ def update_user(
     response_model=UserListResponse,
     status_code=status.HTTP_200_OK,
     summary="List Users",
-    description="Retrieve a paginated list of non-deleted users. Restricted to Admins."
+    description="Retrieve a paginated list of non-deleted users. Restricted to System Admin and HR Admin."
 )
 def list_users(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
     users = AdminService.list_users(db, skip=skip, limit=limit)
     total = db.query(User).filter(User.is_deleted == False).count()
@@ -60,13 +60,13 @@ def list_users(
     response_model=AdminUserResponse,
     status_code=status.HTTP_200_OK,
     summary="Assign User Roles",
-    description="Assign user roles. Restricted to Admins."
+    description="Assign user roles. Restricted to System Admin."
 )
 def assign_role(
     user_id: UUID,
     request: RoleAssignmentRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN"))
 ):
     if request.user_id != user_id:
         raise HTTPException(

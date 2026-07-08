@@ -27,8 +27,23 @@ def list_courses(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    courses = CourseService.list_courses(db, skip=skip, limit=limit, status_filter=status_filter)
+    courses = CourseService.list_courses(db, current_user=current_user, skip=skip, limit=limit, status_filter=status_filter)
+    
+    # Apply the same scope filtering to total count for correct pagination metadata
+    roles = [r.name for r in current_user.roles]
     total_count = db.query(Course)
+    if "SYSTEM_ADMIN" not in roles:
+        from sqlalchemy import or_, and_
+        total_count = total_count.filter(
+            or_(
+                Course.created_by == current_user.id,
+                and_(
+                    Course.status == "approved",
+                    Course.department_id == current_user.department_id
+                )
+            )
+        )
+        
     if status_filter:
         total_count = total_count.filter(Course.status == status_filter)
     total = total_count.count()
@@ -53,12 +68,12 @@ def get_course(
     response_model=CourseResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Course",
-    description="Create a new course. Restricted to Admins, Managers, and Employees."
+    description="Create a new course. Restricted to System Admin, Course Manager, and Employees."
 )
 def create_course(
     request: CourseCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER", "EMPLOYEE"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER", "EMPLOYEE"))
 ):
     return CourseService.create_course(db, request=request, user_id=current_user.id)
 
@@ -67,13 +82,13 @@ def create_course(
     response_model=CourseResponse,
     status_code=status.HTTP_200_OK,
     summary="Update Course",
-    description="Update course details. Restricted to Admins, Managers, and Employees."
+    description="Update course details. Restricted to System Admin, Course Manager, and Employees."
 )
 def update_course(
     course_id: UUID,
     request: CourseUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER", "EMPLOYEE"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER", "EMPLOYEE"))
 ):
     return CourseService.update_course(db, course_id=course_id, request=request)
 
@@ -81,12 +96,12 @@ def update_course(
     "/{course_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Course",
-    description="Delete a course. Restricted to Admins and Managers."
+    description="Delete a course. Restricted to System Admin and Course Manager."
 )
 def delete_course(
     course_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
     CourseService.delete_course(db, course_id=course_id)
     return None
@@ -96,12 +111,12 @@ def delete_course(
     response_model=CourseResponse,
     status_code=status.HTTP_200_OK,
     summary="Publish Course",
-    description="Publish an approved course. Restricted to Admins and Managers."
+    description="Publish an approved course. Restricted to System Admin and Course Manager."
 )
 def publish_course(
     course_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
     return CourseService.publish_course(db, course_id=course_id)
 
@@ -122,12 +137,12 @@ def submit_for_approval(
     "/{course_id}/approve",
     status_code=status.HTTP_200_OK,
     summary="Approve Course",
-    description="Approve a pending course approval request. Restricted to Admins and Managers."
+    description="Approve a pending course approval request. Restricted to System Admin and Course Manager."
 )
 def approve_course(
     course_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
     return CourseService.approve_course(db, course_id=course_id, reviewer_id=current_user.id)
 
@@ -135,13 +150,13 @@ def approve_course(
     "/{course_id}/reject",
     status_code=status.HTTP_200_OK,
     summary="Reject Course",
-    description="Reject a pending course approval request with a reason. Restricted to Admins and Managers."
+    description="Reject a pending course approval request with a reason. Restricted to System Admin and Course Manager."
 )
 def reject_course(
     course_id: UUID,
     rejection_reason: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN", "MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
     return CourseService.reject_course(
         db, course_id=course_id, reviewer_id=current_user.id, rejection_reason=rejection_reason

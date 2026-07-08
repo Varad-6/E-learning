@@ -104,11 +104,30 @@ class CourseService:
     @staticmethod
     def list_courses(
         db: Session, 
+        current_user: User,
         skip: int = 0, 
         limit: int = 100, 
         status_filter: Optional[str] = None
     ) -> List[Course]:
         query = db.query(Course)
+        
+        # Extract user roles
+        roles = [r.name for r in current_user.roles]
+        
+        if "SYSTEM_ADMIN" not in roles:
+            from sqlalchemy import or_, and_
+            # Learners and Managers should only see approved courses belonging to their department,
+            # or any courses they created themselves (drafts, pending, rejected).
+            query = query.filter(
+                or_(
+                    Course.created_by == current_user.id,
+                    and_(
+                        Course.status == "approved",
+                        Course.department_id == current_user.department_id
+                    )
+                )
+            )
+            
         if status_filter:
             query = query.filter(Course.status == status_filter)
         return query.offset(skip).limit(limit).all()

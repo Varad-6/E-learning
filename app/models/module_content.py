@@ -15,6 +15,8 @@ class ModuleContent(Base):
     duration_seconds = Column(Integer, nullable=True)
     sequence_no = Column(Integer, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    value = Column(String, nullable=True)
+    label = Column(String, nullable=True)
 
     # Relationships
     module = relationship("CourseModule", back_populates="contents")

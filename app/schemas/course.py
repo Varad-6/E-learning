@@ -17,6 +17,8 @@ class ModuleContentCreate(BaseModel):
     duration_seconds: Optional[int] = Field(None, description="Duration in seconds if applicable")
     sequence_no: int = Field(..., description="Display order sequence number")
     is_active: bool = Field(True, description="Whether this content is active")
+    value: Optional[str] = Field(None, description="Value/text content of the block")
+    label: Optional[str] = Field(None, description="Label for download or button attachments")
 
 class ModuleContentResponse(BaseModel):
     id: UUID
@@ -27,6 +29,8 @@ class ModuleContentResponse(BaseModel):
     duration_seconds: Optional[int] = None
     sequence_no: int
     is_active: bool
+    value: Optional[str] = None
+    label: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -129,4 +133,15 @@ class ModuleContentUpdate(BaseModel):
     duration_seconds: Optional[int] = Field(None, description="Duration in seconds if applicable")
     sequence_no: Optional[int] = Field(None, description="Display order sequence number")
     is_active: Optional[bool] = Field(None, description="Whether this content is active")
+    value: Optional[str] = Field(None, description="Value/text content of the block")
+    label: Optional[str] = Field(None, description="Label for download or button attachments")
+
+
+class ReorderItem(BaseModel):
+    id: UUID = Field(..., description="ID of the item to reorder")
+    sequence_no: int = Field(..., description="New sequence number / display order")
+
+
+class ReorderRequest(BaseModel):
+    items: List[ReorderItem] = Field(..., description="List of items with their new sequences")
 

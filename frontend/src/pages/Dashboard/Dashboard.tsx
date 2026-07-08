@@ -89,6 +89,7 @@ export const Dashboard: React.FC = () => {
   const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false);
   const [role, setRole] = useState<string>('Employee');
   const [dept, setDept] = useState<string>('AI');
+  const [departmentsList, setDepartmentsList] = useState<{ id: string; name: string; code: string }[]>([]);
 
   const [activeMainView, setActiveMainView] = useState<'dashboard' | 'profile'>('dashboard');
   const [celebratedBadge, setCelebratedBadge] = useState<Badge | null>(null);
@@ -107,16 +108,9 @@ export const Dashboard: React.FC = () => {
   const getManagerForDept = (deptName: string): string => {
     const managers: { [key: string]: string } = {
       'AI': 'Dr. Evelyn C.',
-      'Sales and Distribution': 'Sarah Connor',
-      'Material Management': 'Marcus Aurelius',
-      'Production Planning': 'Julius Caesar',
-      'Basis': 'Ada Lovelace',
-      'FICO Finance': 'Warren B.',
-      'PS': 'George Washington',
+      'FICO': 'Warren B.',
       'ABAP': 'Linus Torvalds',
-      'Graphic Design': 'Paul Rand',
-      'HR and Admin': 'John Watson',
-      'Sales and Marketing': 'Steve Jobs'
+      'HR': 'John Watson',
     };
     return managers[deptName] || 'John Watson';
   };
@@ -264,6 +258,19 @@ export const Dashboard: React.FC = () => {
       const activeRole = savedRole || 'Employee';
       if (savedRole) setRole(savedRole);
       if (savedDept) setDept(savedDept);
+
+      const fetchDepts = async () => {
+        try {
+          const response = await fetch('http://127.0.0.1:8000/api/departments');
+          if (response.ok) {
+            const data = await response.json();
+            setDepartmentsList(data);
+          }
+        } catch (err) {
+          console.error('Failed to fetch departments in dashboard:', err);
+        }
+      };
+      fetchDepts();
 
       const emailPrefix = savedEmail ? savedEmail.split('@')[0] : '';
       
@@ -1010,13 +1017,9 @@ export const Dashboard: React.FC = () => {
                 style={{ width: 'auto', padding: '8px 14px' }}
               >
                 <option value="All">All Departments</option>
-                <option value="AI">AI</option>
-                <option value="Sales and Distribution">Sales and Distribution</option>
-                <option value="Material Management">Material Management</option>
-                <option value="FICO Finance">FICO Finance</option>
-                <option value="ABAP">ABAP</option>
-                <option value="Graphic Design">Graphic Design</option>
-                <option value="HR and Admin">HR and Admin</option>
+                {departmentsList.map((d) => (
+                  <option key={d.id} value={d.code}>{d.name} ({d.code})</option>
+                ))}
               </select>
             </div>
           </div>
@@ -1071,7 +1074,7 @@ export const Dashboard: React.FC = () => {
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       {managedCourses
-                        .filter(c => activeManagerFilterDept === 'All' || c.course_code.includes(activeManagerFilterDept === 'Sales and Distribution' ? 'SD' : activeManagerFilterDept === 'FICO Finance' ? 'FICO' : activeManagerFilterDept))
+                        .filter(c => activeManagerFilterDept === 'All' || c.course_code.includes(activeManagerFilterDept))
                         .map(course => (
                           <div key={course.id} className="course-progress-row" style={{ gridTemplateColumns: '1fr auto', padding: '20px', backgroundColor: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)' }}>
                             <div className="course-row-info">
@@ -1114,7 +1117,7 @@ export const Dashboard: React.FC = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ color: 'var(--text-secondary)' }}>Matching Courses:</span>
                           <span style={{ fontWeight: '600' }}>
-                            {managedCourses.filter(c => c.course_code.includes(activeManagerFilterDept === 'Sales and Distribution' ? 'SD' : activeManagerFilterDept === 'FICO Finance' ? 'FICO' : activeManagerFilterDept)).length} Published
+                            {managedCourses.filter(c => c.course_code.includes(activeManagerFilterDept)).length} Published
                           </span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1538,30 +1541,32 @@ export const Dashboard: React.FC = () => {
                 <p className="depts-card-subtitle">Node registries matching hierarchy database</p>
                 
                 <div className="depts-registry-list">
-                  <div className="dept-registry-row">
-                    <span className="dept-label">AI</span>
-                    <span className="manager-val">Dr. Evelyn C.</span>
-                  </div>
-                  <div className="dept-registry-row">
-                    <span className="dept-label">Sales & Distribution</span>
-                    <span className="manager-val">Sarah Connor</span>
-                  </div>
-                  <div className="dept-registry-row">
-                    <span className="dept-label">Material Management</span>
-                    <span className="manager-val">Marcus Aurelius</span>
-                  </div>
-                  <div className="dept-registry-row">
-                    <span className="dept-label">FICO Finance</span>
-                    <span className="manager-val">Warren B.</span>
-                  </div>
-                  <div className="dept-registry-row">
-                    <span className="dept-label">ABAP Development</span>
-                    <span className="manager-val">Linus Torvalds</span>
-                  </div>
-                  <div className="dept-registry-row">
-                    <span className="dept-label">HR and Admin</span>
-                    <span className="manager-val">John Watson</span>
-                  </div>
+                  {departmentsList.map((d) => (
+                    <div key={d.id} className="dept-registry-row">
+                      <span className="dept-label">{d.code}</span>
+                      <span className="manager-val">{getManagerForDept(d.code)}</span>
+                    </div>
+                  ))}
+                  {departmentsList.length === 0 && (
+                    <>
+                      <div className="dept-registry-row">
+                        <span className="dept-label">AI</span>
+                        <span className="manager-val">Dr. Evelyn C.</span>
+                      </div>
+                      <div className="dept-registry-row">
+                        <span className="dept-label">FICO</span>
+                        <span className="manager-val">Warren B.</span>
+                      </div>
+                      <div className="dept-registry-row">
+                        <span className="dept-label">ABAP</span>
+                        <span className="manager-val">Linus Torvalds</span>
+                      </div>
+                      <div className="dept-registry-row">
+                        <span className="dept-label">HR</span>
+                        <span className="manager-val">John Watson</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

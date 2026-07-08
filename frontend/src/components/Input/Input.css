@@ -87,3 +87,26 @@
   font-family: var(--font-body);
   margin-top: 2px;
 }
+
+/* Password Toggle Styling */
+.input-password-toggle {
+  position: absolute;
+  right: 14px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: var(--transition-smooth);
+}
+
+.input-password-toggle:hover {
+  color: var(--accent-color);
+}
+
+.custom-input-field.has-right-icon {
+  padding-right: 44px;
+}
+

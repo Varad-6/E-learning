@@ -43,12 +43,12 @@ def get_department(
     response_model=DepartmentResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Department",
-    description="Create a new department. Restricted to Admins."
+    description="Create a new department. Restricted to System Admin."
 )
 def create_department(
     request: DepartmentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN"))
 ):
     return DepartmentService.create_department(db, request=request)
 
@@ -57,13 +57,13 @@ def create_department(
     response_model=DepartmentResponse,
     status_code=status.HTTP_200_OK,
     summary="Update Department",
-    description="Update department details. Restricted to Admins."
+    description="Update department details. Restricted to System Admin."
 )
 def update_department(
     department_id: UUID,
     request: DepartmentUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN"))
 ):
     return DepartmentService.update_department(db, department_id=department_id, request=request)
 
@@ -71,12 +71,12 @@ def update_department(
     "/{department_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Department",
-    description="Delete a department. Restricted to Admins."
+    description="Delete a department. Restricted to System Admin."
 )
 def delete_department(
     department_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("ADMIN"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN"))
 ):
     DepartmentService.delete_department(db, department_id=department_id)
     return None

@@ -147,8 +147,9 @@ export const UserAdminStudio: React.FC = () => {
     if (!lastName.trim()) errors.lastName = 'Last Name is required.';
     if (!email.trim()) {
       errors.email = 'Email is required.';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      errors.email = 'Email layout is invalid.';
+    } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      errors.email = 'Email layout is invalid (like .1com are not allowed).';
+      showToast('Email layout is invalid. Suffixes starting with numbers or containing invalid characters are not allowed.', 'error');
     }
     if (!password) {
       errors.password = 'Initial Password is required.';
@@ -387,8 +388,9 @@ export const UserAdminStudio: React.FC = () => {
                     onChange={(e) => setRoleFilter(e.target.value)}
                   >
                     <option value="All">Filter by Role (All)</option>
-                    <option value="ADMIN">ADMIN</option>
-                    <option value="MANAGER">MANAGER</option>
+                    <option value="SYSTEM_ADMIN">SYSTEM_ADMIN</option>
+                    <option value="HR_ADMIN">HR_ADMIN</option>
+                    <option value="COURSE_MANAGER">COURSE_MANAGER</option>
                     <option value="EMPLOYEE">EMPLOYEE</option>
                   </select>
 
@@ -627,20 +629,30 @@ export const UserAdminStudio: React.FC = () => {
                       <input 
                         type="checkbox"
                         className="checkbox-input"
-                        checked={selectedRoles.includes('ADMIN')}
-                        onChange={() => handleRoleCheckboxChange('ADMIN')}
+                        checked={selectedRoles.includes('SYSTEM_ADMIN')}
+                        onChange={() => handleRoleCheckboxChange('SYSTEM_ADMIN')}
                       />
-                      <span>ADMIN</span>
+                      <span>SYSTEM_ADMIN</span>
                     </label>
                     
                     <label className="checkbox-label">
                       <input 
                         type="checkbox"
                         className="checkbox-input"
-                        checked={selectedRoles.includes('MANAGER')}
-                        onChange={() => handleRoleCheckboxChange('MANAGER')}
+                        checked={selectedRoles.includes('HR_ADMIN')}
+                        onChange={() => handleRoleCheckboxChange('HR_ADMIN')}
                       />
-                      <span>MANAGER (Dept Head)</span>
+                      <span>HR_ADMIN</span>
+                    </label>
+                    
+                    <label className="checkbox-label">
+                      <input 
+                        type="checkbox"
+                        className="checkbox-input"
+                        checked={selectedRoles.includes('COURSE_MANAGER')}
+                        onChange={() => handleRoleCheckboxChange('COURSE_MANAGER')}
+                      />
+                      <span>COURSE_MANAGER</span>
                     </label>
                     
                     <label className="checkbox-label">
@@ -650,7 +662,7 @@ export const UserAdminStudio: React.FC = () => {
                         checked={selectedRoles.includes('EMPLOYEE')}
                         onChange={() => handleRoleCheckboxChange('EMPLOYEE')}
                       />
-                      <span>EMPLOYEE (Learner)</span>
+                      <span>EMPLOYEE</span>
                     </label>
                   </div>
                   {formErrors.roles && <span className="error-text-span" style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.roles}</span>}
@@ -693,8 +705,9 @@ export const UserAdminStudio: React.FC = () => {
                 <div>
                   <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>2. Role Privileges Mapping</strong>
                   <ul>
-                    <li><strong>ADMIN</strong>: Global configurations, audit tables, department registries, and user creations.</li>
-                    <li><strong>MANAGER</strong>: Syllabus drafting, department-wide analytics, and course progress audits.</li>
+                    <li><strong>SYSTEM_ADMIN</strong>: Full system access, User and Role management, Department management, Course management, and Approvals.</li>
+                    <li><strong>HR_ADMIN</strong>: Employee management, user registrations, status updates, password resets, and reports.</li>
+                    <li><strong>COURSE_MANAGER</strong>: Access to courses, syllabus drafting, module editing, quiz building, and publishing.</li>
                     <li><strong>EMPLOYEE</strong>: Access to courses, module content, and quiz completions.</li>
                   </ul>
                 </div>
