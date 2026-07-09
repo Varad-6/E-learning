@@ -105,3 +105,31 @@ def get_quiz_results(
         )
 
     return QuizService.calculate_score(db, quiz_attempt_id=attempt.id)
+
+@router.get(
+    "/module/{module_id}",
+    response_model=QuizResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Quiz by Module",
+    description="Retrieve the quiz for a specific course module."
+)
+def get_quiz_by_module(
+    module_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return QuizService.get_quiz_by_module(db, module_id=module_id)
+
+@router.delete(
+    "/module/{module_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Quiz by Module",
+    description="Delete a quiz and its questions for a course module."
+)
+def delete_quiz_by_module(
+    module_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+):
+    QuizService.delete_quiz_by_module(db, module_id=module_id)
+    return None

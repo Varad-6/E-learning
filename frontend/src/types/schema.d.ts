@@ -30,6 +30,7 @@ export interface Course {
   description: string;
   difficulty_level: 'Beginner' | 'Intermediate' | 'Advanced';
   is_published: boolean;
+  duration?: string;
   created_by?: string;
   created_at?: string;
 }

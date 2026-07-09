@@ -39,7 +39,7 @@ export const Navbar: React.FC = () => {
     setUserDept(dept);
     setProfileName(name);
 
-    const localNotifs = localStorage.getItem('kiezen_notifications');
+    const localNotifs = localStorage.getItem('kaizen_notifications');
     if (localNotifs) {
       setNotifications(JSON.parse(localNotifs));
     }
@@ -53,9 +53,9 @@ export const Navbar: React.FC = () => {
       loadNotificationsAndProfile();
     };
 
-    window.addEventListener('kiezen_notifications_changed', handleNotifChange);
+    window.addEventListener('kaizen_notifications_changed', handleNotifChange);
     return () => {
-      window.removeEventListener('kiezen_notifications_changed', handleNotifChange);
+      window.removeEventListener('kaizen_notifications_changed', handleNotifChange);
     };
   }, [location]);
 
@@ -93,9 +93,9 @@ export const Navbar: React.FC = () => {
 
   const syncNotifications = (updated: AppNotification[]) => {
     setNotifications(updated);
-    localStorage.setItem('kiezen_notifications', JSON.stringify(updated));
+    localStorage.setItem('kaizen_notifications', JSON.stringify(updated));
     // Dispatch event to sync other loaded components
-    window.dispatchEvent(new Event('kiezen_notifications_changed'));
+    window.dispatchEvent(new Event('kaizen_notifications_changed'));
   };
 
   // Scoped notifications filter
@@ -165,54 +165,67 @@ export const Navbar: React.FC = () => {
       <div className="navbar-container container">
         <div 
           onClick={() => navigate('/')} 
-          className="navbar-logo tooltip-trigger" 
+          className="navbar-logo" 
           style={{ cursor: 'pointer' }}
           role="button"
-          data-tooltip="Kiezen Continuous Improvement Hub"
         >
           <BookOpen className="logo-icon" size={24} />
-          <span className="logo-text">Kiezen</span>
+          <span className="logo-text">Kaizen</span>
         </div>
 
         <nav className="navbar-links">
           <div 
             onClick={() => navigate('/')} 
-            className={`nav-link tooltip-trigger ${location.pathname === '/' ? 'active' : ''}`} 
+            className={`nav-link ${location.pathname === '/' ? 'active' : ''}`} 
             style={{ cursor: 'pointer' }}
             role="button"
-            data-tooltip="Kiezen Homepage"
           >
             Home
           </div>
           {userEmail && (
-            <div 
-              onClick={() => navigate('/dashboard')} 
-              className={`nav-link tooltip-trigger ${location.pathname === '/dashboard' ? 'active' : ''}`} 
-              style={{ cursor: 'pointer' }}
-              role="button"
-              data-tooltip="Go to My Workspace Dashboard"
-            >
-              Dashboard
-            </div>
+            <>
+              <div 
+                onClick={() => navigate('/dashboard')} 
+                className={`nav-link ${location.pathname === '/dashboard' && !location.search.includes('tab=my-courses') ? 'active' : ''}`} 
+                style={{ cursor: 'pointer' }}
+                role="button"
+              >
+                Dashboard
+              </div>
+              {userRole === 'Employee' && (
+                <div 
+                  onClick={() => navigate('/dashboard?tab=my-courses')} 
+                  className={`nav-link ${location.pathname === '/dashboard' && location.search.includes('tab=my-courses') ? 'active' : ''}`} 
+                  style={{ cursor: 'pointer' }}
+                  role="button"
+                >
+                  My Courses
+                </div>
+              )}
+            </>
           )}
-          {userEmail && (
-            <div 
-              onClick={() => navigate('/creator/dashboard')} 
-              className={`nav-link tooltip-trigger ${location.pathname.startsWith('/creator') ? 'active' : ''}`} 
-              style={{ cursor: 'pointer' }}
-              role="button"
-              data-tooltip="Go to Creator Course Studio"
-            >
-              Creator Studio
-            </div>
-          )}
+          {userEmail && (() => {
+            const rawRolesStr = localStorage.getItem('rawRoles');
+            const rawRoles = rawRolesStr ? JSON.parse(rawRolesStr) : [];
+            const hasAccess = rawRoles.includes('SYSTEM_ADMIN') || rawRoles.includes('COURSE_MANAGER');
+            if (!hasAccess) return null;
+            return (
+              <div 
+                onClick={() => navigate('/creator/dashboard')} 
+                className={`nav-link ${location.pathname.startsWith('/creator') ? 'active' : ''}`} 
+                style={{ cursor: 'pointer' }}
+                role="button"
+              >
+                Creator Studio
+              </div>
+            );
+          })()}
           {userEmail && userRole === 'Admin' && (
             <div 
               onClick={() => navigate('/admin/users')} 
-              className={`nav-link tooltip-trigger ${location.pathname.startsWith('/admin') ? 'active' : ''}`} 
+              className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`} 
               style={{ cursor: 'pointer' }}
               role="button"
-              data-tooltip="Go to User Administration Studio"
             >
               User Studio
             </div>
@@ -220,10 +233,9 @@ export const Navbar: React.FC = () => {
           {userEmail && (userRole === 'Admin' || userRole === 'Manager') && (
             <div 
               onClick={() => navigate('/view-courses')} 
-              className={`nav-link tooltip-trigger ${location.pathname === '/view-courses' ? 'active' : ''}`} 
+              className={`nav-link ${location.pathname === '/view-courses' ? 'active' : ''}`} 
               style={{ cursor: 'pointer' }}
               role="button"
-              data-tooltip="Go to Curriculum Preview & Study Workspace"
             >
               View Courses
             </div>
@@ -237,8 +249,7 @@ export const Navbar: React.FC = () => {
             /* Global Notifications Bell Widget */
             <div className="notif-badge-trigger-wrapper">
               <button 
-                className={`notif-bell-btn tooltip-trigger ${unreadCount > 0 ? 'bell-active' : ''}`}
-                data-tooltip="View Alert Notifications"
+                className={`notif-bell-btn ${unreadCount > 0 ? 'bell-active' : ''}`}
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
               >
                 <Bell size={18} />
@@ -306,10 +317,9 @@ export const Navbar: React.FC = () => {
             <div className="user-profile-menu">
               <div 
                 onClick={() => navigate('/dashboard?tab=profile')} 
-                className="user-badge tooltip-trigger" 
+                className="user-badge" 
                 style={{ cursor: 'pointer' }}
                 role="button"
-                data-tooltip="View My Profile Info & Training Report"
               >
                 <User size={16} />
                 <span className="username-text">{userEmail.split('@')[0]}</span>
@@ -317,8 +327,7 @@ export const Navbar: React.FC = () => {
               <Button
                 variant="outline"
                 onClick={handleLogout}
-                className="logout-btn tooltip-trigger"
-                data-tooltip="Sign out of Kiezen session"
+                className="logout-btn"
                 leftIcon={<LogOut size={16} />}
               >
                 Logout

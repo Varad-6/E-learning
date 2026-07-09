@@ -109,6 +109,7 @@ export const Login: React.FC = () => {
       else if (backendRole === 'SYSTEM_ADMIN' || backendRole === 'HR_ADMIN') mappedRole = 'Admin';
       
       localStorage.setItem('isLoggedInRole', mappedRole);
+      localStorage.setItem('rawRoles', JSON.stringify(data.roles || [backendRole]));
       
       // Sync department info
       const selectedDept = departmentsList.find(d => d.id === data.user.department_id);
@@ -255,7 +256,7 @@ export const Login: React.FC = () => {
           <div className="transition-content">
             <img src="/login_transition.gif" alt="Loading Portal" className="transition-gif" />
             <h3 className="transition-text">Establishing Secure Connection...</h3>
-            <p className="transition-subtext">Loading Kiezen Training Platform</p>
+            <p className="transition-subtext">Loading Kaizen Training Platform</p>
           </div>
         </div>
       )}
@@ -273,7 +274,7 @@ export const Login: React.FC = () => {
         <div className="login-left-pane">
           <div className="left-pane-overlay"></div>
           <div className="left-pane-content animate-slide-left">
-            <span className="left-pane-tag">Kiezen</span>
+            <span className="left-pane-tag">Kaizen</span>
             <h2>Corporate Learning & Development Portal</h2>
             <p>
               Welcome to the unified training system. Sign in with your corporate employee credentials to view assigned pathways, complete modules, and manage compliance.
@@ -301,7 +302,7 @@ export const Login: React.FC = () => {
               <>
                 <div className="form-heading">
                   <h2>Sign In</h2>
-                  <p>Enter your credentials to access the Kiezen platform.</p>
+                  <p>Enter your credentials to access the Kaizen platform.</p>
                 </div>
 
                 {errors.form && (

@@ -181,7 +181,10 @@ export const CreatorDashboard: React.FC = () => {
   const [courseCode, setCourseCode] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
-  const [duration, setDuration] = useState('');
+  const [durationDays, setDurationDays] = useState(0);
+  const [durationHours, setDurationHours] = useState(0);
+  const [durationMinutes, setDurationMinutes] = useState(0);
+  const [durationSeconds, setDurationSeconds] = useState(0);
   const [creatorNameInput, setCreatorNameInput] = useState('');
   const [targetDeptInput, setTargetDeptInput] = useState('AI');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -226,6 +229,14 @@ export const CreatorDashboard: React.FC = () => {
   };
 
   useEffect(() => {
+    const rawRolesStr = localStorage.getItem('rawRoles');
+    const rawRoles = rawRolesStr ? JSON.parse(rawRolesStr) : [];
+    const hasAccess = rawRoles.includes('SYSTEM_ADMIN') || rawRoles.includes('COURSE_MANAGER');
+    if (!hasAccess) {
+      navigate('/dashboard');
+      return;
+    }
+
     // Sync user details
     const savedRole = localStorage.getItem('isLoggedInRole') || 'Employee';
     const savedDept = localStorage.getItem('isLoggedInDept') || 'AI';
@@ -325,13 +336,13 @@ export const CreatorDashboard: React.FC = () => {
 
   // Dispatch Global Notifications Event Helper
   const dispatchNotification = (newNotif: AppNotification) => {
-    const localNotifs = localStorage.getItem('kiezen_notifications');
+    const localNotifs = localStorage.getItem('kaizen_notifications');
     const notifsList = localNotifs ? JSON.parse(localNotifs) : [];
     const updated = [newNotif, ...notifsList];
-    localStorage.setItem('kiezen_notifications', JSON.stringify(updated));
+    localStorage.setItem('kaizen_notifications', JSON.stringify(updated));
     
     // Dispatch custom event to let the Navbar listen and reload
-    window.dispatchEvent(new Event('kiezen_notifications_changed'));
+    window.dispatchEvent(new Event('kaizen_notifications_changed'));
   };
 
   // Toast Trigger Helper
@@ -356,7 +367,10 @@ export const CreatorDashboard: React.FC = () => {
     setCourseCode('');
     setDescription('');
     setPriority('Medium');
-    setDuration('');
+    setDurationDays(0);
+    setDurationHours(0);
+    setDurationMinutes(0);
+    setDurationSeconds(0);
     setErrors({});
   };
 
@@ -365,7 +379,9 @@ export const CreatorDashboard: React.FC = () => {
     if (!title.trim()) tempErrors.title = 'Course Title is required.';
     if (!courseCode.trim()) tempErrors.courseCode = 'Course Code is required.';
     if (!description.trim()) tempErrors.description = 'Course Description is required.';
-    if (!duration.trim()) tempErrors.duration = 'Duration is required.';
+    if (durationDays === 0 && durationHours === 0 && durationMinutes === 0 && durationSeconds === 0) {
+      tempErrors.duration = 'Duration must be greater than zero.';
+    }
     if (!creatorNameInput.trim()) tempErrors.creatorName = 'Creator Name is required.';
     
     setErrors(tempErrors);
@@ -431,6 +447,7 @@ export const CreatorDashboard: React.FC = () => {
 
     const targetDept = departmentsList.find(d => d.code === targetDeptInput || d.name === targetDeptInput);
     const departmentId = targetDept ? targetDept.id : null;
+    const durationStr = `${durationDays}d ${durationHours}h ${durationMinutes}m ${durationSeconds}s`;
 
     try {
       const payload = {
@@ -439,7 +456,7 @@ export const CreatorDashboard: React.FC = () => {
         description: description.trim(),
         difficulty_level: 'Beginner',
         department_id: departmentId,
-        duration: duration.trim(),
+        duration: durationStr,
         priority: priority
       };
 
@@ -455,60 +472,17 @@ export const CreatorDashboard: React.FC = () => {
       }
 
       const dbCourse = await res.json();
-      const isAdmin = role === 'Admin';
-      
-      if (isAdmin) {
-        // Auto-submit and Auto-approve for admin
-        await apiCall(`/api/courses/${dbCourse.id}/submit-for-approval`, { method: 'POST' });
-        await apiCall(`/api/courses/${dbCourse.id}/approve`, { method: 'POST' });
-        await apiCall(`/api/courses/${dbCourse.id}/publish`, { method: 'POST' });
-      }
 
-      triggerToast(isAdmin ? 'Course created and published globally!' : 'Course draft created successfully!', 'success');
+      triggerToast('Course details saved. Let\'s configure the syllabus modules!', 'success');
       handleCloseCreateModal();
-      await fetchDBCourses();
+      navigate(`/creator/course/${dbCourse.id}`);
     } catch (err) {
       console.error('Failed to create course:', err);
       triggerToast('Connection error. Failed to create course.', 'error');
     }
   };
 
-  // Lifecycle Transitions
-  const handleSubmitForReview = async (courseId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const course = courses.find(c => c.id === courseId);
-    if (!course) return;
 
-    try {
-      const res = await apiCall(`/api/courses/${courseId}/submit-for-approval`, {
-        method: 'POST'
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        triggerToast(err.detail || 'Failed to submit course for approval.', 'warning');
-        return;
-      }
-
-      await fetchDBCourses();
-      triggerToast('Submitted for Department Head approval!', 'info');
-    } catch (err) {
-      console.error('Failed to submit course for review:', err);
-      triggerToast('Connection error. Failed to submit course.', 'error');
-    }
-
-    // Dispatch notification to department heads
-    const newNotif: AppNotification = {
-      id: `n_${Date.now()}`,
-      message: `📢 ${course.creatorName} (${course.creatorRole}) submitted course ${course.title} (${course.course_code}) for approval.`,
-      type: 'submission',
-      courseId: course.id,
-      deptName: course.departmentName,
-      isRead: false,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    dispatchNotification(newNotif);
-  };
 
   const handleApprove = async (courseId: string) => {
     const course = courses.find(c => c.id === courseId);
@@ -666,15 +640,7 @@ export const CreatorDashboard: React.FC = () => {
           >
             My Created Courses
           </button>
-          <button 
-            className={`sidebar-tab-btn ${activeTab === 'approvals' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('approvals');
-              setSelectedDept(null); // Reset admin department selector
-            }}
-          >
-            Course Approvals ({courses.filter(c => c.status === 'Pending' && (isAdmin || (isDeptHead && c.departmentName === dept))).length})
-          </button>
+
           <button 
             className={`sidebar-tab-btn ${activeTab === 'auditing' ? 'active' : ''}`}
             onClick={() => setActiveTab('auditing')}
@@ -782,22 +748,31 @@ export const CreatorDashboard: React.FC = () => {
                       </span>
                     </div>
 
-                    {/* Submit Option if Draft/Rejected */}
-                    {(course.status === 'Draft' || course.status === 'Rejected') ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => handleSubmitForReview(course.id, e)}
-                        className="submit-review-card-btn"
-                        style={{ fontSize: '0.75rem', padding: '6px 12px' }}
-                      >
-                        Submit for Review
-                      </Button>
-                    ) : (
-                      <span className={`badge ${course.is_published ? 'success' : 'warning'}`}>
-                        {course.is_published ? 'Published' : 'Under Review'}
-                      </span>
-                    )}
+                    <Button
+                      variant={course.is_published ? "outline" : "primary"}
+                      size="sm"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          const res = await apiCall(`/api/courses/${course.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify({
+                              is_published: !course.is_published,
+                              status: 'approved'
+                            })
+                          });
+                          if (res.ok) {
+                            fetchDBCourses();
+                            triggerToast(course.is_published ? 'Course reverted to draft!' : 'Course published successfully!', 'success');
+                          }
+                        } catch (err) {
+                          console.error(err);
+                        }
+                      }}
+                      style={{ fontSize: '0.75rem', padding: '6px 12px' }}
+                    >
+                      {course.is_published ? 'Revert to Draft' : 'Publish'}
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -1361,13 +1336,52 @@ export const CreatorDashboard: React.FC = () => {
                   <label className="form-label-styled">
                     Duration <span className="required-star">*</span>
                   </label>
-                  <input 
-                    type="text" 
-                    className="form-input-styled" 
-                    placeholder="e.g. 10 Hours or 4 Weeks"
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                  />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <input 
+                        type="number" 
+                        min="0"
+                        placeholder="d"
+                        className="form-input-styled" 
+                        value={durationDays || ''}
+                        onChange={(e) => setDurationDays(Math.max(0, parseInt(e.target.value) || 0))}
+                      />
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Days</span>
+                    </div>
+                    <div>
+                      <input 
+                        type="number" 
+                        min="0"
+                        placeholder="h"
+                        className="form-input-styled" 
+                        value={durationHours || ''}
+                        onChange={(e) => setDurationHours(Math.max(0, parseInt(e.target.value) || 0))}
+                      />
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Hours</span>
+                    </div>
+                    <div>
+                      <input 
+                        type="number" 
+                        min="0"
+                        placeholder="m"
+                        className="form-input-styled" 
+                        value={durationMinutes || ''}
+                        onChange={(e) => setDurationMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                      />
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Mins</span>
+                    </div>
+                    <div>
+                      <input 
+                        type="number" 
+                        min="0"
+                        placeholder="s"
+                        className="form-input-styled" 
+                        value={durationSeconds || ''}
+                        onChange={(e) => setDurationSeconds(Math.max(0, parseInt(e.target.value) || 0))}
+                      />
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Secs</span>
+                    </div>
+                  </div>
                   {errors.duration && (
                     <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.duration}</p>
                   )}
@@ -1379,7 +1393,7 @@ export const CreatorDashboard: React.FC = () => {
                   Cancel
                 </Button>
                 <Button variant="primary" type="submit">
-                  Create Course
+                  Create Modules
                 </Button>
               </div>
             </form>

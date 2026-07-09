@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -15,6 +15,8 @@ class CourseEnrollment(Base):
     progress_percent = Column(Integer, default=0, nullable=False)
     enrolled_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    is_locked = Column(Boolean, default=False, nullable=False)
 
     # Relationships
     user = relationship("User", back_populates="enrollments")

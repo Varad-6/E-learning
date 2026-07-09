@@ -1,36 +1,36 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Default Theme: Professional Slate Navy (Stack Overflow / Udemy style Dark mode) */
-  --bg-main: #0f172a;
-  --bg-card: #1e293b;
-  --bg-card-hover: #334155;
-  --border-color: #334155;
+  /* Premium Dark Theme: Deep Cosmic Space & Indigo Neon */
+  --bg-main: #0a0d16;
+  --bg-card: rgba(20, 26, 42, 0.75);
+  --bg-card-hover: rgba(30, 38, 60, 0.85);
+  --border-color: rgba(255, 255, 255, 0.07);
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   
-  --accent-color: #3b82f6; /* Trustworthy Royal Blue */
-  --accent-hover: #60a5fa;
-  --accent-glow: rgba(59, 130, 246, 0.15);
+  --accent-color: #6366f1; /* Premium Modern Indigo */
+  --accent-hover: #818cf8;
+  --accent-glow: rgba(99, 102, 241, 0.2);
   
-  --neon-teal: #10b981; /* Standard Green */
-  --neon-teal-glow: rgba(16, 185, 129, 0.1);
-  --neon-coral: #ef4444; /* Standard Red */
-  --neon-coral-glow: rgba(239, 68, 68, 0.1);
+  --neon-teal: #0d9488; /* Emerald Teal */
+  --neon-teal-glow: rgba(13, 148, 136, 0.12);
+  --neon-coral: #e11d48; /* Crimson Rose */
+  --neon-coral-glow: rgba(225, 29, 72, 0.12);
   
   --font-title: 'Outfit', sans-serif;
   --font-body: 'Inter', sans-serif;
   
-  --transition-smooth: all 0.2s ease-in-out;
-  --glass-bg: #1e293b;
-  --glass-border: #334155;
-  --glass-blur: none;
-  --shadow-premium: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
-  --shadow-glow: 0 0 15px rgba(59, 130, 246, 0.1);
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --glass-bg: rgba(20, 26, 42, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: blur(12px);
+  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(255, 255, 255, 0.05);
+  --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.25);
   
-  --border-radius-sm: 6px;
-  --border-radius-md: 8px;
-  --border-radius-lg: 12px;
+  --border-radius-sm: 8px;
+  --border-radius-md: 12px;
+  --border-radius-lg: 20px;
 }
 
 [data-theme="light"] {
@@ -42,17 +42,17 @@
   --text-primary: #0f172a;
   --text-secondary: #475569;
   
-  --accent-color: #2563eb; /* Deep Trustworthy Blue */
-  --accent-hover: #1d4ed8;
-  --accent-glow: rgba(37, 99, 235, 0.08);
+  --accent-color: #4f46e5; /* Deep Royal Indigo */
+  --accent-hover: #4338ca;
+  --accent-glow: rgba(79, 70, 229, 0.08);
   
-  --neon-teal: #059669; /* Darker Green */
-  --neon-teal-glow: rgba(5, 150, 105, 0.08);
-  --neon-coral: #dc2626; /* Darker Red */
-  --neon-coral-glow: rgba(220, 38, 38, 0.08);
+  --neon-teal: #0f766e; /* Deep Teal */
+  --neon-teal-glow: rgba(15, 118, 110, 0.08);
+  --neon-coral: #be123c; /* Rose Red */
+  --neon-coral-glow: rgba(190, 18, 60, 0.08);
   
-  --glass-bg: #ffffff;
-  --glass-border: #e2e8f0;
-  --shadow-premium: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
-  --shadow-glow: 0 0 15px rgba(37, 99, 235, 0.05);
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(241, 245, 249, 0.8);
+  --shadow-premium: 0 10px 25px -5px rgba(15, 23, 42, 0.05), 0 4px 6px -2px rgba(15, 23, 42, 0.03);
+  --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.08);
 }

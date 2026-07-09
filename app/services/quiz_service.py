@@ -173,3 +173,20 @@ class QuizService:
             )
         return quiz
 
+    @staticmethod
+    def get_quiz_by_module(db: Session, module_id: UUID) -> Quiz:
+        quiz = db.query(Quiz).filter(Quiz.module_id == module_id).first()
+        if not quiz:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No quiz found for module ID {module_id}."
+            )
+        return quiz
+
+    @staticmethod
+    def delete_quiz_by_module(db: Session, module_id: UUID) -> None:
+        quiz = db.query(Quiz).filter(Quiz.module_id == module_id).first()
+        if quiz:
+            db.delete(quiz)
+            db.commit()
+

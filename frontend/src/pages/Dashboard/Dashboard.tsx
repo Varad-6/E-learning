@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User, Users, ShieldAlert, Award, FileText, CheckCircle, PlusCircle, Bookmark, Layers } from 'lucide-react';
+import { User, Users, ShieldAlert, Award, FileText, CheckCircle, PlusCircle, Bookmark, Layers, BookOpen } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import type { Course } from '../../types/schema';
 import { getBadgeForCompletions } from '../../services/badge';
@@ -91,14 +91,17 @@ export const Dashboard: React.FC = () => {
   const [dept, setDept] = useState<string>('AI');
   const [departmentsList, setDepartmentsList] = useState<{ id: string; name: string; code: string }[]>([]);
 
-  const [activeMainView, setActiveMainView] = useState<'dashboard' | 'profile'>('dashboard');
+  const [activeMainView, setActiveMainView] = useState<'dashboard' | 'profile' | 'my-courses'>('dashboard');
   const [celebratedBadge, setCelebratedBadge] = useState<Badge | null>(null);
   const [showBadgeOverlay, setShowBadgeOverlay] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.get('tab') === 'profile') {
+    const tab = params.get('tab');
+    if (tab === 'profile') {
       setActiveMainView('profile');
+    } else if (tab === 'my-courses') {
+      setActiveMainView('my-courses');
     } else {
       setActiveMainView('dashboard');
     }
@@ -224,15 +227,12 @@ export const Dashboard: React.FC = () => {
       if (enrollRes.ok) {
         const enrollData = await enrollRes.json();
         const mappedProgress = enrollData.map((e: any) => {
-          let progress = 0;
-          if (e.status === 'completed') progress = 100;
-          else if (e.status === 'in_progress') progress = 50;
-
           return {
             id: e.id,
+            courseId: e.course_id,
             courseCode: e.course_code || 'AI-101',
             title: e.course_title || 'Enrolled Course',
-            progressPercent: progress,
+            progressPercent: e.progress_percent !== undefined ? e.progress_percent : (e.status === 'completed' ? 100 : 0),
             difficulty: 'Beginner' as const
           };
         });
@@ -532,7 +532,7 @@ export const Dashboard: React.FC = () => {
                   </div>
                   {role === 'Employee' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginTop: '4px' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Kiezen Achievement Badge</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>Kaizen Achievement Badge</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         {(() => {
                           const badge = getBadgeForCompletions(myProgress.filter(p => p.progressPercent === 100).length);
@@ -733,7 +733,7 @@ export const Dashboard: React.FC = () => {
       )}
 
       {/* Top Banner Common Details */}
-      {activeMainView === 'dashboard' && (
+      {(activeMainView === 'dashboard' || activeMainView === 'my-courses') && (
         <section className="dashboard-hero-banner glass-panel">
         <div className="hero-banner-profile">
           <div className="avatar-circle">
@@ -807,48 +807,166 @@ export const Dashboard: React.FC = () => {
 
       {/* Conditional Dashboard Views */}
       
-      {/* 1. EMPLOYEE (LEARNER) VIEW */}
+      {/* 1. EMPLOYEE (LEARNER) MAIN CATALOG VIEW */}
       {activeMainView === 'dashboard' && role === 'Employee' && (
         <div className="dashboard-layout-employee animate-fade-in">
           <div className="pane-header">
-            <h3>My Learning Curriculum</h3>
-            <p>Track your modules and complete assessments assigned to your department</p>
+            <h3>Department Course Catalog</h3>
+            <p>Explore training modules and continuous improvement resources assigned to your node</p>
           </div>
 
           <div className="employee-learning-grid">
             <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              
+              {/* Available Department Courses */}
+              <div className="available-courses-section">
+                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px', fontSize: '1.05rem', fontWeight: '700' }}>
+                  Available Department Courses
+                </h4>
+                {managedCourses.filter((c: any) => (c.status === 'approved' || c.is_published) && (!c.department_id || c.department_id === localStorage.getItem('profileDeptId'))).length === 0 ? (
+                  <div className="empty-state-container glass-panel" style={{ padding: '32px', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
+                    <BookOpen size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)' }} />
+                    <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No new courses available in your department.</p>
+                  </div>
+                ) : (
+                  managedCourses
+                    .filter((c: any) => (c.status === 'approved' || c.is_published) && (!c.department_id || c.department_id === localStorage.getItem('profileDeptId')))
+                    .map((course) => {
+                      const enrollmentItem = myProgress.find((p: any) => p.courseId === course.id);
+                      const isEnrolled = !!enrollmentItem;
+
+                      return (
+                        <div key={course.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.2s, box-shadow 0.2s' }}>
+                          <div className="course-row-info" style={{ flex: 1, paddingRight: '20px' }}>
+                            <span className="course-row-code" style={{ padding: '4px 8px', borderRadius: '4px', background: 'var(--accent-glow)', color: 'var(--accent-color)', fontSize: '0.72rem', fontWeight: '800' }}>{course.course_code}</span>
+                            <h4 style={{ marginTop: '8px', fontSize: '1.05rem', color: 'var(--text-primary)' }}>{course.title}</h4>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.4' }}>{course.description}</p>
+                            <div style={{ display: 'flex', gap: '16px', marginTop: '10px', fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: '500' }}>
+                              <span>Difficulty: <strong style={{ color: 'var(--text-primary)' }}>{course.difficulty_level}</strong></span>
+                              <span>Duration: <strong style={{ color: 'var(--text-primary)' }}>{course.duration}</strong></span>
+                            </div>
+                          </div>
+                          <div style={{ minWidth: '150px' }}>
+                            <Button
+                              variant={isEnrolled ? "outline" : "primary"}
+                              onClick={() => !isEnrolled && handleEnrollCourse(course.id)}
+                              disabled={isEnrolled}
+                              style={{ width: '100%', height: '42px', fontWeight: '700' }}
+                            >
+                              {isEnrolled ? 'Already Enrolled' : 'Start Course'}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+            </div>
+
+            {/* Sidebar Completed Courses & Certificates */}
+            <div className="employee-sidebar">
+              {/* Completed Modules List */}
+              <div className="sidebar-card glass-panel" style={{ padding: '24px', borderLeft: '3px solid var(--neon-teal)' }}>
+                <div className="sidebar-card-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                  <CheckCircle size={20} className="icon-green" style={{ color: 'var(--neon-teal)' }} />
+                  <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Completed Courses</h3>
+                </div>
+                {myProgress.filter(p => p.progressPercent === 100).length === 0 ? (
+                  <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.82rem', margin: 0 }}>No completed courses yet. Complete modules to earn credentials.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {myProgress.filter(p => p.progressPercent === 100).map((item) => (
+                      <div key={item.id} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--neon-teal)', fontWeight: 'bold' }}>{item.courseCode}</span>
+                        <h4 style={{ fontSize: '0.85rem', margin: '2px 0 0 0', color: 'var(--text-primary)' }}>{item.title}</h4>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Certificates Sidebar Card */}
+              <div className="sidebar-card glass-panel" style={{ padding: '24px' }}>
+                <div className="sidebar-card-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                  <Award size={20} className="icon-yellow" style={{ color: 'var(--accent-color)' }} />
+                  <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Kaizen Certificates</h3>
+                </div>
+                <p className="sidebar-card-subtitle" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>Verified training credentials</p>
+                
+                <div className="certificates-badge-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {myProgress.some(i => i.progressPercent === 100) ? (
+                    myProgress
+                      .filter(i => i.progressPercent === 100)
+                      .map(item => (
+                        <div key={item.id} className="certificate-badge-item" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '6px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                          <CheckCircle size={16} className="cert-check" style={{ color: 'var(--neon-teal)' }} />
+                          <div style={{ flex: 1 }}>
+                            <p className="cert-title" style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>{item.courseCode} Certificate</p>
+                            <p className="cert-date" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: 0 }}>Issued: {new Date().toLocaleDateString()}</p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => alert(`Showing digital certificate for ${item.title}`)}
+                            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                          >
+                            View
+                          </Button>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="no-data-msg" style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>No certificates earned yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 1B. EMPLOYEE (LEARNER) MY ENROLLED COURSES VIEW */}
+      {activeMainView === 'my-courses' && role === 'Employee' && (
+        <div className="dashboard-layout-employee animate-fade-in">
+          <div className="pane-header">
+            <h3>My Enrolled Curriculum</h3>
+            <p>Track your active modules, study logs, and complete assessments</p>
+          </div>
+
+          <div className="employee-learning-grid">
+            <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {/* Enrolled Courses */}
               <div className="enrolled-courses-section">
-                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px' }}>
+                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px', fontSize: '1.05rem', fontWeight: '700' }}>
                   Active Enrolled Courses ({myProgress.filter(p => p.progressPercent < 100).length})
                 </h4>
                 {myProgress.filter(p => p.progressPercent < 100).length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', padding: '10px 0' }}>No active course enrollments. Enroll in a course below to start!</p>
+                  <div className="empty-state-container glass-panel" style={{ padding: '32px', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
+                    <Bookmark size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)' }} />
+                    <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No active course enrollments. Enroll in a course from the Dashboard catalog to start!</p>
+                  </div>
                 ) : (
                   myProgress.filter(p => p.progressPercent < 100).map((item) => (
                     <div key={item.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px' }}>
                       <div className="course-row-info">
-                        <span className="course-row-code">{item.courseCode}</span>
-                        <h4>{item.title}</h4>
-                        <span className="course-row-difficulty">{item.difficulty}</span>
+                        <span className="course-row-code" style={{ padding: '4px 8px', borderRadius: '4px', background: 'var(--accent-glow)', color: 'var(--accent-color)', fontSize: '0.72rem', fontWeight: '800' }}>{item.courseCode}</span>
+                        <h4 style={{ marginTop: '8px', fontSize: '1.05rem', color: 'var(--text-primary)' }}>{item.title}</h4>
+                        <span className="course-row-difficulty" style={{ display: 'inline-block', marginTop: '6px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Level: {item.difficulty}</span>
                       </div>
 
-                      <div className="course-row-tracker">
+                      <div className="course-row-tracker" style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '220px' }}>
                         <div className="progress-bar-group">
-                          <div className="progress-bar-container">
-                            <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%` }}></div>
+                          <div className="progress-bar-container" style={{ height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-color), var(--accent-color-hover))' }}></div>
                           </div>
-                          <div className="progress-label-row">
+                          <div className="progress-label-row" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                             <span>{item.progressPercent}% Completed</span>
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                        <div style={{ display: 'flex', gap: '10px' }}>
                           <Button
                             variant="primary"
                             onClick={() => navigate(`/course-player/${item.id}`)}
-                            style={{ flex: 1 }}
+                            style={{ flex: 1, height: '36px', fontSize: '0.85rem' }}
                           >
                             {item.progressPercent > 0 ? 'Resume Course' : 'Start Course'}
                           </Button>
@@ -858,92 +976,27 @@ export const Dashboard: React.FC = () => {
                   ))
                 )}
               </div>
-
-              {/* Available Courses to Enroll */}
-              <div className="available-courses-section" style={{ marginTop: '20px' }}>
-                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px' }}>
-                  Available Department Courses
-                </h4>
-                {managedCourses.filter((c: any) => (c.status === 'approved' || c.is_published) && !myProgress.some((p: any) => p.courseId === c.id) && (!c.department_id || c.department_id === localStorage.getItem('profileDeptId'))).length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', padding: '10px 0' }}>No new courses available in your department.</p>
-                ) : (
-                  managedCourses
-                    .filter((c: any) => (c.status === 'approved' || c.is_published) && !myProgress.some((p: any) => p.courseId === c.id) && (!c.department_id || c.department_id === localStorage.getItem('profileDeptId')))
-                    .map((course) => (
-                      <div key={course.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div className="course-row-info" style={{ flex: 1, paddingRight: '20px' }}>
-                          <span className="course-row-code">{course.course_code}</span>
-                          <h4>{course.title}</h4>
-                          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{course.description}</p>
-                          <div style={{ display: 'flex', gap: '10px', marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                            <span>Difficulty: {course.difficulty_level}</span>
-                          </div>
-                        </div>
-                        <div style={{ minWidth: '150px' }}>
-                          <Button
-                            variant="primary"
-                            onClick={() => handleEnrollCourse(course.id)}
-                            style={{ width: '100%' }}
-                          >
-                            Start Course
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                )}
-              </div>
-
-              {/* Completed Courses */}
-              <div className="completed-courses-section" style={{ marginTop: '24px' }}>
-                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px' }}>
-                  Completed Courses ({myProgress.filter(p => p.progressPercent === 100).length})
-                </h4>
-                {myProgress.filter(p => p.progressPercent === 100).length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', padding: '10px 0' }}>No completed courses yet. Keep learning to earn certificates!</p>
-                ) : (
-                  myProgress.filter(p => p.progressPercent === 100).map((item) => (
-                    <div key={item.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderColor: '#10b981' }}>
-                      <div className="course-row-info">
-                        <span className="course-row-code" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>✓ Certified</span>
-                        <h4 style={{ marginTop: '4px' }}>{item.title}</h4>
-                        <span className="course-row-difficulty">{item.difficulty}</span>
-                      </div>
-                      <div>
-                        <Button
-                          variant="outline"
-                          onClick={() => alert(`Showing digital certificate for ${item.title}`)}
-                          leftIcon={<Award size={14} />}
-                        >
-                          View Certificate
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
             </div>
 
-            {/* Side Info Cards */}
+            {/* Sidebar Active Recents Widget */}
             <div className="employee-sidebar">
-
               {/* Recent Course Sidebar Widget */}
-              <div className="sidebar-card glass-panel" style={{ borderLeft: '3px solid var(--accent-color)' }}>
-                <div className="sidebar-card-title">
-                  <Bookmark size={18} className="sidebar-icon icon-green" />
-                  <h3>Recent Course Activity</h3>
+              <div className="sidebar-card glass-panel" style={{ borderLeft: '3px solid var(--accent-color)', padding: '24px' }}>
+                <div className="sidebar-card-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                  <Bookmark size={20} className="sidebar-icon icon-green" style={{ color: 'var(--accent-color)' }} />
+                  <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Recent Study Activity</h3>
                 </div>
                 {myProgress.some(p => p.progressPercent < 100) ? (() => {
                   const recent = myProgress.find(p => p.progressPercent < 100) || myProgress[0];
                   return (
                     <div style={{ marginTop: '12px' }}>
-                      <p style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)' }}>{recent.title}</p>
-                      <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      <p style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>{recent.title}</p>
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.03em', margin: '4px 0 0 0' }}>
                         Active Code: {recent.courseCode}
                       </p>
                       
-                      <div className="progress-bar-container" style={{ marginTop: '10px', height: '4px' }}>
-                        <div className="progress-bar-fill" style={{ width: `${recent.progressPercent}%` }}></div>
+                      <div className="progress-bar-container" style={{ marginTop: '14px', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div className="progress-bar-fill" style={{ width: `${recent.progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-color), var(--accent-color-hover))' }}></div>
                       </div>
                       
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
@@ -953,42 +1006,15 @@ export const Dashboard: React.FC = () => {
                       <Button
                         variant="primary"
                         onClick={() => navigate(`/course-player/${recent.id}`)}
-                        style={{ width: '100%', marginTop: '12px', padding: '8px 16px', fontSize: '0.82rem' }}
+                        style={{ width: '100%', marginTop: '16px', padding: '10px 16px', fontSize: '0.85rem', fontWeight: 'bold' }}
                       >
-                        Resume Course
+                        Resume Session
                       </Button>
                     </div>
                   );
                 })() : (
-                  <p className="no-data-msg" style={{ padding: '8px 0' }}>All assigned courses completed! Check your certifications.</p>
+                  <p className="no-data-msg" style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>All courses completed! Explore new ones in the catalog.</p>
                 )}
-              </div>
-
-              {/* Completed Certificates Sidebar Card */}
-              <div className="sidebar-card glass-panel">
-                <div className="sidebar-card-title">
-                  <Award size={18} className="sidebar-icon icon-yellow" />
-                  <h3>Completed Certificates</h3>
-                </div>
-                <p className="sidebar-card-subtitle">Your credentials verified on Kiezen</p>
-                
-                <div className="certificates-badge-list">
-                  {myProgress.some(i => i.progressPercent === 100) ? (
-                    myProgress
-                      .filter(i => i.progressPercent === 100)
-                      .map(item => (
-                        <div key={item.id} className="certificate-badge-item">
-                           <CheckCircle size={16} className="cert-check" />
-                          <div>
-                            <p className="cert-title">{item.courseCode} Certificate</p>
-                            <p className="cert-date">Issued: {new Date().toLocaleDateString()}</p>
-                          </div>
-                        </div>
-                      ))
-                  ) : (
-                    <p className="no-data-msg">No certificates earned yet. Reach 100% on any course to issue.</p>
-                  )}
-                </div>
               </div>
             </div>
           </div>
@@ -1490,7 +1516,7 @@ export const Dashboard: React.FC = () => {
       {activeMainView === 'dashboard' && role === 'Admin' && (
         <div className="dashboard-layout-admin">
           <div className="pane-header">
-            <h3>Kiezen Administrative Control Center</h3>
+            <h3>Kaizen Administrative Control Center</h3>
             <p>System metrics, registered node components, and audit log schemas</p>
           </div>
 

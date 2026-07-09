@@ -68,12 +68,12 @@ def get_course(
     response_model=CourseResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Course",
-    description="Create a new course. Restricted to System Admin, Course Manager, and Employees."
+    description="Create a new course. Restricted to System Admin, Course Manager."
 )
 def create_course(
     request: CourseCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER", "EMPLOYEE"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
     return CourseService.create_course(db, request=request, user_id=current_user.id)
 
@@ -82,13 +82,13 @@ def create_course(
     response_model=CourseResponse,
     status_code=status.HTTP_200_OK,
     summary="Update Course",
-    description="Update course details. Restricted to System Admin, Course Manager, and Employees."
+    description="Update course details. Restricted to System Admin, Course Manager."
 )
 def update_course(
     course_id: UUID,
     request: CourseUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER", "EMPLOYEE"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
     return CourseService.update_course(db, course_id=course_id, request=request)
 

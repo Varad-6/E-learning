@@ -12,7 +12,7 @@ export const Footer: React.FC = () => {
         </nav>
         <div className="footer-bottom">
           <p className="copyright-text">
-            &copy; {new Date().getFullYear()} Kiezen: Continuous Improvement Hub. All rights reserved.
+            &copy; {new Date().getFullYear()} Kaizen: Continuous Improvement Hub. All rights reserved.
           </p>
         </div>
       </div>

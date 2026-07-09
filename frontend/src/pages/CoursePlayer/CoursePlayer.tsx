@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Play, Pause, Check, Volume2, RotateCcw,
   BookOpen, ChevronDown, ChevronRight, HelpCircle, Award, 
-  FileText, Download, Menu, X, Lock, Unlock
+  FileText, Download, Menu, X, Lock, Unlock, Clock
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
@@ -54,6 +54,12 @@ export const CoursePlayer: React.FC = () => {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
   const [currentQuizQuestionIndex, setCurrentQuizQuestionIndex] = useState(0);
+  const [dbQuizzes, setDbQuizzes] = useState<{ [moduleId: string]: any[] }>({});
+
+  // Timed course states
+  const [countdownText, setCountdownText] = useState<string>('00d : 00h : 00m : 00s');
+  const [courseLocked, setCourseLocked] = useState<boolean>(false);
+  const [showTimeUpModal, setShowTimeUpModal] = useState<boolean>(false);
 
   // Default modules structure if none exist in the database for the course
   const defaultModules: Module[] = [
@@ -139,6 +145,9 @@ export const CoursePlayer: React.FC = () => {
         }
         const enrollData = await enrollRes.json();
         setEnrollment(enrollData);
+        if (enrollData.is_locked) {
+          setCourseLocked(true);
+        }
 
         // 2. Fetch course
         const courseRes = await apiCall(`/api/courses/${enrollData.course_id}`);
@@ -149,48 +158,64 @@ export const CoursePlayer: React.FC = () => {
 
         // 3. Fetch modules from database
         const modulesRes = await apiCall(`/api/courses/${enrollData.course_id}/modules`);
-        let fetchedModules: Module[] = [];
+        let fetchedModules: any[] = [];
         if (modulesRes.ok) {
-          const data = await modulesRes.json();
-          if (data && data.length > 0) {
-            fetchedModules = data;
-          }
+          fetchedModules = await modulesRes.json();
         }
         
         const finalModules = fetchedModules.length > 0 ? fetchedModules : defaultModules;
 
-        // Map modules to player structure, loading content blocks from localStorage if present
-        const localBlocksMap = localStorage.getItem('creator_module_content');
-        const blocksMap = localBlocksMap ? JSON.parse(localBlocksMap) : {};
-        const localQuizzesMap = localStorage.getItem('creator_module_quizzes');
-        const quizzesMap = localQuizzesMap ? JSON.parse(localQuizzesMap) : {};
+        // 4. Fetch quizzes from backend in parallel
+        const quizzesMap: { [moduleId: string]: any[] } = {};
+        for (const mod of finalModules) {
+          try {
+            const quizRes = await apiCall(`/api/quizzes/module/${mod.id}`);
+            if (quizRes.ok) {
+              const quizData = await quizRes.json();
+              if (quizData && quizData.questions) {
+                quizzesMap[mod.id] = quizData.questions.map((q: any) => ({
+                  id: q.id,
+                  question: q.question_text,
+                  options: q.options,
+                  correctAnswer: q.correct_answer
+                }));
+              }
+            }
+          } catch (err) {
+            console.error("Failed to load quiz for module: " + mod.id, err);
+          }
+        }
+        setDbQuizzes(quizzesMap);
 
+        // 5. Map modules to player structure, loading content blocks from backend
         const mappedModules: Module[] = finalModules.map((mod: any, index: number) => {
-          const moduleBlocks = blocksMap[mod.id] || [];
           let contents: ContentItem[] = [];
 
-          if (moduleBlocks.length > 0) {
-            // Generate content list dynamically from creator blocks
+          if (mod.contents && mod.contents.length > 0) {
             let currentTitle = "";
             let currentSubtitle = "";
 
-            moduleBlocks.forEach((block: any) => {
-              if (block.type === 'title') {
-                currentTitle = block.value;
-              } else if (block.type === 'subtitle') {
-                currentSubtitle = block.value;
-              } else if (block.type === 'text') {
+            mod.contents.forEach((block: any) => {
+              const type = block.content_type;
+              const val = block.value || '';
+              const label = block.label || '';
+              
+              if (type === 'title') {
+                currentTitle = val;
+              } else if (type === 'subtitle') {
+                currentSubtitle = val;
+              } else if (type === 'text') {
                 contents.push({
                   id: block.id,
                   title: currentTitle || `Lecture ${index + 1}.${contents.length + 1}`,
                   type: 'document',
                   duration: '5 min read',
                   subtitle: currentSubtitle || `Reading lesson`,
-                  description: block.value
+                  description: val
                 });
                 currentTitle = "";
                 currentSubtitle = "";
-              } else if (block.type === 'youtube' || block.type === 'video') {
+              } else if (type === 'youtube' || type === 'video') {
                 contents.push({
                   id: block.id,
                   title: currentTitle || `Video Lecture ${index + 1}.${contents.length + 1}`,
@@ -198,24 +223,24 @@ export const CoursePlayer: React.FC = () => {
                   duration: '10:00',
                   subtitle: currentSubtitle || "Media presentation",
                   description: "Watch the video presentation explaining this section's topic.",
-                  videoUrl: block.value
+                  videoUrl: block.file_path || val
                 });
                 currentTitle = "";
                 currentSubtitle = "";
-              } else if (block.type === 'blog' || block.type === 'website' || block.type === 'attachment') {
-                const labelText = block.type === 'attachment' ? (block.label || 'Download Attachment') : `Visit ${block.type.toUpperCase()}`;
+              } else if (type === 'blog' || type === 'website' || type === 'attachment') {
+                const labelText = type === 'attachment' ? (label || 'Download Attachment') : `Visit ${type.toUpperCase()}`;
                 contents.push({
                   id: block.id,
-                  title: currentTitle || `${block.type.toUpperCase()} Reference ${index + 1}.${contents.length + 1}`,
+                  title: currentTitle || `${type.toUpperCase()} Reference ${index + 1}.${contents.length + 1}`,
                   type: 'document',
-                  duration: block.type === 'attachment' ? 'Download' : 'Web Link',
+                  duration: type === 'attachment' ? 'Download' : 'Web Link',
                   subtitle: currentSubtitle || `External link resources`,
-                  description: `This section links to an external ${block.type}: ${labelText}. Please click the button below to study the resources.`,
-                  videoUrl: block.value
+                  description: `This section links to an external ${type}: ${labelText}. Please click the button below to study the resources.`,
+                  videoUrl: block.file_path || val
                 });
                 currentTitle = "";
                 currentSubtitle = "";
-              } else if (block.type === 'image') {
+              } else if (type === 'image') {
                 contents.push({
                   id: block.id,
                   title: currentTitle || `Visual Resource`,
@@ -223,7 +248,7 @@ export const CoursePlayer: React.FC = () => {
                   duration: 'Image',
                   subtitle: currentSubtitle || `Image attachment`,
                   description: `Review the diagram or illustration below.`,
-                  videoUrl: block.value
+                  videoUrl: block.file_path || val
                 });
                 currentTitle = "";
                 currentSubtitle = "";
@@ -312,6 +337,40 @@ export const CoursePlayer: React.FC = () => {
       loadEnrollmentData();
     }
   }, [enrollmentId]);
+
+  // Timed Course Countdown Clock
+  useEffect(() => {
+    if (!enrollment || !enrollment.expires_at) return;
+    
+    if (enrollment.is_locked) {
+      setCourseLocked(true);
+      setCountdownText("00d : 00h : 00m : 00s");
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const expireTime = new Date(enrollment.expires_at).getTime();
+      const now = new Date().getTime();
+      const diff = expireTime - now;
+
+      if (diff <= 0) {
+        setCountdownText("00d : 00h : 00m : 00s");
+        setCourseLocked(true);
+        setShowTimeUpModal(true);
+        clearInterval(interval);
+      } else {
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        setCountdownText(`${pad(days)}d : ${pad(hours)}h : ${pad(minutes)}m : ${pad(seconds)}s`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [enrollment, enrollmentId]);
 
   // Flattened content list for linear next/prev traversal
   const flatContents = modules.reduce<ContentItem[]>((acc, mod) => [...acc, ...mod.contents], []);
@@ -449,16 +508,23 @@ export const CoursePlayer: React.FC = () => {
   };
 
   const getActiveQuizQuestions = () => {
-    const localQuizzesMap = localStorage.getItem('creator_module_quizzes');
-    const quizzesMap = localQuizzesMap ? JSON.parse(localQuizzesMap) : {};
-    const moduleQuizzes = quizzesMap[activeModule?.id] || [];
+    const moduleQuizzes = dbQuizzes[activeModule?.id] || [];
     
     if (moduleQuizzes.length > 0) {
-      return moduleQuizzes.map((q: any) => ({
-        question: q.question,
-        options: q.options,
-        correctAnswer: String.fromCharCode(65 + q.correctOptionIndex)
-      }));
+      return moduleQuizzes.map((q: any) => {
+        let letter = q.correctAnswer;
+        if (q.correctAnswer && q.correctAnswer.length > 1) {
+          const idx = q.options.indexOf(q.correctAnswer);
+          if (idx >= 0) {
+            letter = String.fromCharCode(65 + idx);
+          }
+        }
+        return {
+          question: q.question,
+          options: q.options,
+          correctAnswer: letter
+        };
+      });
     }
     
     // Default fallback questions
@@ -622,6 +688,25 @@ export const CoursePlayer: React.FC = () => {
         </div>
 
         <div className="player-header-right">
+          {enrollment?.expires_at && (
+            <div className="countdown-timer-widget" style={{
+              marginRight: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 12px',
+              borderRadius: 'var(--border-radius-sm)',
+              background: courseLocked ? 'var(--neon-coral-glow)' : 'var(--bg-card)',
+              border: courseLocked ? '1px solid var(--neon-coral)' : '1px solid var(--border-color)',
+              color: courseLocked ? 'var(--neon-coral)' : 'var(--text-secondary)'
+            }}>
+              <Clock size={14} className={courseLocked ? '' : 'animate-pulse'} />
+              <span style={{ fontSize: '0.82rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                {countdownText}
+              </span>
+              {courseLocked && <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 'bold', marginLeft: '4px' }}>Locked</span>}
+            </div>
+          )}
           <div className="player-header-progress">
             <span style={{ fontSize: '0.78rem', fontWeight: 'bold' }}>
               Progress: {enrollment?.progress_percent || 0}%
@@ -639,7 +724,32 @@ export const CoursePlayer: React.FC = () => {
       <div className="player-layout-grid">
         {/* Left Side: Viewer & Progression (65%) */}
         <div className="player-main-content">
-          <div className="study-content-scroll">
+          {courseLocked ? (
+            <div className="course-locked-overlay-panel" style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              padding: '60px 40px',
+              height: '100%',
+              minHeight: '400px',
+              background: 'rgba(225, 29, 72, 0.05)',
+              border: '1px solid rgba(225, 29, 72, 0.15)',
+              borderRadius: 'var(--border-radius-lg)',
+              margin: '20px'
+            }}>
+              <Lock size={64} style={{ color: 'var(--neon-coral)', marginBottom: '24px' }} />
+              <h2 style={{ fontSize: '1.8rem', fontWeight: '800', marginBottom: '12px' }}>Course Access Locked</h2>
+              <p style={{ color: 'var(--text-secondary)', maxWidth: '500px', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '24px' }}>
+                The access deadline for this course has passed. Your progress updates have been frozen. Please contact your L&D administrator to request an enrollment extension or unlock.
+              </p>
+              <Button variant="outline" onClick={() => navigate(-1)}>
+                Return to Dashboard
+              </Button>
+            </div>
+          ) : (
+            <div className="study-content-scroll">
             <div className="lesson-heading-container">
               <span className="lesson-module-tag">{activeModule?.title}</span>
               <h2 className="lesson-title">{activeContent?.title}</h2>
@@ -884,7 +994,8 @@ export const CoursePlayer: React.FC = () => {
               )}
             </div>
           </div>
-        </div>
+        )}
+      </div>
 
         {/* Right Side: Notes Notepad Panel (35%) */}
         <div className="player-sidebar-notes">
@@ -946,6 +1057,41 @@ export const CoursePlayer: React.FC = () => {
           </Button>
         </div>
       </footer>
+
+      {showTimeUpModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div className="modal-content glass-panel" style={{
+            background: 'var(--bg-card)',
+            padding: '40px',
+            borderRadius: 'var(--border-radius-lg)',
+            border: '1px solid var(--border-color)',
+            maxWidth: '450px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)'
+          }}>
+            <Lock size={48} style={{ color: 'var(--neon-coral)', marginBottom: '20px' }} />
+            <h3 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '12px', color: '#fff' }}>Time Up!</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: '1.6', marginBottom: '24px' }}>
+              The deadline for completing this course has passed. Access is now locked. Please contact your administrator to request an extension.
+            </p>
+            <Button variant="primary" onClick={() => setShowTimeUpModal(false)} style={{ width: '100%' }}>
+              Close & Review
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

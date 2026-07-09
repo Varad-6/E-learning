@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List
 
-from app.core.dependencies import get_db, get_current_user
+from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
 from app.models.course_enrollment import CourseEnrollment
 from app.schemas.enrollment import (
@@ -139,3 +139,18 @@ def update_progress_percent(
             detail="Permission denied: Cannot update progress for another user."
         )
     return EnrollmentService.update_progress_percent(db, enrollment_id=enrollment_id, percent=percent)
+
+@router.post(
+    "/{enrollment_id}/unlock",
+    response_model=EnrollmentResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Unlock Course Enrollment",
+    description="Unlock a locked course enrollment and grant a duration extension (defaults to 3 days). Restricted to System Admin and Course Manager."
+)
+def unlock_enrollment(
+    enrollment_id: UUID,
+    extension_days: int = 3,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+):
+    return EnrollmentService.unlock_enrollment(db, enrollment_id=enrollment_id, extension_days=extension_days)

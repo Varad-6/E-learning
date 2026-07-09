@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Layers } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
+import { apiCall } from '../../services/api';
 import './Creator.css';
 
 interface CourseData {
@@ -21,24 +22,7 @@ interface ModuleData {
   order: number;
 }
 
-const DEFAULT_MODULES: { [courseId: string]: ModuleData[] } = {
-  'c1': [
-    { id: 'm1', title: 'Neural Networks & Perceptrons', order: 1 },
-    { id: 'm2', title: 'Gradient Descent & Cost Functions', order: 2 },
-    { id: 'm3', title: 'Backpropagation Algorithm', order: 3 },
-    { id: 'm4', title: 'Ethical Implications in ML Models', order: 4 }
-  ],
-  'c2': [
-    { id: 'm5', title: 'General Ledger Configuration', order: 1 },
-    { id: 'm6', title: 'Asset Master Records & Depreciation', order: 2 }
-  ],
-  'c3': [
-    { id: 'm7', title: 'ABAP Syntax & Object Dictionary', order: 1 }
-  ],
-  'c4': [
-    { id: 'm8', title: 'Sales Order Processing Framework', order: 1 }
-  ]
-};
+
 
 export const CourseSyllabus: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -48,66 +32,102 @@ export const CourseSyllabus: React.FC = () => {
   const [modules, setModules] = useState<ModuleData[]>([]);
   const [newModuleTitle, setNewModuleTitle] = useState('');
 
-  useEffect(() => {
-    // 1. Get Course details
-    const localCourses = localStorage.getItem('creator_courses');
-    if (localCourses) {
-      const coursesList: CourseData[] = JSON.parse(localCourses);
-      const foundCourse = coursesList.find(c => c.id === courseId);
-      if (foundCourse) {
-        setCourse(foundCourse);
+  const fetchSyllabus = async () => {
+    if (!courseId) return;
+    try {
+      // 1. Fetch course details
+      const courseRes = await apiCall(`/api/courses/${courseId}`);
+      if (courseRes.ok) {
+        const courseData = await courseRes.json();
+        setCourse({
+          id: courseData.id,
+          course_code: courseData.course_code,
+          title: courseData.title,
+          description: courseData.description || '',
+          priority: courseData.priority || 'Medium',
+          duration: courseData.duration || '10 hours',
+          is_published: courseData.is_published
+        });
       }
+      
+      // 2. Fetch course modules
+      const modulesRes = await apiCall(`/api/courses/${courseId}/modules`);
+      if (modulesRes.ok) {
+        const data = await modulesRes.json();
+        const mappedModules = data.map((m: any) => ({
+          id: m.id,
+          title: m.title,
+          order: m.sequence_no
+        }));
+        setModules(mappedModules);
+      }
+    } catch (err) {
+      console.error("Failed to fetch course syllabus details", err);
+    }
+  };
+
+  useEffect(() => {
+    const rawRolesStr = localStorage.getItem('rawRoles');
+    const rawRoles = rawRolesStr ? JSON.parse(rawRolesStr) : [];
+    const hasAccess = rawRoles.includes('SYSTEM_ADMIN') || rawRoles.includes('COURSE_MANAGER');
+    if (!hasAccess) {
+      navigate('/dashboard');
+      return;
     }
 
-    // 2. Get Course Modules
-    const localModulesMap = localStorage.getItem('creator_modules');
-    let modulesMap: { [courseId: string]: ModuleData[] } = {};
-    
-    if (localModulesMap) {
-      modulesMap = JSON.parse(localModulesMap);
-    } else {
-      modulesMap = DEFAULT_MODULES;
-      localStorage.setItem('creator_modules', JSON.stringify(DEFAULT_MODULES));
-    }
-
-    if (courseId) {
-      setModules(modulesMap[courseId] || []);
-    }
+    fetchSyllabus();
   }, [courseId]);
 
-  const handleAddModuleSubmit = (e: React.FormEvent) => {
+  const handleAddModuleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newModuleTitle.trim() || !courseId) return;
 
-    const newModule: ModuleData = {
-      id: `m_${Date.now()}`,
-      title: newModuleTitle.trim(),
-      order: modules.length + 1
-    };
-
-    const updatedModules = [...modules, newModule];
-    setModules(updatedModules);
-
-    // Save to localStorage map
-    const localModulesMap = localStorage.getItem('creator_modules');
-    const modulesMap = localModulesMap ? JSON.parse(localModulesMap) : {};
-    modulesMap[courseId] = updatedModules;
-    localStorage.setItem('creator_modules', JSON.stringify(modulesMap));
-
-    setNewModuleTitle('');
+    try {
+      const res = await apiCall('/api/modules', {
+        method: 'POST',
+        body: JSON.stringify({
+          course_id: courseId,
+          title: newModuleTitle.trim(),
+          sequence_no: modules.length + 1,
+          description: ''
+        })
+      });
+      if (res.ok) {
+        const newMod = await res.json();
+        setModules([...modules, {
+          id: newMod.id,
+          title: newMod.title,
+          order: newMod.sequence_no
+        }]);
+        setNewModuleTitle('');
+      } else {
+        alert('Failed to create module on the server.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Connection error. Failed to add module.');
+    }
   };
 
-  const handleTogglePublish = () => {
+  const handleTogglePublish = async () => {
     if (!course || !courseId) return;
     
-    const localCourses = localStorage.getItem('creator_courses');
-    if (localCourses) {
-      const coursesList: CourseData[] = JSON.parse(localCourses);
-      const updatedList = coursesList.map(c => 
-        c.id === courseId ? { ...c, is_published: !c.is_published } : c
-      );
-      localStorage.setItem('creator_courses', JSON.stringify(updatedList));
-      setCourse({ ...course, is_published: !course.is_published });
+    try {
+      const res = await apiCall(`/api/courses/${courseId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          is_published: !course.is_published,
+          status: 'approved'
+        })
+      });
+      if (res.ok) {
+        setCourse({ ...course, is_published: !course.is_published });
+      } else {
+        alert('Failed to update publication status.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Connection error. Failed to publish course.');
     }
   };
 

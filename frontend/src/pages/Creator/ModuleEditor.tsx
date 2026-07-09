@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Eye, Edit3, HelpCircle, FileText, Heading, Type, Link, Video, FileUp, Trash2, GripVertical } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
+import { apiCall } from '../../services/api';
 import './Creator.css';
 
 interface Block {
@@ -43,87 +44,147 @@ export const ModuleEditor: React.FC = () => {
   const [quizOptions, setQuizOptions] = useState<string[]>(['', '', '', '']);
   const [quizCorrectIndex, setQuizCorrectIndex] = useState<number>(0);
 
+  const fetchModuleWorkspace = async () => {
+    if (!moduleId) return;
+    try {
+      // 1. Fetch Module details
+      const modRes = await apiCall(`/api/modules/${moduleId}`);
+      if (modRes.ok) {
+        const modData = await modRes.json();
+        setModuleTitle(modData.title);
+      }
+
+      // 2. Fetch Module Blocks Content
+      const blockRes = await apiCall(`/api/modules/${moduleId}/contents`);
+      if (blockRes.ok) {
+        const data = await blockRes.json();
+        if (data && data.length > 0) {
+          const loadedBlocks = data.map((item: any) => ({
+            id: item.id,
+            type: item.content_type,
+            value: item.value || '',
+            label: item.label || ''
+          }));
+          setBlocks(loadedBlocks);
+        } else {
+          // Fallback initial default blocks if database contains nothing
+          const initialBlocks: Block[] = [
+            { id: 'b1', type: 'title', value: 'Course Introduction & Objectives' },
+            { id: 'b2', type: 'subtitle', value: 'Learn the primary foundations and workflow pipelines' },
+            { id: 'b3', type: 'text', value: 'This module introduces essential learning patterns. Please read the document attachments and watch the introductory lecture below.' }
+          ];
+          setBlocks(initialBlocks);
+        }
+      }
+
+      // 3. Fetch Module Notes
+      const notesRes = await apiCall(`/api/modules/${moduleId}/notes`);
+      if (notesRes.ok) {
+        const notesData = await notesRes.json();
+        setNotes(notesData.content || '');
+      }
+
+      // 4. Fetch Module Quizzes
+      const quizRes = await apiCall(`/api/quizzes/module/${moduleId}`);
+      if (quizRes.ok) {
+        const quizData = await quizRes.json();
+        if (quizData && quizData.questions && quizData.questions.length > 0) {
+          const loadedQuizzes = quizData.questions.map((q: any) => ({
+            id: q.id,
+            question: q.question_text,
+            options: q.options,
+            correctOptionIndex: q.options.indexOf(q.correct_answer) >= 0 ? q.options.indexOf(q.correct_answer) : 0
+          }));
+          setQuizzes(loadedQuizzes);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load module workspace details", err);
+    }
+  };
+
   useEffect(() => {
-    // 1. Fetch Module details
-    const localModulesMap = localStorage.getItem('creator_modules');
-    if (localModulesMap && courseId) {
-      const modulesMap = JSON.parse(localModulesMap);
-      const courseModules = modulesMap[courseId] || [];
-      const foundMod = courseModules.find((m: any) => m.id === moduleId);
-      if (foundMod) {
-        setModuleTitle(foundMod.title);
-      }
+    const rawRolesStr = localStorage.getItem('rawRoles');
+    const rawRoles = rawRolesStr ? JSON.parse(rawRolesStr) : [];
+    const hasAccess = rawRoles.includes('SYSTEM_ADMIN') || rawRoles.includes('COURSE_MANAGER');
+    if (!hasAccess) {
+      navigate('/dashboard');
+      return;
     }
 
-    // 2. Fetch Module Blocks Content
-    const localBlocksMap = localStorage.getItem('creator_module_content');
-    if (localBlocksMap && moduleId) {
-      const blocksMap = JSON.parse(localBlocksMap);
-      if (blocksMap[moduleId]) {
-        setBlocks(blocksMap[moduleId]);
-      } else {
-        // Initial Mock Blocks
-        const initialBlocks: Block[] = [
-          { id: 'b1', type: 'title', value: 'Course Introduction & Objectives' },
-          { id: 'b2', type: 'subtitle', value: 'Learn the primary foundations and workflow pipelines' },
-          { id: 'b3', type: 'text', value: 'This module introduces essential learning patterns. Please read the document attachments and watch the introductory lecture below.' },
-          { id: 'b4', type: 'youtube', value: 'https://www.youtube.com/embed/dQw4w9WgXcQ' }
-        ];
-        setBlocks(initialBlocks);
-        blocksMap[moduleId] = initialBlocks;
-        localStorage.setItem('creator_module_content', JSON.stringify(blocksMap));
-      }
-    } else {
-      const initialBlocks: Block[] = [
-        { id: 'b1', type: 'title', value: 'Course Introduction & Objectives' },
-        { id: 'b2', type: 'subtitle', value: 'Learn the primary foundations and workflow pipelines' },
-        { id: 'b3', type: 'text', value: 'This module introduces essential learning patterns. Please read the document attachments and watch the introductory lecture below.' }
-      ];
-      setBlocks(initialBlocks);
-      if (moduleId) {
-        const blocksMap = { [moduleId]: initialBlocks };
-        localStorage.setItem('creator_module_content', JSON.stringify(blocksMap));
-      }
-    }
-
-    // 3. Fetch Module Notes
-    const localNotesMap = localStorage.getItem('creator_module_notes');
-    if (localNotesMap && moduleId) {
-      const notesMap = JSON.parse(localNotesMap);
-      setNotes(notesMap[moduleId] || '');
-    }
-
-    // 4. Fetch Module Quizzes
-    const localQuizzesMap = localStorage.getItem('creator_module_quizzes');
-    if (localQuizzesMap && moduleId) {
-      const quizzesMap = JSON.parse(localQuizzesMap);
-      setQuizzes(quizzesMap[moduleId] || []);
-    }
+    fetchModuleWorkspace();
   }, [courseId, moduleId]);
 
-  // Actions: Save Module details to LocalStorage
-  const handleSave = () => {
+  // Actions: Save Module details to Database
+  const handleSave = async () => {
     if (!moduleId) return;
 
-    // Save Blocks
-    const localBlocksMap = localStorage.getItem('creator_module_content');
-    const blocksMap = localBlocksMap ? JSON.parse(localBlocksMap) : {};
-    blocksMap[moduleId] = blocks;
-    localStorage.setItem('creator_module_content', JSON.stringify(blocksMap));
+    try {
+      // 1. Save Content Blocks (Delete all existing contents first, then recreate them)
+      const existingRes = await apiCall(`/api/modules/${moduleId}/contents`);
+      if (existingRes.ok) {
+        const existingData = await existingRes.json();
+        for (const item of existingData) {
+          await apiCall(`/api/contents/${item.id}`, { method: 'DELETE' });
+        }
+      }
 
-    // Save Notes
-    const localNotesMap = localStorage.getItem('creator_module_notes');
-    const notesMap = localNotesMap ? JSON.parse(localNotesMap) : {};
-    notesMap[moduleId] = notes;
-    localStorage.setItem('creator_module_notes', JSON.stringify(notesMap));
+      // Re-create blocks
+      for (let i = 0; i < blocks.length; i++) {
+        const block = blocks[i];
+        await apiCall(`/api/modules/${moduleId}/contents`, {
+          method: 'POST',
+          body: JSON.stringify({
+            title: block.type.toUpperCase() + " Block",
+            content_type: block.type,
+            file_path: block.type === 'youtube' || block.type === 'video' || block.type === 'blog' || block.type === 'website' || block.type === 'attachment' || block.type === 'image' ? block.value : null,
+            value: block.value,
+            label: block.label || null,
+            sequence_no: i + 1,
+            is_active: true
+          })
+        });
+      }
 
-    // Save Quizzes
-    const localQuizzesMap = localStorage.getItem('creator_module_quizzes');
-    const quizzesMap = localQuizzesMap ? JSON.parse(localQuizzesMap) : {};
-    quizzesMap[moduleId] = quizzes;
-    localStorage.setItem('creator_module_quizzes', JSON.stringify(quizzesMap));
+      // 2. Save Notes
+      await apiCall(`/api/modules/${moduleId}/notes`, {
+        method: 'PUT',
+        body: JSON.stringify({ content: notes })
+      });
 
-    alert('Module content successfully saved!');
+      // 3. Save Quizzes (Delete old one and create new one if questions exist)
+      await apiCall(`/api/quizzes/module/${moduleId}`, { method: 'DELETE' });
+
+      if (quizzes.length > 0) {
+        const quizPayload = {
+          module_id: moduleId,
+          title: moduleTitle + " Assessment",
+          passing_score: 70,
+          time_limit_minutes: 15,
+          is_published: true,
+          questions: quizzes.map((q) => ({
+            question_text: q.question,
+            options: q.options,
+            correct_answer: q.options[q.correctOptionIndex],
+            explanation: "Review the module content for this answer.",
+            points: 1
+          }))
+        };
+
+        const quizCreateRes = await apiCall('/api/quizzes', {
+          method: 'POST',
+          body: JSON.stringify(quizPayload)
+        });
+        if (!quizCreateRes.ok) {
+          alert('Failed to save assessment questions to the server.');
+        }
+      }
+
+      alert('Module workspace successfully saved to Kaizen database!');
+    } catch (err) {
+      console.error(err);
+      alert('Connection error. Failed to save module workspace.');
+    }
   };
 
   // Block Builder helpers

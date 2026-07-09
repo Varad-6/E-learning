@@ -16,8 +16,8 @@ export const getBadgeForCompletions = (count: number): Badge | null => {
     { step: 6, name: "Subject Specialist", color: "linear-gradient(135deg, #ffe082 0%, #ffa000 100%)", description: "Completed 6 courses. Highly qualified in core subjects.", icon: "🥇✨" },
     { step: 7, name: "Elite Achiever", color: "linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)", description: "Completed 7 courses. Reached elite corporate training levels.", icon: "🎖️" },
     { step: 8, name: "Master Mentor", color: "linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%)", description: "Completed 8 courses. Possesses capability to guide other learners.", icon: "🎖️✨" },
-    { step: 9, name: "Continuous Improver", color: "linear-gradient(135deg, #818cf8 0%, #4f46e5 100%)", description: "Completed 9 courses. Lives the true spirit of Kiezen improvement.", icon: "💎" },
-    { step: 10, name: "Grandmaster of Kiezen", color: "linear-gradient(135deg, #f472b6 0%, #db2777 100%)", description: "Completed 10+ courses. The supreme crown of corporate learning excellence.", icon: "👑" }
+    { step: 9, name: "Continuous Improver", color: "linear-gradient(135deg, #818cf8 0%, #4f46e5 100%)", description: "Completed 9 courses. Lives the true spirit of Kaizen improvement.", icon: "💎" },
+    { step: 10, name: "Grandmaster of Kaizen", color: "linear-gradient(135deg, #f472b6 0%, #db2777 100%)", description: "Completed 10+ courses. The supreme crown of corporate learning excellence.", icon: "👑" }
   ];
 
   if (count <= 0) return null;

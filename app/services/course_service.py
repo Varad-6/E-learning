@@ -35,7 +35,7 @@ class CourseService:
             difficulty_level=request.difficulty_level,
             department_id=request.department_id,
             created_by=user_id,
-            status="draft",
+            status="approved",
             is_published=False,
             duration=request.duration,
             priority=request.priority

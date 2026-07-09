@@ -1,8 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List
 from uuid import UUID
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+import re
 
 from app.models.course import Course
 from app.models.course_enrollment import CourseEnrollment
@@ -11,6 +12,45 @@ from app.models.module_content import ModuleContent
 from app.models.user import User
 from app.models.user_course_progress import UserCourseProgress
 from app.schemas.enrollment import ProgressUpdate
+
+def parse_duration(duration_str: str) -> timedelta:
+    if not duration_str:
+        return timedelta(days=3)  # default fallback
+    
+    duration_str = duration_str.strip().lower()
+    days, hours, minutes, seconds = 0, 0, 0, 0
+    
+    day_match = re.search(r'(\d+)\s*d', duration_str)
+    hour_match = re.search(r'(\d+)\s*h', duration_str)
+    min_match = re.search(r'(\d+)\s*m', duration_str)
+    sec_match = re.search(r'(\d+)\s*s', duration_str)
+    
+    if not any([day_match, hour_match, min_match, sec_match]):
+        if 'day' in duration_str:
+            day_match = re.search(r'(\d+)', duration_str)
+        elif 'hour' in duration_str:
+            hour_match = re.search(r'(\d+)', duration_str)
+        elif 'minute' in duration_str or 'min' in duration_str:
+            min_match = re.search(r'(\d+)', duration_str)
+        elif 'second' in duration_str or 'sec' in duration_str:
+            sec_match = re.search(r'(\d+)', duration_str)
+            
+    if day_match:
+        days = int(day_match.group(1))
+    if hour_match:
+        hours = int(hour_match.group(1))
+    if min_match:
+        minutes = int(min_match.group(1))
+    if sec_match:
+        seconds = int(sec_match.group(1))
+        
+    if days == 0 and hours == 0 and minutes == 0 and seconds == 0:
+        try:
+            hours = int(duration_str)
+        except ValueError:
+            return timedelta(days=3)
+            
+    return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
 
 class EnrollmentService:
     @staticmethod
@@ -46,6 +86,8 @@ class EnrollmentService:
             if existing.status == "dropped":
                 existing.status = "enrolled"
                 existing.enrolled_at = datetime.now(timezone.utc)
+                existing.expires_at = datetime.now(timezone.utc) + parse_duration(course.duration)
+                existing.is_locked = False
                 existing.completed_at = None
                 db.commit()
                 db.refresh(existing)
@@ -56,11 +98,14 @@ class EnrollmentService:
                     detail="User is already enrolled in this course."
                 )
 
+        expires_at = datetime.now(timezone.utc) + parse_duration(course.duration)
         enrollment = CourseEnrollment(
             user_id=user_id,
             course_id=course_id,
             status="enrolled",
-            enrolled_at=datetime.now(timezone.utc)
+            enrolled_at=datetime.now(timezone.utc),
+            expires_at=expires_at,
+            is_locked=False
         )
         db.add(enrollment)
         db.commit()
@@ -108,6 +153,9 @@ class EnrollmentService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Active course enrollment matching this course module not found."
             )
+
+        # Check deadline locking
+        EnrollmentService._check_and_lock(db, enrollment)
 
         # Update enrollment status to in_progress if currently enrolled
         if enrollment.status == "enrolled":
@@ -170,6 +218,9 @@ class EnrollmentService:
                 detail=f"Enrollment with ID {enrollment_id} not found."
             )
 
+        # Check deadline locking
+        EnrollmentService._check_and_lock(db, enrollment)
+
         if enrollment.status != "completed":
             enrollment.status = "completed"
             enrollment.completed_at = datetime.now(timezone.utc)
@@ -177,6 +228,29 @@ class EnrollmentService:
             db.refresh(enrollment)
 
         return enrollment
+
+    @staticmethod
+    def _check_and_lock(db: Session, enrollment: CourseEnrollment) -> None:
+        """Helper to evaluate if a course enrollment has expired and locks it."""
+        if enrollment.is_locked:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Course is locked because the deadline has passed."
+            )
+        
+        if enrollment.expires_at:
+            expires_at_utc = enrollment.expires_at
+            if expires_at_utc.tzinfo is None:
+                expires_at_utc = expires_at_utc.replace(tzinfo=timezone.utc)
+            
+            if datetime.now(timezone.utc) > expires_at_utc:
+                enrollment.is_locked = True
+                enrollment.status = "dropped" # mark inactive/dropped when expired
+                db.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Course is locked because the deadline has passed."
+                )
 
     @staticmethod
     def update_progress_percent(db: Session, enrollment_id: UUID, percent: int) -> CourseEnrollment:
@@ -187,6 +261,9 @@ class EnrollmentService:
                 detail=f"Enrollment with ID {enrollment_id} not found."
             )
         
+        # Check deadline locking
+        EnrollmentService._check_and_lock(db, enrollment)
+
         enrollment.progress_percent = percent
         if percent >= 100:
             enrollment.status = "completed"
@@ -209,5 +286,37 @@ class EnrollmentService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Enrollment with ID {enrollment_id} not found."
             )
+        
+        # Reactively check expiration on read
+        if not enrollment.is_locked and enrollment.expires_at:
+            expires_at_utc = enrollment.expires_at
+            if expires_at_utc.tzinfo is None:
+                expires_at_utc = expires_at_utc.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) > expires_at_utc:
+                enrollment.is_locked = True
+                enrollment.status = "dropped"
+                db.commit()
+                db.refresh(enrollment)
+                
+        return enrollment
+
+    @staticmethod
+    def unlock_enrollment(db: Session, enrollment_id: UUID, extension_days: int = 3) -> CourseEnrollment:
+        """Unlock a locked enrollment and extend the expiration date."""
+        enrollment = db.query(CourseEnrollment).filter(CourseEnrollment.id == enrollment_id).first()
+        if not enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Enrollment with ID {enrollment_id} not found."
+            )
+        
+        enrollment.is_locked = False
+        # If it was marked dropped due to lock, reset to enrolled or in_progress
+        if enrollment.status == "dropped":
+            enrollment.status = "in_progress" if enrollment.progress_percent > 0 else "enrolled"
+            
+        enrollment.expires_at = datetime.now(timezone.utc) + timedelta(days=extension_days)
+        db.commit()
+        db.refresh(enrollment)
         return enrollment
 

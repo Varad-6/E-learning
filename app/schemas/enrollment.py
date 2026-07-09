@@ -24,6 +24,8 @@ class EnrollmentResponse(BaseModel):
     progress_percent: int = 0
     enrolled_at: datetime
     completed_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    is_locked: bool = False
 
     class Config:
         from_attributes = True

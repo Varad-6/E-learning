@@ -68,7 +68,7 @@ export const Landing: React.FC = () => {
         <div className="hero-left-content" style={{ alignItems: 'center' }}>
           <div className="hero-brand-row">
             <BookOpen size={36} className="quote-icon" />
-            <h1 className="landing-title">Kiezen</h1>
+            <h1 className="landing-title">Kaizen</h1>
           </div>
           
           <blockquote className="educational-quote" style={{ borderLeft: 'none', borderTop: '3px solid var(--accent-color)', borderBottom: '3px solid var(--accent-color)', padding: '20px 0', width: '100%' }}>
@@ -77,7 +77,7 @@ export const Landing: React.FC = () => {
           </blockquote>
 
           <p className="landing-lead-text">
-            Welcome to the Kiezen workspace portal. Select one of the quick-login gateways below to log in as a Learner, Course Creator, or System Administrator, or proceed to the custom login screen.
+            Welcome to the Kaizen workspace portal. Select one of the quick-login gateways below to log in as a Learner, Course Creator, or System Administrator, or proceed to the custom login screen.
           </p>
 
           <Button 
