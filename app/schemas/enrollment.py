@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 from enum import Enum
@@ -14,6 +14,18 @@ class EnrollmentCreate(BaseModel):
     course_id: UUID = Field(..., description="ID of the course to enroll in")
     user_id: Optional[UUID] = Field(None, description="ID of the user enrolling. Defaults to current user if omitted.")
 
+class UserProgressResponse(BaseModel):
+    id: UUID
+    enrollment_id: UUID
+    module_id: UUID
+    content_id: UUID
+    completed: bool
+    completed_at: Optional[datetime] = None
+    time_spent_seconds: int
+
+    class Config:
+        from_attributes = True
+
 class EnrollmentResponse(BaseModel):
     id: UUID
     user_id: UUID
@@ -26,6 +38,7 @@ class EnrollmentResponse(BaseModel):
     completed_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     is_locked: bool = False
+    progress_records: List[UserProgressResponse] = []
 
     class Config:
         from_attributes = True
@@ -35,15 +48,3 @@ class ProgressUpdate(BaseModel):
     content_id: UUID = Field(..., description="ID of the module content")
     completed: bool = Field(..., description="Completion status")
     time_spent_seconds: int = Field(0, ge=0, description="Time spent in seconds on this content")
-
-class UserProgressResponse(BaseModel):
-    id: UUID
-    enrollment_id: UUID
-    module_id: UUID
-    content_id: UUID
-    completed: bool
-    completed_at: Optional[datetime] = None
-    time_spent_seconds: int
-
-    class Config:
-        from_attributes = True

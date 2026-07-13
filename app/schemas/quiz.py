@@ -9,6 +9,7 @@ class QuizQuestionCreate(BaseModel):
     correct_answer: str = Field(..., description="Correct option corresponding to options list")
     explanation: Optional[str] = Field(None, description="Explanation for the correct answer")
     points: int = Field(1, ge=1, description="Points awarded for the correct answer")
+    question_type: Optional[str] = Field("mcq", description="Type of question (mcq, msq, notes)")
 
 class QuizQuestionResponse(BaseModel):
     id: UUID
@@ -18,6 +19,7 @@ class QuizQuestionResponse(BaseModel):
     correct_answer: str
     explanation: Optional[str] = None
     points: int
+    question_type: str
 
     class Config:
         from_attributes = True

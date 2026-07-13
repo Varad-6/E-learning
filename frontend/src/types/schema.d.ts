@@ -33,6 +33,8 @@ export interface Course {
   duration?: string;
   created_by?: string;
   created_at?: string;
+  is_mandatory?: boolean;
+  published_at?: string;
 }
 
 export interface CourseModule {
@@ -41,6 +43,7 @@ export interface CourseModule {
   title: string;
   description: string;
   sequence_no: number;
+  tier: 'beginner' | 'intermediate' | 'advanced';
 }
 
 export interface ModuleContent {
@@ -55,11 +58,16 @@ export interface ModuleContent {
 }
 
 export interface CourseEnrollment {
+  id: string;
   user_id: string;
   course_id: string;
-  status: 'ENROLLED' | 'IN_PROGRESS' | 'COMPLETED' | 'DROPPED';
+  status: 'enrolled' | 'in_progress' | 'completed' | 'dropped';
+  progress_percent: number;
   enrolled_at: string;
   completed_at?: string;
+  expires_at?: string;
+  is_locked: boolean;
+  progress_records?: any[];
 }
 
 export interface UserCourseSummary {

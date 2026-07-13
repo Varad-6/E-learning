@@ -38,7 +38,7 @@ def list_courses(
             or_(
                 Course.created_by == current_user.id,
                 and_(
-                    Course.status == "approved",
+                    Course.status.in_(["approved", "published"]),
                     Course.department_id == current_user.department_id
                 )
             )

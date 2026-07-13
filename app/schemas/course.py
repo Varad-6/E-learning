@@ -9,6 +9,8 @@ class CourseStatus(str, Enum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
 
 class ModuleContentCreate(BaseModel):
     title: str = Field(..., description="Title of the module content")
@@ -39,6 +41,7 @@ class CourseModuleCreate(BaseModel):
     title: str = Field(..., description="Title of the course module")
     description: Optional[str] = Field(None, description="Detailed description of the module")
     sequence_no: int = Field(..., description="Display order sequence number")
+    tier: str = Field(..., description="Tier name: beginner, intermediate, advanced")
 
 class CourseModuleResponse(BaseModel):
     id: UUID
@@ -46,6 +49,7 @@ class CourseModuleResponse(BaseModel):
     title: str
     description: Optional[str] = None
     sequence_no: int
+    tier: str
     created_at: datetime
     contents: List[ModuleContentResponse] = []
 
@@ -60,6 +64,7 @@ class CourseCreate(BaseModel):
     department_id: Optional[UUID] = Field(None, description="Associated department ID")
     duration: Optional[str] = Field(None, description="Duration of the course")
     priority: Optional[str] = Field(None, description="Priority of the course")
+    is_mandatory: bool = Field(False, description="Whether the course is mandatory")
 
 class CourseUpdate(BaseModel):
     course_code: Optional[str] = Field(None, description="Unique code identifying the course")
@@ -71,6 +76,7 @@ class CourseUpdate(BaseModel):
     status: Optional[CourseStatus] = Field(None, description="Status of the course")
     duration: Optional[str] = Field(None, description="Duration of the course")
     priority: Optional[str] = Field(None, description="Priority of the course")
+    is_mandatory: Optional[bool] = Field(None, description="Whether the course is mandatory")
 
 class CourseResponse(BaseModel):
     id: UUID
@@ -88,6 +94,8 @@ class CourseResponse(BaseModel):
     creator_role: Optional[str] = None
     department_name: Optional[str] = None
     rejection_reason: Optional[str] = None
+    is_mandatory: bool = False
+    published_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     modules: List[CourseModuleResponse] = []
@@ -104,11 +112,13 @@ class ModuleCreate(BaseModel):
     title: str = Field(..., description="Title of the course module")
     description: Optional[str] = Field(None, description="Detailed description of the module")
     sequence_no: int = Field(..., description="Display order sequence number")
+    tier: str = Field(..., description="Tier name: beginner, intermediate, advanced")
 
 class ModuleUpdate(BaseModel):
     title: Optional[str] = Field(None, description="Title of the course module")
     description: Optional[str] = Field(None, description="Detailed description of the module")
     sequence_no: Optional[int] = Field(None, description="Display order sequence number")
+    tier: Optional[str] = Field(None, description="Tier name: beginner, intermediate, advanced")
 
 class ModuleResponse(BaseModel):
     id: UUID
@@ -116,6 +126,7 @@ class ModuleResponse(BaseModel):
     title: str
     description: Optional[str] = None
     sequence_no: int
+    tier: str
     created_at: datetime
     contents: List[ModuleContentResponse] = []
 

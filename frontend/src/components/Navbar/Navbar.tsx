@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, User, LogOut, Bell, Trash2, CheckCircle2 } from 'lucide-react';
+import { User, LogOut, Bell, Trash2, CheckCircle2 } from 'lucide-react';
 import { ThemeToggle } from '../ThemeToggle/ThemeToggle';
 import { Button } from '../Button/Button';
 import { apiCall, handleLogoutLocal } from '../../services/api';
@@ -169,8 +169,7 @@ export const Navbar: React.FC = () => {
           style={{ cursor: 'pointer' }}
           role="button"
         >
-          <BookOpen className="logo-icon" size={24} />
-          <span className="logo-text">Kaizen</span>
+          <span className="logo-text" style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '0.5px' }}>KIEZEN</span>
         </div>
 
         <nav className="navbar-links">
@@ -193,14 +192,24 @@ export const Navbar: React.FC = () => {
                 Dashboard
               </div>
               {userRole === 'Employee' && (
-                <div 
-                  onClick={() => navigate('/dashboard?tab=my-courses')} 
-                  className={`nav-link ${location.pathname === '/dashboard' && location.search.includes('tab=my-courses') ? 'active' : ''}`} 
-                  style={{ cursor: 'pointer' }}
-                  role="button"
-                >
-                  My Courses
-                </div>
+                <>
+                  <div 
+                    onClick={() => navigate('/dashboard?tab=my-courses')} 
+                    className={`nav-link ${location.pathname === '/dashboard' && location.search.includes('tab=my-courses') ? 'active' : ''}`} 
+                    style={{ cursor: 'pointer' }}
+                    role="button"
+                  >
+                    My Courses
+                  </div>
+                  <div 
+                    onClick={() => navigate('/exams')} 
+                    className={`nav-link ${location.pathname === '/exams' ? 'active' : ''}`} 
+                    style={{ cursor: 'pointer' }}
+                    role="button"
+                  >
+                    Exams
+                  </div>
+                </>
               )}
             </>
           )}

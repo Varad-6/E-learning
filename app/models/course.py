@@ -19,6 +19,8 @@ class Course(Base):
     status = Column(String, default="draft", nullable=False)  # draft, pending, approved, rejected
     duration = Column(String, nullable=True)
     priority = Column(String, nullable=True)
+    published_at = Column(DateTime(timezone=True), nullable=True)
+    is_mandatory = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

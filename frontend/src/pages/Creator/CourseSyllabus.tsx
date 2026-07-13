@@ -20,6 +20,7 @@ interface ModuleData {
   id: string;
   title: string;
   order: number;
+  tier: 'beginner' | 'intermediate' | 'advanced';
 }
 
 
@@ -31,6 +32,7 @@ export const CourseSyllabus: React.FC = () => {
   const [course, setCourse] = useState<CourseData | null>(null);
   const [modules, setModules] = useState<ModuleData[]>([]);
   const [newModuleTitle, setNewModuleTitle] = useState('');
+  const [activeTier, setActiveTier] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
 
   const fetchSyllabus = async () => {
     if (!courseId) return;
@@ -57,7 +59,8 @@ export const CourseSyllabus: React.FC = () => {
         const mappedModules = data.map((m: any) => ({
           id: m.id,
           title: m.title,
-          order: m.sequence_no
+          order: m.sequence_no,
+          tier: m.tier || 'beginner'
         }));
         setModules(mappedModules);
       }
@@ -82,14 +85,16 @@ export const CourseSyllabus: React.FC = () => {
     e.preventDefault();
     if (!newModuleTitle.trim() || !courseId) return;
 
+    const modulesInTier = modules.filter(m => m.tier === activeTier);
     try {
       const res = await apiCall('/api/modules', {
         method: 'POST',
         body: JSON.stringify({
           course_id: courseId,
           title: newModuleTitle.trim(),
-          sequence_no: modules.length + 1,
-          description: ''
+          sequence_no: modulesInTier.length + 1,
+          description: '',
+          tier: activeTier
         })
       });
       if (res.ok) {
@@ -97,7 +102,8 @@ export const CourseSyllabus: React.FC = () => {
         setModules([...modules, {
           id: newMod.id,
           title: newMod.title,
-          order: newMod.sequence_no
+          order: newMod.sequence_no,
+          tier: newMod.tier
         }]);
         setNewModuleTitle('');
       } else {
@@ -112,12 +118,23 @@ export const CourseSyllabus: React.FC = () => {
   const handleTogglePublish = async () => {
     if (!course || !courseId) return;
     
+    // Check if we are trying to publish
+    if (!course.is_published) {
+      const begCount = modules.filter(m => m.tier === 'beginner').length;
+      const intCount = modules.filter(m => m.tier === 'intermediate').length;
+      const advCount = modules.filter(m => m.tier === 'advanced').length;
+      if (begCount < 2 || intCount < 2 || advCount < 2) {
+        alert('Cannot publish course: Each difficulty tier (Beginner, Intermediate, Advanced) must have at least 2 modules.');
+        return;
+      }
+    }
+
     try {
       const res = await apiCall(`/api/courses/${courseId}`, {
         method: 'PUT',
         body: JSON.stringify({
           is_published: !course.is_published,
-          status: 'approved'
+          status: !course.is_published ? 'published' : 'draft'
         })
       });
       if (res.ok) {
@@ -192,12 +209,43 @@ export const CourseSyllabus: React.FC = () => {
             <span className="badge success">{modules.length} {modules.length === 1 ? 'Module' : 'Modules'}</span>
           </div>
 
+          {/* Tier Tabs */}
+          <div className="tier-tabs-row" style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+            {(['beginner', 'intermediate', 'advanced'] as const).map(tier => {
+              const count = modules.filter(m => m.tier === tier).length;
+              const isActive = activeTier === tier;
+              return (
+                <button
+                  key={tier}
+                  type="button"
+                  onClick={() => setActiveTier(tier)}
+                  className={`tab-btn-styled ${isActive ? 'active' : ''}`}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '20px',
+                    border: '1px solid',
+                    borderColor: isActive ? 'var(--accent-color)' : 'var(--border-color)',
+                    background: isActive ? 'var(--accent-color)' : 'transparent',
+                    color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    textTransform: 'capitalize',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {tier} <span style={{ marginLeft: '4px', opacity: 0.8, fontSize: '0.75rem', padding: '2px 6px', background: isActive ? 'rgba(255,255,255,0.2)' : 'var(--border-color)', borderRadius: '10px' }}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
           {/* Quick Add Module Bar */}
           <form onSubmit={handleAddModuleSubmit} className="quick-add-module-form" style={{ display: 'flex', gap: '12px', marginBottom: '24px', alignItems: 'center' }}>
             <input 
               type="text" 
               className="form-input-styled" 
-              placeholder="Create a new module (e.g. Module 1: Introduction)..." 
+              placeholder={`Create a new ${activeTier} module (e.g. Module 1: Introduction)...`} 
               value={newModuleTitle}
               onChange={(e) => setNewModuleTitle(e.target.value)}
               required
@@ -213,30 +261,33 @@ export const CourseSyllabus: React.FC = () => {
           </form>
 
           {/* Module Syllabus List */}
-          {modules.length === 0 ? (
+          {modules.filter(m => m.tier === activeTier).length === 0 ? (
             <div className="empty-state-banner">
               <Layers size={36} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-              <h4>No Modules Created</h4>
-              <p>Type a module title above and press "Add Module" (or hit Enter) to build your syllabus structure.</p>
+              <h4 style={{ textTransform: 'capitalize' }}>No {activeTier} Modules Created</h4>
+              <p>Type a module title above and press "Add Module" to build your {activeTier} syllabus structure (minimum 2 required to publish).</p>
             </div>
           ) : (
             <div className="module-syllabus-list">
-              {modules.map((mod, index) => (
-                <div 
-                  key={mod.id} 
-                  className="module-syllabus-item"
-                  onClick={() => navigate(`/creator/course/${course.id}/module/${mod.id}`)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className="module-item-title-col">
-                    <h4>Module {index + 1}: {mod.title}</h4>
-                    <p>Click to open workspace (add text contents, links, media, tests and notes)</p>
+              {modules
+                .filter(m => m.tier === activeTier)
+                .sort((a, b) => a.order - b.order)
+                .map((mod, index) => (
+                  <div 
+                    key={mod.id} 
+                    className="module-syllabus-item"
+                    onClick={() => navigate(`/creator/course/${course.id}/module/${mod.id}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="module-item-title-col">
+                      <h4 style={{ textTransform: 'capitalize' }}>{activeTier} Module {index + 1}: {mod.title}</h4>
+                      <p>Click to open workspace (add text contents, links, media, tests and notes)</p>
+                    </div>
+                    <Button variant="outline" size="sm" leftIcon={<Plus size={14} />}>
+                      Explore Content
+                    </Button>
                   </div>
-                  <Button variant="outline" size="sm" leftIcon={<Plus size={14} />}>
-                    Explore Content
-                  </Button>
-                </div>
-              ))}
+                ))}
             </div>
           )}
         </div>

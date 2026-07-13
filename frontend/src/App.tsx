@@ -12,6 +12,9 @@ import { ModuleEditor } from './pages/Creator/ModuleEditor';
 import { UserAdminStudio } from './pages/Admin/UserAdminStudio';
 import { ViewCourses } from './pages/ViewCourses/ViewCourses';
 import { CoursePlayer } from './pages/CoursePlayer/CoursePlayer';
+import { ExamCreator } from './pages/Creator/ExamCreator';
+import { ExamsCenter } from './pages/Exams/ExamsCenter';
+import { ExamReviewer } from './pages/Creator/ExamReviewer';
 import './styles/index.css';
 
 const AppContent: React.FC = () => {
@@ -33,6 +36,9 @@ const AppContent: React.FC = () => {
           <Route path="/admin/users" element={<UserAdminStudio />} />
           <Route path="/view-courses" element={<ViewCourses />} />
           <Route path="/course-player/:enrollmentId" element={<CoursePlayer />} />
+          <Route path="/creator/exams/create" element={<ExamCreator />} />
+          <Route path="/creator/exams/review" element={<ExamReviewer />} />
+          <Route path="/exams" element={<ExamsCenter />} />
         </Routes>
       </main>
       {!isAuthPage && !isPlayerPage && <Footer />}

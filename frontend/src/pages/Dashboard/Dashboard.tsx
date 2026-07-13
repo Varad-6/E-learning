@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User, Users, ShieldAlert, Award, FileText, CheckCircle, PlusCircle, Bookmark, Layers, BookOpen } from 'lucide-react';
+import { User, Users, ShieldAlert, Award, FileText, PlusCircle, Bookmark, Layers, BookOpen } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import type { Course } from '../../types/schema';
 import { getBadgeForCompletions } from '../../services/badge';
@@ -147,6 +147,8 @@ export const Dashboard: React.FC = () => {
   
   // Manager Managed Courses state (to allow dynamic edits/creation)
   const [managedCourses, setManagedCourses] = useState<Course[]>(DEFAULT_COURSES);
+  const [activeCatalogTab, setActiveCatalogTab] = useState<'mandatory' | 'available'>('available');
+  const [activeMyCoursesTab, setActiveMyCoursesTab] = useState<'in_progress' | 'completed'>('in_progress');
 
   // React States for Employee View
   const [myProgress, setMyProgress] = useState<ProgressItem[]>([
@@ -348,8 +350,9 @@ export const Dashboard: React.FC = () => {
       });
 
       if (response.ok) {
+        const enrollData = await response.json();
         await fetchDBCourses();
-        alert('Enrolled successfully! Course is now added to your learning curriculum.');
+        navigate(`/course-player/${enrollData.id}`);
       } else {
         const err = await response.json();
         alert(err.detail || 'Enrollment failed.');
@@ -810,114 +813,135 @@ export const Dashboard: React.FC = () => {
       {/* 1. EMPLOYEE (LEARNER) MAIN CATALOG VIEW */}
       {activeMainView === 'dashboard' && role === 'Employee' && (
         <div className="dashboard-layout-employee animate-fade-in">
-          <div className="pane-header">
-            <h3>Department Course Catalog</h3>
-            <p>Explore training modules and continuous improvement resources assigned to your node</p>
+          <div className="pane-header" style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Courses</h3>
           </div>
+          <div className="employee-learning-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
+            <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+              
+              {/* Sub-tabs for Mandatory & Available */}
+              <div className="catalog-tabs-container" style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveCatalogTab('mandatory')}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    fontSize: '1.05rem',
+                    fontWeight: 700,
+                    color: activeCatalogTab === 'mandatory' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                    borderBottom: activeCatalogTab === 'mandatory' ? '2px solid var(--accent-color)' : 'none',
+                    paddingBottom: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Mandatory
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveCatalogTab('available')}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    fontSize: '1.05rem',
+                    fontWeight: 700,
+                    color: activeCatalogTab === 'available' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                    borderBottom: activeCatalogTab === 'available' ? '2px solid var(--accent-color)' : 'none',
+                    paddingBottom: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Available
+                </button>
+              </div>
 
-          <div className="employee-learning-grid">
-            <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* Available Department Courses */}
-              <div className="available-courses-section">
-                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px', fontSize: '1.05rem', fontWeight: '700' }}>
-                  Available Department Courses
-                </h4>
-                {managedCourses.filter((c: any) => (c.status === 'approved' || c.is_published) && (!c.department_id || c.department_id === localStorage.getItem('profileDeptId'))).length === 0 ? (
-                  <div className="empty-state-container glass-panel" style={{ padding: '32px', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
-                    <BookOpen size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)' }} />
-                    <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No new courses available in your department.</p>
-                  </div>
-                ) : (
-                  managedCourses
-                    .filter((c: any) => (c.status === 'approved' || c.is_published) && (!c.department_id || c.department_id === localStorage.getItem('profileDeptId')))
-                    .map((course) => {
+              {/* Courses Grid */}
+              {(() => {
+                const filtered = managedCourses.filter((c: any) => {
+                  const isPublished = c.status === 'published' || c.status === 'approved' || c.is_published;
+                  if (!isPublished) return false;
+                  
+                  return activeCatalogTab === 'mandatory' ? c.is_mandatory : !c.is_mandatory;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)', width: '100%' }}>
+                      <BookOpen size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
+                      <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No courses match your active filters.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
+                    {filtered.map((course) => {
                       const enrollmentItem = myProgress.find((p: any) => p.courseId === course.id);
                       const isEnrolled = !!enrollmentItem;
 
                       return (
-                        <div key={course.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.2s, box-shadow 0.2s' }}>
-                          <div className="course-row-info" style={{ flex: 1, paddingRight: '20px' }}>
-                            <span className="course-row-code" style={{ padding: '4px 8px', borderRadius: '4px', background: 'var(--accent-glow)', color: 'var(--accent-color)', fontSize: '0.72rem', fontWeight: '800' }}>{course.course_code}</span>
-                            <h4 style={{ marginTop: '8px', fontSize: '1.05rem', color: 'var(--text-primary)' }}>{course.title}</h4>
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.4' }}>{course.description}</p>
-                            <div style={{ display: 'flex', gap: '16px', marginTop: '10px', fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: '500' }}>
-                              <span>Difficulty: <strong style={{ color: 'var(--text-primary)' }}>{course.difficulty_level}</strong></span>
-                              <span>Duration: <strong style={{ color: 'var(--text-primary)' }}>{course.duration}</strong></span>
-                            </div>
+                        <div 
+                          key={course.id} 
+                          className="course-lobby-card glass-panel glow-hover" 
+                          style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            borderRadius: 'var(--border-radius-lg)', 
+                            overflow: 'hidden', 
+                            background: 'var(--bg-card)', 
+                            border: '1px solid var(--border-color)',
+                            transition: 'all 0.3s ease',
+                            padding: '20px',
+                            justifyContent: 'space-between',
+                            minHeight: '180px'
+                          }}
+                        >
+                          <div>
+                            <span 
+                              className="course-code-tag" 
+                              style={{ 
+                                padding: '2px 8px', 
+                                borderRadius: '12px', 
+                                background: 'var(--accent-glow)', 
+                                color: 'var(--accent-color)', 
+                                fontSize: '0.7rem', 
+                                fontWeight: '800',
+                                textTransform: 'uppercase'
+                              }}
+                            >
+                              {course.course_code}
+                            </span>
+                            <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
+                              {course.title}
+                            </h4>
                           </div>
-                          <div style={{ minWidth: '150px' }}>
+
+                          <div style={{ marginTop: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                              <span>Duration:</span>
+                              <strong>{course.duration || '10 hours'}</strong>
+                            </div>
+
                             <Button
                               variant={isEnrolled ? "outline" : "primary"}
-                              onClick={() => !isEnrolled && handleEnrollCourse(course.id)}
                               disabled={isEnrolled}
-                              style={{ width: '100%', height: '42px', fontWeight: '700' }}
+                              onClick={() => {
+                                if (!isEnrolled) {
+                                  handleEnrollCourse(course.id);
+                                }
+                              }}
+                              style={{ width: '100%', height: '40px', fontWeight: '700' }}
                             >
                               {isEnrolled ? 'Already Enrolled' : 'Start Course'}
                             </Button>
                           </div>
                         </div>
                       );
-                    })
-                )}
-              </div>
-            </div>
-
-            {/* Sidebar Completed Courses & Certificates */}
-            <div className="employee-sidebar">
-              {/* Completed Modules List */}
-              <div className="sidebar-card glass-panel" style={{ padding: '24px', borderLeft: '3px solid var(--neon-teal)' }}>
-                <div className="sidebar-card-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                  <CheckCircle size={20} className="icon-green" style={{ color: 'var(--neon-teal)' }} />
-                  <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Completed Courses</h3>
-                </div>
-                {myProgress.filter(p => p.progressPercent === 100).length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.82rem', margin: 0 }}>No completed courses yet. Complete modules to earn credentials.</p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {myProgress.filter(p => p.progressPercent === 100).map((item) => (
-                      <div key={item.id} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--neon-teal)', fontWeight: 'bold' }}>{item.courseCode}</span>
-                        <h4 style={{ fontSize: '0.85rem', margin: '2px 0 0 0', color: 'var(--text-primary)' }}>{item.title}</h4>
-                      </div>
-                    ))}
+                    })}
                   </div>
-                )}
-              </div>
+                );
+              })()}
 
-              {/* Certificates Sidebar Card */}
-              <div className="sidebar-card glass-panel" style={{ padding: '24px' }}>
-                <div className="sidebar-card-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                  <Award size={20} className="icon-yellow" style={{ color: 'var(--accent-color)' }} />
-                  <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Kaizen Certificates</h3>
-                </div>
-                <p className="sidebar-card-subtitle" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>Verified training credentials</p>
-                
-                <div className="certificates-badge-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {myProgress.some(i => i.progressPercent === 100) ? (
-                    myProgress
-                      .filter(i => i.progressPercent === 100)
-                      .map(item => (
-                        <div key={item.id} className="certificate-badge-item" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '6px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
-                          <CheckCircle size={16} className="cert-check" style={{ color: 'var(--neon-teal)' }} />
-                          <div style={{ flex: 1 }}>
-                            <p className="cert-title" style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>{item.courseCode} Certificate</p>
-                            <p className="cert-date" style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: 0 }}>Issued: {new Date().toLocaleDateString()}</p>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => alert(`Showing digital certificate for ${item.title}`)}
-                            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-                          >
-                            View
-                          </Button>
-                        </div>
-                      ))
-                  ) : (
-                    <p className="no-data-msg" style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>No certificates earned yet.</p>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -926,95 +950,131 @@ export const Dashboard: React.FC = () => {
       {/* 1B. EMPLOYEE (LEARNER) MY ENROLLED COURSES VIEW */}
       {activeMainView === 'my-courses' && role === 'Employee' && (
         <div className="dashboard-layout-employee animate-fade-in">
-          <div className="pane-header">
-            <h3>My Enrolled Curriculum</h3>
-            <p>Track your active modules, study logs, and complete assessments</p>
+          <div className="pane-header" style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '1.5rem', fontWeight: 800 }}>My Courses</h3>
           </div>
 
-          <div className="employee-learning-grid">
-            <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* Enrolled Courses */}
-              <div className="enrolled-courses-section">
-                <h4 style={{ color: 'var(--text-primary)', marginBottom: '14px', borderBottom: '1px solid var(--accent-color)', paddingBottom: '6px', fontSize: '1.05rem', fontWeight: '700' }}>
-                  Active Enrolled Courses ({myProgress.filter(p => p.progressPercent < 100).length})
-                </h4>
-                {myProgress.filter(p => p.progressPercent < 100).length === 0 ? (
-                  <div className="empty-state-container glass-panel" style={{ padding: '32px', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
-                    <Bookmark size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)' }} />
-                    <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No active course enrollments. Enroll in a course from the Dashboard catalog to start!</p>
-                  </div>
-                ) : (
-                  myProgress.filter(p => p.progressPercent < 100).map((item) => (
-                    <div key={item.id} className="course-progress-row glass-panel glow-hover" style={{ marginBottom: '12px' }}>
-                      <div className="course-row-info">
-                        <span className="course-row-code" style={{ padding: '4px 8px', borderRadius: '4px', background: 'var(--accent-glow)', color: 'var(--accent-color)', fontSize: '0.72rem', fontWeight: '800' }}>{item.courseCode}</span>
-                        <h4 style={{ marginTop: '8px', fontSize: '1.05rem', color: 'var(--text-primary)' }}>{item.title}</h4>
-                        <span className="course-row-difficulty" style={{ display: 'inline-block', marginTop: '6px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Level: {item.difficulty}</span>
-                      </div>
-
-                      <div className="course-row-tracker" style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '220px' }}>
-                        <div className="progress-bar-group">
-                          <div className="progress-bar-container" style={{ height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                            <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-color), var(--accent-color-hover))' }}></div>
-                          </div>
-                          <div className="progress-label-row" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                            <span>{item.progressPercent}% Completed</span>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                          <Button
-                            variant="primary"
-                            onClick={() => navigate(`/course-player/${item.id}`)}
-                            style={{ flex: 1, height: '36px', fontSize: '0.85rem' }}
-                          >
-                            {item.progressPercent > 0 ? 'Resume Course' : 'Start Course'}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+          <div className="employee-learning-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
+            <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+              
+              {/* Sub-tabs for In Progress & Completed */}
+              <div className="catalog-tabs-container" style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveMyCoursesTab('in_progress')}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    fontSize: '1.05rem',
+                    fontWeight: 700,
+                    color: activeMyCoursesTab === 'in_progress' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                    borderBottom: activeMyCoursesTab === 'in_progress' ? '2px solid var(--accent-color)' : 'none',
+                    paddingBottom: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  In Progress
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveMyCoursesTab('completed')}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    fontSize: '1.05rem',
+                    fontWeight: 700,
+                    color: activeMyCoursesTab === 'completed' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                    borderBottom: activeMyCoursesTab === 'completed' ? '2px solid var(--accent-color)' : 'none',
+                    paddingBottom: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Completed
+                </button>
               </div>
-            </div>
 
-            {/* Sidebar Active Recents Widget */}
-            <div className="employee-sidebar">
-              {/* Recent Course Sidebar Widget */}
-              <div className="sidebar-card glass-panel" style={{ borderLeft: '3px solid var(--accent-color)', padding: '24px' }}>
-                <div className="sidebar-card-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                  <Bookmark size={20} className="sidebar-icon icon-green" style={{ color: 'var(--accent-color)' }} />
-                  <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Recent Study Activity</h3>
-                </div>
-                {myProgress.some(p => p.progressPercent < 100) ? (() => {
-                  const recent = myProgress.find(p => p.progressPercent < 100) || myProgress[0];
+              {/* Enrolled Courses */}
+              <div className="enrolled-courses-section" style={{ width: '100%' }}>
+                {(() => {
+                  const shownCourses = myProgress.filter(p => {
+                    return activeMyCoursesTab === 'completed' ? p.progressPercent === 100 : p.progressPercent < 100;
+                  });
+
+                  if (shownCourses.length === 0) {
+                    return (
+                      <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
+                        <Bookmark size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
+                        <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                          {activeMyCoursesTab === 'completed' 
+                            ? 'No completed courses yet. Work through your module lessons to earn certification!' 
+                            : 'No active course enrollments. Enroll in a course from the Dashboard catalog to start!'}
+                        </p>
+                      </div>
+                    );
+                  }
+
                   return (
-                    <div style={{ marginTop: '12px' }}>
-                      <p style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>{recent.title}</p>
-                      <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.03em', margin: '4px 0 0 0' }}>
-                        Active Code: {recent.courseCode}
-                      </p>
-                      
-                      <div className="progress-bar-container" style={{ marginTop: '14px', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div className="progress-bar-fill" style={{ width: `${recent.progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-color), var(--accent-color-hover))' }}></div>
-                      </div>
-                      
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        <span>{recent.progressPercent}% Complete</span>
-                      </div>
+                    <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
+                      {shownCourses.map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="course-lobby-card glass-panel glow-hover" 
+                          style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            borderRadius: 'var(--border-radius-lg)', 
+                            overflow: 'hidden', 
+                            background: 'var(--bg-card)', 
+                            border: '1px solid var(--border-color)',
+                            transition: 'all 0.3s ease',
+                            padding: '20px',
+                            justifyContent: 'space-between',
+                            minHeight: '180px'
+                          }}
+                        >
+                          <div>
+                            <span 
+                              className="course-code-tag" 
+                              style={{ 
+                                padding: '2px 8px', 
+                                borderRadius: '12px', 
+                                background: 'var(--accent-glow)', 
+                                color: 'var(--accent-color)', 
+                                fontSize: '0.7rem', 
+                                fontWeight: '800',
+                                textTransform: 'uppercase'
+                              }}
+                            >
+                              {item.courseCode}
+                            </span>
+                            <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
+                              {item.title}
+                            </h4>
+                          </div>
 
-                      <Button
-                        variant="primary"
-                        onClick={() => navigate(`/course-player/${recent.id}`)}
-                        style={{ width: '100%', marginTop: '16px', padding: '10px 16px', fontSize: '0.85rem', fontWeight: 'bold' }}
-                      >
-                        Resume Session
-                      </Button>
+                          <div style={{ marginTop: '16px' }}>
+                            <div className="progress-bar-group" style={{ marginBottom: '12px' }}>
+                              <div className="progress-bar-container" style={{ height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-color), var(--accent-color-hover))' }}></div>
+                              </div>
+                              <div className="progress-label-row" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                <span>{item.progressPercent}% Completed</span>
+                              </div>
+                            </div>
+
+                            <Button
+                              variant="primary"
+                              onClick={() => navigate(`/course-player/${item.id}`)}
+                              style={{ width: '100%', height: '40px', fontWeight: '700' }}
+                            >
+                              {item.progressPercent === 100 ? 'Review Course' : (item.progressPercent > 0 ? 'Resume Course' : 'Start Course')}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   );
-                })() : (
-                  <p className="no-data-msg" style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>All courses completed! Explore new ones in the catalog.</p>
-                )}
+                })()}
               </div>
             </div>
           </div>

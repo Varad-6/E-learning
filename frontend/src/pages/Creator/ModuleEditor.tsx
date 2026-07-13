@@ -19,7 +19,9 @@ interface QuizQuestion {
   id: string;
   question: string;
   options: string[];
-  correctOptionIndex: number;
+  correctOptionIndex?: number;
+  correctOptions?: string[];
+  question_type: 'mcq' | 'msq' | 'notes';
 }
 
 export const ModuleEditor: React.FC = () => {
@@ -43,6 +45,8 @@ export const ModuleEditor: React.FC = () => {
   const [quizQuestionText, setQuizQuestionText] = useState('');
   const [quizOptions, setQuizOptions] = useState<string[]>(['', '', '', '']);
   const [quizCorrectIndex, setQuizCorrectIndex] = useState<number>(0);
+  const [quizQuestionType, setQuizQuestionType] = useState<'mcq' | 'msq' | 'notes'>('mcq');
+  const [quizCorrectIndices, setQuizCorrectIndices] = useState<boolean[]>([false, false, false, false]);
 
   const fetchModuleWorkspace = async () => {
     if (!moduleId) return;
@@ -89,12 +93,33 @@ export const ModuleEditor: React.FC = () => {
       if (quizRes.ok) {
         const quizData = await quizRes.json();
         if (quizData && quizData.questions && quizData.questions.length > 0) {
-          const loadedQuizzes = quizData.questions.map((q: any) => ({
-            id: q.id,
-            question: q.question_text,
-            options: q.options,
-            correctOptionIndex: q.options.indexOf(q.correct_answer) >= 0 ? q.options.indexOf(q.correct_answer) : 0
-          }));
+          const loadedQuizzes = quizData.questions.map((q: any) => {
+            const type = (q.question_type || 'mcq') as 'mcq' | 'msq' | 'notes';
+            let correctOptionIndex = 0;
+            let correctOptions: string[] = [];
+            if (type === 'msq') {
+              try {
+                correctOptions = JSON.parse(q.correct_answer);
+              } catch {
+                correctOptions = [];
+              }
+            } else if (type === 'mcq') {
+              const parsed = parseInt(q.correct_answer);
+              if (!isNaN(parsed) && parsed >= 0 && parsed < q.options.length) {
+                correctOptionIndex = parsed;
+              } else {
+                correctOptionIndex = q.options.indexOf(q.correct_answer) >= 0 ? q.options.indexOf(q.correct_answer) : 0;
+              }
+            }
+            return {
+              id: q.id,
+              question: q.question_text,
+              options: q.options || [],
+              correctOptionIndex,
+              correctOptions,
+              question_type: type
+            };
+          });
           setQuizzes(loadedQuizzes);
         }
       }
@@ -162,13 +187,22 @@ export const ModuleEditor: React.FC = () => {
           passing_score: 70,
           time_limit_minutes: 15,
           is_published: true,
-          questions: quizzes.map((q) => ({
-            question_text: q.question,
-            options: q.options,
-            correct_answer: q.options[q.correctOptionIndex],
-            explanation: "Review the module content for this answer.",
-            points: 1
-          }))
+          questions: quizzes.map((q) => {
+            let correct_answer = "";
+            if (q.question_type === 'msq') {
+              correct_answer = JSON.stringify(q.correctOptions || []);
+            } else if (q.question_type === 'mcq') {
+              correct_answer = q.options[q.correctOptionIndex ?? 0] || "";
+            }
+            return {
+              question_text: q.question,
+              options: q.options || [],
+              correct_answer,
+              explanation: "Review the module content for this answer.",
+              points: 1,
+              question_type: q.question_type || "mcq"
+            };
+          })
         };
 
         const quizCreateRes = await apiCall('/api/quizzes', {
@@ -249,16 +283,37 @@ export const ModuleEditor: React.FC = () => {
   const handleAddQuizSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!quizQuestionText.trim()) return;
-    if (quizOptions.some(opt => !opt.trim())) {
-      alert('All 4 MCQ Options must be filled out.');
-      return;
+
+    let finalOptions: string[] = [];
+    let correctOptionIndex = 0;
+    let correctOptions: string[] = [];
+
+    if (quizQuestionType !== 'notes') {
+      if (quizOptions.some(opt => !opt.trim())) {
+        alert('All 4 Options must be filled out.');
+        return;
+      }
+      finalOptions = [...quizOptions];
+
+      if (quizQuestionType === 'msq') {
+        const indices = quizCorrectIndices.map((val, idx) => val ? idx : -1).filter(idx => idx !== -1);
+        if (indices.length === 0) {
+          alert('You must select at least one correct option for MSQ.');
+          return;
+        }
+        correctOptions = indices.map(idx => finalOptions[idx]);
+      } else {
+        correctOptionIndex = quizCorrectIndex;
+      }
     }
 
     const newQuestion: QuizQuestion = {
       id: `quiz_${Date.now()}`,
       question: quizQuestionText.trim(),
-      options: [...quizOptions],
-      correctOptionIndex: quizCorrectIndex
+      options: finalOptions,
+      correctOptionIndex,
+      correctOptions,
+      question_type: quizQuestionType
     };
 
     const updatedQuizzes = [...quizzes, newQuestion];
@@ -268,6 +323,7 @@ export const ModuleEditor: React.FC = () => {
     setQuizQuestionText('');
     setQuizOptions(['', '', '', '']);
     setQuizCorrectIndex(0);
+    setQuizCorrectIndices([false, false, false, false]);
   };
 
   const deleteQuizQuestion = (id: string) => {
@@ -567,12 +623,10 @@ export const ModuleEditor: React.FC = () => {
                 )}
               </div>
             )}
-
-            {/* Tab 2: Assessment Multiple Choice Quiz Builder */}
             {activeTab === 'quiz' && (
               <div className="quiz-builder-workspace animate-fade-in">
                 {/* List of current questions */}
-                <h4 style={{ marginBottom: '12px', fontWeight: '700', fontSize: '0.95rem' }}>Added MCQ Assessment Questions ({quizzes.length})</h4>
+                <h4 style={{ marginBottom: '12px', fontWeight: '700', fontSize: '0.95rem' }}>Added Assessment Questions ({quizzes.length})</h4>
                 
                 {quizzes.length === 0 ? (
                   <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', marginBottom: '24px' }}>
@@ -583,18 +637,39 @@ export const ModuleEditor: React.FC = () => {
                     {quizzes.map((q, idx) => (
                       <div key={q.id} className="quiz-question-item">
                         <div className="quiz-question-header">
-                          <span style={{ fontSize: '0.82rem', fontWeight: '600' }}>Q{idx + 1}: {q.question}</span>
+                          <div>
+                            <span style={{ 
+                              padding: '2px 6px', 
+                              borderRadius: '4px', 
+                              background: 'var(--accent-glow)', 
+                              color: 'var(--accent-color)', 
+                              fontSize: '0.65rem', 
+                              fontWeight: '800',
+                              marginRight: '8px',
+                              textTransform: 'uppercase'
+                            }}>
+                              {q.question_type || 'mcq'}
+                            </span>
+                            <span style={{ fontSize: '0.82rem', fontWeight: '600' }}>Q{idx + 1}: {q.question}</span>
+                          </div>
                           <button onClick={() => deleteQuizQuestion(q.id)} className="delete-block-btn" style={{ marginLeft: '10px' }}>
                             <Trash2 size={14} />
                           </button>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                          {q.options.map((opt, oIdx) => (
-                            <span key={oIdx} style={{ color: oIdx === q.correctOptionIndex ? 'var(--neon-teal)' : 'inherit', fontWeight: oIdx === q.correctOptionIndex ? '700' : 'normal' }}>
-                              {String.fromCharCode(65 + oIdx)}) {opt} {oIdx === q.correctOptionIndex ? '✓' : ''}
-                            </span>
-                          ))}
-                        </div>
+                        {q.question_type !== 'notes' && (
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            {q.options.map((opt, oIdx) => {
+                              const isCorrect = q.question_type === 'msq' 
+                                ? (q.correctOptions || []).includes(opt) 
+                                : oIdx === q.correctOptionIndex;
+                              return (
+                                <span key={oIdx} style={{ color: isCorrect ? 'var(--neon-teal)' : 'inherit', fontWeight: isCorrect ? '700' : 'normal' }}>
+                                  {String.fromCharCode(65 + oIdx)}) {opt} {isCorrect ? '✓' : ''}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -602,47 +677,77 @@ export const ModuleEditor: React.FC = () => {
 
                 {/* Form to construct a new question */}
                 <form onSubmit={handleAddQuizSubmit} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-                  <h4 style={{ marginBottom: '14px', fontSize: '0.9rem', fontWeight: '700' }}>+ Create MCQ Question</h4>
+                  <h4 style={{ marginBottom: '14px', fontSize: '0.9rem', fontWeight: '700' }}>+ Create Question</h4>
                   
+                  <div className="form-group-spaced" style={{ marginBottom: '16px' }}>
+                    <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Question Type</label>
+                    <select 
+                      className="form-input-styled"
+                      value={quizQuestionType}
+                      onChange={(e) => setQuizQuestionType(e.target.value as any)}
+                    >
+                      <option value="mcq">MCQ (Single Choice)</option>
+                      <option value="msq">MSQ (Multiple Select)</option>
+                      <option value="notes">Notes (Descriptive Response)</option>
+                    </select>
+                  </div>
+
                   <div className="form-group-spaced">
                     <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Question Statement</label>
                     <input 
                       type="text" 
                       className="form-input-styled" 
-                      placeholder="e.g. Which algorithm is used to adjust weights in deep learning?"
+                      placeholder="e.g. Which algorithm is used to adjust weights?"
                       value={quizQuestionText}
                       onChange={(e) => setQuizQuestionText(e.target.value)}
                       required
                     />
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
-                    <label className="form-label-styled" style={{ fontSize: '0.78rem', marginBottom: '0' }}>MCQ Options & Correct Answer</label>
-                    {quizOptions.map((option, index) => (
-                      <div key={index} className="option-builder-row">
-                        <input 
-                          type="radio" 
-                          name="correct_answer_select" 
-                          className="correct-option-radio"
-                          checked={quizCorrectIndex === index}
-                          onChange={() => setQuizCorrectIndex(index)}
-                          title="Mark as correct answer"
-                        />
-                        <input 
-                          type="text" 
-                          className="form-input-styled" 
-                          placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                          value={option}
-                          onChange={(e) => {
-                            const newOpts = [...quizOptions];
-                            newOpts[index] = e.target.value;
-                            setQuizOptions(newOpts);
-                          }}
-                          required
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  {quizQuestionType !== 'notes' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                      <label className="form-label-styled" style={{ fontSize: '0.78rem', marginBottom: '0' }}>Options & Correct Answer Selection</label>
+                      {quizOptions.map((option, index) => (
+                        <div key={index} className="option-builder-row">
+                          {quizQuestionType === 'msq' ? (
+                            <input 
+                              type="checkbox" 
+                              className="correct-option-checkbox"
+                              checked={quizCorrectIndices[index]}
+                              onChange={(e) => {
+                                const newCorrects = [...quizCorrectIndices];
+                                newCorrects[index] = e.target.checked;
+                                setQuizCorrectIndices(newCorrects);
+                              }}
+                              title="Mark as correct choice"
+                              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                          ) : (
+                            <input 
+                              type="radio" 
+                              name="correct_answer_select" 
+                              className="correct-option-radio"
+                              checked={quizCorrectIndex === index}
+                              onChange={() => setQuizCorrectIndex(index)}
+                              title="Mark as correct answer"
+                            />
+                          )}
+                          <input 
+                            type="text" 
+                            className="form-input-styled" 
+                            placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                            value={option}
+                            onChange={(e) => {
+                              const newOpts = [...quizOptions];
+                              newOpts[index] = e.target.value;
+                              setQuizOptions(newOpts);
+                            }}
+                            required
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   <Button variant="primary" type="submit" style={{ width: '100%' }}>
                     Add Question to Quiz

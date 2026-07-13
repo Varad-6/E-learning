@@ -13,6 +13,7 @@ class CourseModule(Base):
     title = Column(String, nullable=False)
     description = Column(String, nullable=True)
     sequence_no = Column(Integer, nullable=False)
+    tier = Column(String, default="beginner", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships

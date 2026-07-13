@@ -12,6 +12,9 @@ from app.api.quiz import router as quiz_router
 from app.api.department import router as department_router
 from app.api.admin import router as admin_router
 from app.api.module import router as module_router
+from app.api.exam import router as exam_router
+from fastapi.staticfiles import StaticFiles
+import os
 
 # Configure basic logging
 logging.basicConfig(
@@ -48,6 +51,11 @@ app.include_router(quiz_router)
 app.include_router(department_router)
 app.include_router(admin_router)
 app.include_router(module_router)
+app.include_router(exam_router)
+
+# Mount static uploads folder for descriptive exam file submissions
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 

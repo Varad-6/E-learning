@@ -622,6 +622,20 @@ export const CreatorDashboard: React.FC = () => {
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <Button 
+            variant="outline" 
+            onClick={() => navigate('/creator/exams/create')}
+            leftIcon={<Plus size={16} />}
+          >
+            Create Exam
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/creator/exams/review')}
+            leftIcon={<CheckCircle2 size={16} />}
+          >
+            Review Exams
+          </Button>
+          <Button 
             variant="primary" 
             onClick={handleOpenCreateModal}
             leftIcon={<Plus size={18} />}

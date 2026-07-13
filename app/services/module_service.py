@@ -10,6 +10,8 @@ from app.schemas.course import (
     ModuleCreate, ModuleUpdate, ModuleContentCreate, ModuleContentUpdate, ReorderItem
 )
 
+from sqlalchemy import case
+
 class ModuleService:
     @staticmethod
     def create_module(db: Session, request: ModuleCreate) -> CourseModule:
@@ -20,11 +22,19 @@ class ModuleService:
                 detail=f"Course with ID {request.course_id} not found."
             )
         
+        # Shift modules with sequence_no >= request.sequence_no in the same tier
+        db.query(CourseModule).filter(
+            CourseModule.course_id == request.course_id,
+            CourseModule.tier == request.tier,
+            CourseModule.sequence_no >= request.sequence_no
+        ).update({CourseModule.sequence_no: CourseModule.sequence_no + 1})
+        
         db_module = CourseModule(
             course_id=request.course_id,
             title=request.title,
             description=request.description,
-            sequence_no=request.sequence_no
+            sequence_no=request.sequence_no,
+            tier=request.tier
         )
         db.add(db_module)
         db.commit()
@@ -44,7 +54,17 @@ class ModuleService:
             db_module.title = request.title
         if request.description is not None:
             db_module.description = request.description
+        if request.tier is not None:
+            db_module.tier = request.tier
         if request.sequence_no is not None:
+            # Shift modules in target tier
+            tier_val = request.tier if request.tier is not None else db_module.tier
+            db.query(CourseModule).filter(
+                CourseModule.course_id == db_module.course_id,
+                CourseModule.tier == tier_val,
+                CourseModule.sequence_no >= request.sequence_no,
+                CourseModule.id != module_id
+            ).update({CourseModule.sequence_no: CourseModule.sequence_no + 1})
             db_module.sequence_no = request.sequence_no
 
         db.commit()
@@ -84,7 +104,13 @@ class ModuleService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Course with ID {course_id} not found."
             )
-        return db.query(CourseModule).filter(CourseModule.course_id == course_id).order_by(CourseModule.sequence_no).all()
+        tier_order = case(
+            (CourseModule.tier == "beginner", 0),
+            (CourseModule.tier == "intermediate", 1),
+            (CourseModule.tier == "advanced", 2),
+            else_=3
+        )
+        return db.query(CourseModule).filter(CourseModule.course_id == course_id).order_by(tier_order, CourseModule.sequence_no).all()
 
     @staticmethod
     def create_content(db: Session, module_id: UUID, request: ModuleContentCreate) -> ModuleContent:

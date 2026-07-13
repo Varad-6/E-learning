@@ -106,10 +106,30 @@ class QuizService:
         total_points = sum(q.points for q in questions)
         obtained_points = 0
 
+        import json
         for q in questions:
             q_id_str = str(q.id)
             user_ans = request.answers.get(q_id_str)
-            if user_ans and user_ans.strip().lower() == q.correct_answer.strip().lower():
+            if not user_ans:
+                continue
+
+            q_type = getattr(q, 'question_type', 'mcq')
+            is_correct = False
+            if q_type == 'notes':
+                is_correct = True
+            elif q_type == 'msq':
+                try:
+                    correct_set = set(json.loads(q.correct_answer))
+                    user_set = set(json.loads(user_ans))
+                    correct_clean = {s.strip().lower() for s in correct_set}
+                    user_clean = {s.strip().lower() for s in user_set}
+                    is_correct = (correct_clean == user_clean)
+                except Exception:
+                    is_correct = (user_ans.strip().lower() == q.correct_answer.strip().lower())
+            else:
+                is_correct = (user_ans.strip().lower() == q.correct_answer.strip().lower())
+
+            if is_correct:
                 obtained_points += q.points
 
         score_pct = (obtained_points / total_points) * 100.0 if total_points > 0 else 0.0
@@ -148,10 +168,30 @@ class QuizService:
         questions = quiz.questions
         correct_count = 0
 
+        import json
         for q in questions:
             q_id_str = str(q.id)
             user_ans = attempt.answers.get(q_id_str)
-            if user_ans and user_ans.strip().lower() == q.correct_answer.strip().lower():
+            if not user_ans:
+                continue
+
+            q_type = getattr(q, 'question_type', 'mcq')
+            is_correct = False
+            if q_type == 'notes':
+                is_correct = True
+            elif q_type == 'msq':
+                try:
+                    correct_set = set(json.loads(q.correct_answer))
+                    user_set = set(json.loads(user_ans))
+                    correct_clean = {s.strip().lower() for s in correct_set}
+                    user_clean = {s.strip().lower() for s in user_set}
+                    is_correct = (correct_clean == user_clean)
+                except Exception:
+                    is_correct = (user_ans.strip().lower() == q.correct_answer.strip().lower())
+            else:
+                is_correct = (user_ans.strip().lower() == q.correct_answer.strip().lower())
+
+            if is_correct:
                 correct_count += 1
 
         return QuizResult(

@@ -38,7 +38,8 @@ class CourseService:
             status="approved",
             is_published=False,
             duration=request.duration,
-            priority=request.priority
+            priority=request.priority,
+            is_mandatory=request.is_mandatory
         )
         db.add(db_course)
         db.commit()
@@ -78,10 +79,37 @@ class CourseService:
             db_course.description = request.description
         if request.difficulty_level is not None:
             db_course.difficulty_level = request.difficulty_level
-        if request.is_published is not None:
-            db_course.is_published = request.is_published
+        if request.is_mandatory is not None:
+            db_course.is_mandatory = request.is_mandatory
+
+        # Check if we are publishing
+        will_publish = False
+        if request.is_published is True and not db_course.is_published:
+            will_publish = True
         if request.status is not None:
-            db_course.status = request.status.value if hasattr(request.status, 'value') else request.status
+            status_val = request.status.value if hasattr(request.status, 'value') else request.status
+            if status_val == "published" and db_course.status != "published":
+                will_publish = True
+
+        if will_publish:
+            from app.models.course_module import CourseModule
+            beg_count = db.query(CourseModule).filter(CourseModule.course_id == course_id, CourseModule.tier == "beginner").count()
+            int_count = db.query(CourseModule).filter(CourseModule.course_id == course_id, CourseModule.tier == "intermediate").count()
+            adv_count = db.query(CourseModule).filter(CourseModule.course_id == course_id, CourseModule.tier == "advanced").count()
+            if beg_count < 2 or int_count < 2 or adv_count < 2:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot publish course: Each tier (Beginner, Intermediate, Advanced) must have at least 2 modules."
+                )
+            db_course.published_at = datetime.now(timezone.utc)
+            db_course.is_published = True
+            db_course.status = "published"
+        else:
+            if request.is_published is not None:
+                db_course.is_published = request.is_published
+            if request.status is not None:
+                db_course.status = request.status.value if hasattr(request.status, 'value') else request.status
+
         if request.duration is not None:
             db_course.duration = request.duration
         if request.priority is not None:
@@ -116,13 +144,13 @@ class CourseService:
         
         if "SYSTEM_ADMIN" not in roles:
             from sqlalchemy import or_, and_
-            # Learners and Managers should only see approved courses belonging to their department,
+            # Learners and Managers should only see approved/published courses belonging to their department,
             # or any courses they created themselves (drafts, pending, rejected).
             query = query.filter(
                 or_(
                     Course.created_by == current_user.id,
                     and_(
-                        Course.status == "approved",
+                        Course.status.in_(["approved", "published"]),
                         Course.department_id == current_user.department_id
                     )
                 )
@@ -140,12 +168,25 @@ class CourseService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Course with ID {course_id} not found."
             )
-        if db_course.status != "approved":
+        if db_course.status not in ["approved", "published"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Course must be approved before it can be published."
             )
+        
+        from app.models.course_module import CourseModule
+        beg_count = db.query(CourseModule).filter(CourseModule.course_id == course_id, CourseModule.tier == "beginner").count()
+        int_count = db.query(CourseModule).filter(CourseModule.course_id == course_id, CourseModule.tier == "intermediate").count()
+        adv_count = db.query(CourseModule).filter(CourseModule.course_id == course_id, CourseModule.tier == "advanced").count()
+        if beg_count < 2 or int_count < 2 or adv_count < 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot publish course: Each tier (Beginner, Intermediate, Advanced) must have at least 2 modules."
+            )
+
         db_course.is_published = True
+        db_course.status = "published"
+        db_course.published_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_course)
         return db_course

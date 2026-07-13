@@ -25,9 +25,22 @@
   letter-spacing: -0.03em;
 }
 
-.logo-icon {
-  color: var(--accent-color);
-  animation: logo-glow 4s ease-in-out infinite alternate;
+.logo-text {
+  color: var(--text-primary);
+  font-family: var(--font-title);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  animation: logo-text-glow 3s ease-in-out infinite alternate;
+  transition: var(--transition-smooth);
+}
+
+@keyframes logo-text-glow {
+  0% {
+    text-shadow: 0 0 4px var(--accent-glow);
+  }
+  100% {
+    text-shadow: 0 0 15px var(--accent-color);
+  }
 }
 
 .logo-accent {

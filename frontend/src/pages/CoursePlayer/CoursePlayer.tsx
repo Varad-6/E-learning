@@ -177,7 +177,8 @@ export const CoursePlayer: React.FC = () => {
                   id: q.id,
                   question: q.question_text,
                   options: q.options,
-                  correctAnswer: q.correct_answer
+                  correctAnswer: q.correct_answer,
+                  questionType: q.question_type || 'mcq'
                 }));
               }
             }
@@ -513,7 +514,7 @@ export const CoursePlayer: React.FC = () => {
     if (moduleQuizzes.length > 0) {
       return moduleQuizzes.map((q: any) => {
         let letter = q.correctAnswer;
-        if (q.correctAnswer && q.correctAnswer.length > 1) {
+        if (q.questionType !== 'msq' && q.correctAnswer && q.correctAnswer.length > 1) {
           const idx = q.options.indexOf(q.correctAnswer);
           if (idx >= 0) {
             letter = String.fromCharCode(65 + idx);
@@ -522,7 +523,8 @@ export const CoursePlayer: React.FC = () => {
         return {
           question: q.question,
           options: q.options,
-          correctAnswer: letter
+          correctAnswer: letter,
+          questionType: q.questionType || 'mcq'
         };
       });
     }
@@ -532,17 +534,20 @@ export const CoursePlayer: React.FC = () => {
       {
         question: "Which core philosophy or pattern ensures continuous compliance in enterprise systems?",
         options: ["Rigid release gating and automated testing checks", "Ad-hoc updates without version control logs", "Manual regression verification cycles only"],
-        correctAnswer: "A"
+        correctAnswer: "A",
+        questionType: "mcq"
       },
       {
         question: "What tool is used to manage database migrations in this project?",
         options: ["Alembic", "Docker Compose", "Pip"],
-        correctAnswer: "A"
+        correctAnswer: "A",
+        questionType: "mcq"
       },
       {
         question: "In FastAPI, what dependency wrapper enforces Role-Based Access Control?",
         options: ["RequireRoles", "get_db", "verify_password"],
-        correctAnswer: "A"
+        correctAnswer: "A",
+        questionType: "mcq"
       }
     ];
   };
@@ -552,8 +557,39 @@ export const CoursePlayer: React.FC = () => {
     let correctCount = 0;
     
     questionsList.forEach((q: any, idx: number) => {
-      if (quizAnswers[idx] === q.correctAnswer) {
+      const type = q.questionType || 'mcq';
+      const ans = quizAnswers[idx] || '';
+
+      if (type === 'notes') {
         correctCount++;
+      } else if (type === 'msq') {
+        let correctLetters: string[] = [];
+        try {
+          const correctTexts = JSON.parse(q.correctAnswer);
+          correctLetters = correctTexts.map((t: string) => {
+            const oIdx = q.options.indexOf(t);
+            return oIdx >= 0 ? String.fromCharCode(65 + oIdx) : '';
+          }).filter(Boolean).sort();
+        } catch {
+          correctLetters = [];
+        }
+
+        let userLetters: string[] = [];
+        try {
+          userLetters = JSON.parse(ans).sort();
+        } catch {
+          userLetters = [];
+        }
+
+        const matches = correctLetters.length === userLetters.length && 
+          correctLetters.every((val, i) => val === userLetters[i]);
+        if (matches) {
+          correctCount++;
+        }
+      } else {
+        if (ans === q.correctAnswer) {
+          correctCount++;
+        }
       }
     });
     
@@ -893,66 +929,127 @@ export const CoursePlayer: React.FC = () => {
                         const currentQ = questionsList[currentQuizQuestionIndex];
                         
                         if (!currentQ) return <p>No questions configured.</p>;
-
+ 
                         return (
                           <>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
                               <span>Question {currentQuizQuestionIndex + 1} of {questionsList.length}</span>
-                              <span>Points: 1</span>
+                              <span style={{ textTransform: 'uppercase', color: 'var(--accent-color)', fontWeight: '800' }}>{currentQ.questionType || 'mcq'}</span>
                             </div>
                             
                             <h3 className="quiz-question-heading">
                               {currentQ.question}
                             </h3>
                             
-                            <div className="quiz-options-group">
-                              {currentQ.options.map((opt: string, optIdx: number) => {
-                                const letter = String.fromCharCode(65 + optIdx);
-                                const isSelected = quizAnswers[currentQuizQuestionIndex] === letter;
-                                return (
-                                  <button 
-                                    key={optIdx}
-                                    className={`quiz-option-button ${isSelected ? 'selected' : ''}`}
-                                    onClick={() => handleSelectQuizAnswer(currentQuizQuestionIndex, letter)}
-                                  >
-                                    <span className="quiz-option-letter">{letter}</span>
-                                    <span>{opt}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
+                            {currentQ.questionType === 'notes' ? (
+                              <div style={{ marginBottom: '20px' }}>
+                                <textarea
+                                  className="form-input-styled animate-fade-in"
+                                  placeholder="Type your descriptive response or summary notes here..."
+                                  style={{ width: '100%', minHeight: '120px', resize: 'vertical', padding: '12px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-primary)' }}
+                                  value={quizAnswers[currentQuizQuestionIndex] || ''}
+                                  onChange={(e) => handleSelectQuizAnswer(currentQuizQuestionIndex, e.target.value)}
+                                />
+                              </div>
+                            ) : (
+                              <div className="quiz-options-group animate-fade-in">
+                                {currentQ.options.map((opt: string, optIdx: number) => {
+                                  const letter = String.fromCharCode(65 + optIdx);
+                                  
+                                  let isSelected = false;
+                                  if (currentQ.questionType === 'msq') {
+                                    try {
+                                      const selected = JSON.parse(quizAnswers[currentQuizQuestionIndex] || '[]');
+                                      isSelected = selected.includes(letter);
+                                    } catch {
+                                      isSelected = false;
+                                    }
+                                  } else {
+                                    isSelected = quizAnswers[currentQuizQuestionIndex] === letter;
+                                  }
 
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                              {currentQuizQuestionIndex > 0 && (
-                                <Button 
-                                  variant="outline" 
-                                  onClick={() => setCurrentQuizQuestionIndex(currentQuizQuestionIndex - 1)}
-                                  style={{ flex: 1, padding: '12px' }}
-                                >
-                                  Back
-                                </Button>
-                              )}
-                              
-                              {currentQuizQuestionIndex < questionsList.length - 1 ? (
-                                <Button 
-                                  variant="primary" 
-                                  disabled={!quizAnswers[currentQuizQuestionIndex]}
-                                  onClick={() => setCurrentQuizQuestionIndex(currentQuizQuestionIndex + 1)}
-                                  style={{ flex: 1, padding: '12px' }}
-                                >
-                                  Next Question
-                                </Button>
-                              ) : (
-                                <Button 
-                                  variant="primary" 
-                                  disabled={!quizAnswers[currentQuizQuestionIndex]}
-                                  onClick={handleSubmitQuiz}
-                                  style={{ flex: 1, padding: '12px' }}
-                                >
-                                  Submit Assessment
-                                </Button>
-                              )}
-                            </div>
+                                  return (
+                                    <button 
+                                      key={optIdx}
+                                      className={`quiz-option-button ${isSelected ? 'selected' : ''}`}
+                                      onClick={() => {
+                                        if (currentQ.questionType === 'msq') {
+                                          let selected: string[] = [];
+                                          try {
+                                            selected = JSON.parse(quizAnswers[currentQuizQuestionIndex] || '[]');
+                                          } catch {
+                                            selected = [];
+                                          }
+                                          let nextSelected = [...selected];
+                                          if (isSelected) {
+                                            nextSelected = nextSelected.filter(l => l !== letter);
+                                          } else {
+                                            nextSelected.push(letter);
+                                          }
+                                          handleSelectQuizAnswer(currentQuizQuestionIndex, JSON.stringify(nextSelected));
+                                        } else {
+                                          handleSelectQuizAnswer(currentQuizQuestionIndex, letter);
+                                        }
+                                      }}
+                                    >
+                                      <span className="quiz-option-letter">{letter}</span>
+                                      <span>{opt}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {(() => {
+                              const ans = quizAnswers[currentQuizQuestionIndex];
+                              let isQuestionAnswered = false;
+                              if (ans) {
+                                if (currentQ.questionType === 'msq') {
+                                  try {
+                                    const parsed = JSON.parse(ans);
+                                    isQuestionAnswered = parsed && parsed.length > 0;
+                                  } catch {
+                                    isQuestionAnswered = false;
+                                  }
+                                } else {
+                                  isQuestionAnswered = ans.trim().length > 0;
+                                }
+                              }
+
+                              return (
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                  {currentQuizQuestionIndex > 0 && (
+                                    <Button 
+                                      variant="outline" 
+                                      onClick={() => setCurrentQuizQuestionIndex(currentQuizQuestionIndex - 1)}
+                                      style={{ flex: 1, padding: '12px' }}
+                                    >
+                                      Back
+                                    </Button>
+                                  )}
+                                  
+                                  {currentQuizQuestionIndex < questionsList.length - 1 ? (
+                                    <Button 
+                                      variant="primary" 
+                                      disabled={!isQuestionAnswered}
+                                      onClick={() => setCurrentQuizQuestionIndex(currentQuizQuestionIndex + 1)}
+                                      style={{ flex: 1, padding: '12px' }}
+                                    >
+                                      Next Question
+                                    </Button>
+                                  ) : (
+                                    <Button 
+                                      variant="primary" 
+                                      disabled={!isQuestionAnswered}
+                                      onClick={handleSubmitQuiz}
+                                      style={{ flex: 1, padding: '12px' }}
+                                    >
+                                      Submit Assessment
+                                    </Button>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </>
                         );
                       })()

@@ -14,6 +14,7 @@ class QuizQuestion(Base):
     correct_answer = Column(String, nullable=False)
     explanation = Column(String, nullable=True)
     points = Column(Integer, default=1, nullable=False)
+    question_type = Column(String, nullable=False, server_default="mcq")
 
     # Relationships
     quiz = relationship("Quiz", back_populates="questions")

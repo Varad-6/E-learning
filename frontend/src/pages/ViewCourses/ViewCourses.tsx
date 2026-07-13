@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  BookOpen, ChevronRight, Award, Layers
-} from 'lucide-react';
+import { Bookmark } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
 import './ViewCourses.css';
+import '../Dashboard/Dashboard.css';
 
 interface CourseData {
   id: string;
@@ -26,15 +25,11 @@ interface CourseData {
 export const ViewCourses: React.FC = () => {
   const navigate = useNavigate();
 
-  // User details
-  const [role, setRole] = useState('Employee');
-  const [dept, setDept] = useState('AI');
-  const [profileName, setProfileName] = useState('John Doe');
-
   // Lists
   const [courses, setCourses] = useState<CourseData[]>([]);
   const [myProgress, setMyProgress] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'in_progress' | 'completed' | 'available'>('in_progress');
 
   const fetchDBCourses = async () => {
     try {
@@ -96,14 +91,6 @@ export const ViewCourses: React.FC = () => {
   };
 
   useEffect(() => {
-    const savedRole = localStorage.getItem('isLoggedInRole') || 'Employee';
-    const savedDept = localStorage.getItem('isLoggedInDept') || 'AI';
-    const savedName = localStorage.getItem('profileName') || 'John Doe';
-    
-    setRole(savedRole);
-    setDept(savedDept);
-    setProfileName(savedName);
-
     fetchDBCourses();
   }, []);
 
@@ -156,139 +143,264 @@ export const ViewCourses: React.FC = () => {
 
   return (
     <div className="view-courses-canvas container animate-fade-in" style={{ paddingBottom: '60px' }}>
-      <div className="pane-header" style={{ marginBottom: '32px' }}>
-        <h2>🎓 Curriculum Preview & Workspace</h2>
-        <p>Inspect, enroll, and study the interactive course curriculum from a learner perspective.</p>
+      <div className="pane-header" style={{ marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>🎓 Curriculum Preview & Workspace</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>Inspect, enroll, and study the interactive course curriculum from a learner perspective.</p>
       </div>
 
-      <div className="view-courses-layout-grid">
-        <div className="view-courses-left-column">
-          
-          {/* Active Enrolled Courses */}
-          <div className="view-courses-section-pane glass-panel">
-            <div className="section-pane-title">
-              <BookOpen size={20} className="icon-blue" />
-              <h3>Active Enrolled Courses ({activeEnrollments.length})</h3>
-            </div>
-            
-            {activeEnrollments.length === 0 ? (
-              <p className="no-data-notice">No active course enrollments. Select a course below to begin learning!</p>
-            ) : (
-              <div className="courses-list-group">
-                {activeEnrollments.map((item) => (
-                  <div key={item.id} className="player-launch-row glow-hover">
-                    <div className="launch-row-header">
-                      <span className="launch-row-code">{item.courseCode}</span>
-                      <h4>{item.title}</h4>
-                    </div>
+      <div className="catalog-tabs-container" style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('in_progress')}
+          style={{
+            border: 'none',
+            background: 'none',
+            fontSize: '1.05rem',
+            fontWeight: 700,
+            color: activeTab === 'in_progress' ? 'var(--accent-color)' : 'var(--text-secondary)',
+            borderBottom: activeTab === 'in_progress' ? '2px solid var(--accent-color)' : 'none',
+            paddingBottom: '8px',
+            cursor: 'pointer'
+          }}
+        >
+          In Progress ({activeEnrollments.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('completed')}
+          style={{
+            border: 'none',
+            background: 'none',
+            fontSize: '1.05rem',
+            fontWeight: 700,
+            color: activeTab === 'completed' ? 'var(--accent-color)' : 'var(--text-secondary)',
+            borderBottom: activeTab === 'completed' ? '2px solid var(--accent-color)' : 'none',
+            paddingBottom: '8px',
+            cursor: 'pointer'
+          }}
+        >
+          Completed ({completedEnrollments.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('available')}
+          style={{
+            border: 'none',
+            background: 'none',
+            fontSize: '1.05rem',
+            fontWeight: 700,
+            color: activeTab === 'available' ? 'var(--accent-color)' : 'var(--text-secondary)',
+            borderBottom: activeTab === 'available' ? '2px solid var(--accent-color)' : 'none',
+            paddingBottom: '8px',
+            cursor: 'pointer'
+          }}
+        >
+          Available ({availableCourses.length})
+        </button>
+      </div>
 
-                    <div className="launch-row-body">
-                      <div className="launch-progress-bar-group">
-                        <div className="launch-progress-bar-container">
-                          <div className="launch-progress-bar-fill" style={{ width: `${item.progressPercent}%` }}></div>
+      <div style={{ width: '100%' }}>
+        {activeTab === 'in_progress' && (
+          <>
+            {activeEnrollments.length === 0 ? (
+              <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
+                <Bookmark size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
+                <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No active course enrollments. Select an available course to begin!</p>
+              </div>
+            ) : (
+              <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
+                {activeEnrollments.map((item) => (
+                  <div 
+                    key={item.id} 
+                    className="course-lobby-card glass-panel glow-hover" 
+                    style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      borderRadius: 'var(--border-radius-lg)', 
+                      overflow: 'hidden', 
+                      background: 'var(--bg-card)', 
+                      border: '1px solid var(--border-color)',
+                      transition: 'all 0.3s ease',
+                      padding: '20px',
+                      justifyContent: 'space-between',
+                      minHeight: '180px'
+                    }}
+                  >
+                    <div>
+                      <span 
+                        className="course-code-tag" 
+                        style={{ 
+                          padding: '2px 8px', 
+                          borderRadius: '12px', 
+                          background: 'var(--accent-glow)', 
+                          color: 'var(--accent-color)', 
+                          fontSize: '0.7rem', 
+                          fontWeight: '800',
+                          textTransform: 'uppercase'
+                        }}
+                      >
+                        {item.courseCode}
+                      </span>
+                      <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
+                        {item.title}
+                      </h4>
+                    </div>
+                    <div style={{ marginTop: '16px' }}>
+                      <div className="progress-bar-group" style={{ marginBottom: '12px' }}>
+                        <div className="progress-bar-container" style={{ height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-color), var(--accent-color))' }}></div>
                         </div>
-                        <span className="launch-progress-label">{item.progressPercent}% Complete</span>
+                        <div className="progress-label-row" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          <span>{item.progressPercent}% Completed</span>
+                        </div>
                       </div>
-                      
                       <Button
                         variant="primary"
                         onClick={() => handleLaunchPlayer(item.id)}
-                        rightIcon={<ChevronRight size={14} />}
+                        style={{ width: '100%', height: '40px', fontWeight: '700' }}
                       >
-                        {item.progressPercent > 0 ? 'Resume Lecture' : 'Start Course'}
+                        {item.progressPercent > 0 ? 'Resume Course' : 'Start Course'}
                       </Button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </>
+        )}
 
-          {/* Available Catalog Courses */}
-          <div className="view-courses-section-pane glass-panel" style={{ marginTop: '24px' }}>
-            <div className="section-pane-title">
-              <Layers size={20} className="icon-teal" />
-              <h3>Available Catalog Courses ({availableCourses.length})</h3>
-            </div>
-
-            {availableCourses.length === 0 ? (
-              <p className="no-data-notice">All catalog courses have been enrolled. Check your curriculum above.</p>
-            ) : (
-              <div className="courses-list-group">
-                {availableCourses.map((course) => (
-                  <div key={course.id} className="catalog-course-row glow-hover">
-                    <div className="catalog-row-details">
-                      <span className="launch-row-code">{course.course_code}</span>
-                      <h4>{course.title}</h4>
-                      <p>{course.description}</p>
-                      <div className="catalog-row-meta">
-                        <span>Duration: {course.duration}</span>
-                        <span>Priority: {course.priority}</span>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => handleEnrollCourse(course.id)}
-                    >
-                      Quick Enroll
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Completed Courses Section */}
-          <div className="view-courses-section-pane glass-panel" style={{ marginTop: '24px' }}>
-            <div className="section-pane-title">
-              <Award size={20} className="icon-yellow" />
-              <h3>Completed Courses ({completedEnrollments.length})</h3>
-            </div>
-            
+        {activeTab === 'completed' && (
+          <>
             {completedEnrollments.length === 0 ? (
-              <p className="no-data-notice">No completed courses yet. Work through the modules in active courses to earn certifications!</p>
+              <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
+                <Bookmark size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
+                <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No completed courses yet. Complete course modules to see them here.</p>
+              </div>
             ) : (
-              <div className="courses-list-group">
+              <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
                 {completedEnrollments.map((item) => (
-                  <div key={item.id} className="completed-course-row glow-hover">
-                    <div className="completed-row-details">
-                      <span className="completed-badge">✓ Certified</span>
-                      <h4>{item.title}</h4>
-                      <span className="completed-code">{item.courseCode}</span>
+                  <div 
+                    key={item.id} 
+                    className="course-lobby-card glass-panel glow-hover" 
+                    style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      borderRadius: 'var(--border-radius-lg)', 
+                      overflow: 'hidden', 
+                      background: 'var(--bg-card)', 
+                      border: '1px solid var(--border-color)',
+                      transition: 'all 0.3s ease',
+                      padding: '20px',
+                      justifyContent: 'space-between',
+                      minHeight: '180px'
+                    }}
+                  >
+                    <div>
+                      <span 
+                        className="course-code-tag" 
+                        style={{ 
+                          padding: '2px 8px', 
+                          borderRadius: '12px', 
+                          background: 'var(--accent-glow)', 
+                          color: 'var(--accent-color)', 
+                          fontSize: '0.7rem', 
+                          fontWeight: '800',
+                          textTransform: 'uppercase'
+                        }}
+                      >
+                        {item.courseCode}
+                      </span>
+                      <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
+                        {item.title}
+                      </h4>
                     </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => alert(`Showing digital certificate for ${item.title}`)}
-                      leftIcon={<Award size={14} />}
-                    >
-                      View Certificate
-                    </Button>
+                    <div style={{ marginTop: '16px' }}>
+                      <div className="progress-bar-group" style={{ marginBottom: '12px' }}>
+                        <div className="progress-bar-container" style={{ height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div className="progress-bar-fill" style={{ width: '100%', height: '100%', background: 'linear-gradient(90deg, var(--accent-color), var(--accent-color))' }}></div>
+                        </div>
+                        <div className="progress-label-row" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          <span>100% Completed</span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="primary"
+                        onClick={() => handleLaunchPlayer(item.id)}
+                        style={{ width: '100%', height: '40px', fontWeight: '700' }}
+                      >
+                        Review Course
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </>
+        )}
 
-        </div>
-
-        {/* Sidebar */}
-        <div className="view-courses-sidebar">
-          <div className="sidebar-stats-card glass-panel">
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '1rem', fontWeight: '700' }}>Active Workspace</h3>
-            <div className="sidebar-stat-field">
-              <span className="stat-label">User Profile</span>
-              <span className="stat-value">{profileName}</span>
-            </div>
-            <div className="sidebar-stat-field">
-              <span className="stat-label">Assigned Role</span>
-              <span className="stat-value">{role}</span>
-            </div>
-            <div className="sidebar-stat-field" style={{ border: 'none', padding: 0 }}>
-              <span className="stat-label">Department</span>
-              <span className="stat-value">{dept}</span>
-            </div>
-          </div>
-        </div>
+        {activeTab === 'available' && (
+          <>
+            {availableCourses.length === 0 ? (
+              <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
+                <Bookmark size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
+                <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>All catalog courses have been enrolled. Check your in-progress tab.</p>
+              </div>
+            ) : (
+              <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
+                {availableCourses.map((course) => (
+                  <div 
+                    key={course.id} 
+                    className="course-lobby-card glass-panel glow-hover" 
+                    style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      borderRadius: 'var(--border-radius-lg)', 
+                      overflow: 'hidden', 
+                      background: 'var(--bg-card)', 
+                      border: '1px solid var(--border-color)',
+                      transition: 'all 0.3s ease',
+                      padding: '20px',
+                      justifyContent: 'space-between',
+                      minHeight: '180px'
+                    }}
+                  >
+                    <div>
+                      <span 
+                        className="course-code-tag" 
+                        style={{ 
+                          padding: '2px 8px', 
+                          borderRadius: '12px', 
+                          background: 'var(--accent-glow)', 
+                          color: 'var(--accent-color)', 
+                          fontSize: '0.7rem', 
+                          fontWeight: '800',
+                          textTransform: 'uppercase'
+                        }}
+                      >
+                        {course.course_code}
+                      </span>
+                      <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
+                        {course.title}
+                      </h4>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '8px', display: 'block' }}>
+                        Duration: {course.duration}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: '20px' }}>
+                      <Button
+                        variant="primary"
+                        onClick={() => handleEnrollCourse(course.id)}
+                        style={{ width: '100%', height: '40px', fontWeight: '700' }}
+                      >
+                        Quick Enroll
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
