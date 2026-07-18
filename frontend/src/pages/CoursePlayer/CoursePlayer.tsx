@@ -377,24 +377,77 @@ export const CoursePlayer: React.FC = () => {
   const flatContents = modules.reduce<ContentItem[]>((acc, mod) => [...acc, ...mod.contents], []);
   const activeContent = flatContents[activeContentIndex];
 
-  // Load and Save notes from localStorage specific to active content
+  // Load and Save notes from database (or localStorage fallback) specific to active module
   useEffect(() => {
-    if (course?.id && activeContent?.id) {
-      const savedNotes = localStorage.getItem(`kiezen_notes_${course.id}_${activeContent.id}`);
-      setNotesText(savedNotes || '');
-    }
+    const activeModule = modules.find(mod => mod.contents.some(c => c.id === activeContent?.id));
+    
+    const loadNotes = async () => {
+      if (activeModule?.id) {
+        // Validate if it is a valid UUID
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeModule.id);
+        if (isUuid) {
+          try {
+            const notesRes = await apiCall(`/api/modules/${activeModule.id}/notes`);
+            if (notesRes.ok) {
+              const notesData = await notesRes.json();
+              setNotesText(notesData.content || '');
+              return;
+            }
+          } catch (err) {
+            console.error("Failed to load notes from database:", err);
+          }
+        }
+      }
+      
+      // Fallback if not UUID or database call failed/returned 404
+      if (course?.id && activeContent?.id) {
+        const savedNotes = localStorage.getItem(`kiezen_notes_${course.id}_${activeContent.id}`);
+        setNotesText(savedNotes || '');
+      }
+    };
+
+    loadNotes();
+
     // Reset states on content index change
     setIsPlaying(false);
     setVideoTime(0);
     setQuizAnswers({});
     setQuizSubmitted(false);
     setCurrentQuizQuestionIndex(0);
-  }, [course, activeContentIndex]);
+  }, [course, activeContentIndex, modules]);
 
-  const handleSaveNotes = () => {
+  const handleSaveNotes = async () => {
+    const activeModule = modules.find(mod => mod.contents.some(c => c.id === activeContent?.id));
+    
+    if (activeModule?.id) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeModule.id);
+      if (isUuid) {
+        try {
+          const response = await apiCall(`/api/modules/${activeModule.id}/notes`, {
+            method: 'PUT',
+            body: JSON.stringify({ content: notesText })
+          });
+          
+          if (response.ok) {
+            if (course?.id && activeContent?.id) {
+              localStorage.setItem(`kiezen_notes_${course.id}_${activeContent.id}`, notesText);
+            }
+            alert('Notes saved successfully to database!');
+            return;
+          } else {
+            const err = await response.json();
+            alert(err.detail || 'Failed to save notes to database.');
+          }
+        } catch (err) {
+          console.error("Failed to save notes to backend:", err);
+        }
+      }
+    }
+    
+    // Fallback saving local only
     if (course?.id && activeContent?.id) {
       localStorage.setItem(`kiezen_notes_${course.id}_${activeContent.id}`, notesText);
-      alert('Notes saved successfully!');
+      alert('Notes saved successfully locally!');
     }
   };
 

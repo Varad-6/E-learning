@@ -6,8 +6,10 @@ from app.models.user import User
 from app.schemas.auth import (
     LoginRequest, LoginResponse, ChangePasswordRequest,
     ForgotPasswordRequest, VerifyOTPRequest, ResetPasswordRequest,
-    RefreshTokenRequest, RefreshTokenResponse, MessageResponse
+    RefreshTokenRequest, RefreshTokenResponse, MessageResponse,
+    ProfileUpdateRequest
 )
+from app.schemas.user import UserResponse
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -93,3 +95,17 @@ def logout(
 ):
     AuthService.logout(db, request.refresh_token)
     return MessageResponse(message="Logged out successfully")
+
+@router.put(
+    "/profile",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update User Profile",
+    description="Update the current logged-in user's first name, last name, and employee code."
+)
+def update_profile(
+    request: ProfileUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return AuthService.update_profile(db, user=current_user, request=request)

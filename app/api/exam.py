@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 import datetime
 import os
 import shutil
+import uuid
 
 from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User

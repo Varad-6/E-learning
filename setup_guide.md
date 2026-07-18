@@ -1,8 +1,31 @@
 # Local Development Setup Guide
 
-Follow these steps to set up and run the PostgreSQL database in Docker, migrate the tables, seed the demo users, and start both the backend and frontend.
+Choose one of the options below to run the project.
 
 ---
+
+## Option 1. Quick Start: Run Everything in Docker (Recommended)
+
+To run the database, backend, and frontend all in Docker with hot-reloading active, follow these steps:
+
+1. **Start Docker Desktop**.
+2. Run the following command from the project root:
+   ```bash
+   docker compose up --build
+   ```
+
+This single command will:
+* Set up the PostgreSQL database.
+* Wait for the database to become ready.
+* Run all database migrations (`alembic upgrade head`).
+* Seed the database with the default users (`python seed_db.py`).
+* Start the Backend API on [http://localhost:8000](http://localhost:8000).
+* Build and start the Frontend Dev Server on [http://localhost:5173](http://localhost:5173).
+
+---
+
+## Option 2. Manual/Local Setup (Step-by-Step)
+
 
 ## 1. Start the Database Container in Docker
 

@@ -7,9 +7,11 @@ from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
 from app.models.course_enrollment import CourseEnrollment
 from app.schemas.enrollment import (
-    EnrollmentCreate, EnrollmentResponse, ProgressUpdate, UserProgressResponse
+    EnrollmentCreate, EnrollmentResponse, ProgressUpdate, UserProgressResponse, RosterEmployeeResponse
 )
 from app.services.enrollment_service import EnrollmentService
+from app.services.audit_service import AuditService
+from app.services.badge_service import BadgeService
 
 router = APIRouter(prefix="/api/enrollments", tags=["Enrollments"])
 
@@ -35,7 +37,15 @@ def enroll_user(
             )
         target_user_id = request.user_id
 
-    return EnrollmentService.enroll_user(db, user_id=target_user_id, course_id=request.course_id)
+    enrollment = EnrollmentService.enroll_user(db, user_id=target_user_id, course_id=request.course_id)
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="ASSIGN_COURSE",
+        target=enrollment.user.employee_code,
+        details=f"Enrolled in course: '{enrollment.course.title}' (Code: {enrollment.course_code})"
+    )
+    return enrollment
 
 @router.get(
     "/my-courses",
@@ -49,6 +59,24 @@ def get_my_enrollments(
     current_user: User = Depends(get_current_user)
 ):
     return EnrollmentService.get_user_enrollments(db, user_id=current_user.id)
+
+@router.get(
+    "/roster",
+    response_model=List[RosterEmployeeResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Get Department Learning Roster for Current Manager",
+    description="Retrieve the roster of all employees in the current manager's department. Restricted to System Admin and Course Manager."
+)
+def get_current_manager_roster(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+):
+    if not current_user.department_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current user is not assigned to any department."
+        )
+    return EnrollmentService.get_department_roster(db, department_id=current_user.department_id)
 
 @router.get(
     "/{enrollment_id}",
@@ -117,7 +145,9 @@ def complete_course(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied: Cannot modify completion status of another user's enrollment."
         )
-    return EnrollmentService.complete_course(db, enrollment_id=enrollment_id)
+    result = EnrollmentService.complete_course(db, enrollment_id=enrollment_id)
+    BadgeService.check_and_award_badges(db, enrollment.user_id)
+    return result
 
 @router.put(
     "/{enrollment_id}/progress-percent",
@@ -138,7 +168,10 @@ def update_progress_percent(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied: Cannot update progress for another user."
         )
-    return EnrollmentService.update_progress_percent(db, enrollment_id=enrollment_id, percent=percent)
+    result = EnrollmentService.update_progress_percent(db, enrollment_id=enrollment_id, percent=percent)
+    if percent >= 100:
+        BadgeService.check_and_award_badges(db, enrollment.user_id)
+    return result
 
 @router.post(
     "/{enrollment_id}/unlock",
@@ -154,3 +187,4 @@ def unlock_enrollment(
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
     return EnrollmentService.unlock_enrollment(db, enrollment_id=enrollment_id, extension_days=extension_days)
+

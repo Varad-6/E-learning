@@ -2,6 +2,30 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+## [2026-07-17] Employee Progress, Study Notes, Profile Editing, Manager Dashboard, & Quiz Lock Backend Integration
+- Problem:
+  - Clicking "Resume" or "Resume Study" on the Employee Dashboard updated course progress locally in the React state but failed to persist changes to the database. On page refresh, the user's progress was lost.
+  - The right-side Notes Pad in the Course Player saved and loaded notes exclusively from/to localStorage. These notes were not persisted in the database, meaning they did not sync across devices or show up under the Course Creator's module views.
+  - Editing name and employee ID in the Dashboard profile tab only updated localStorage. Standard users had no mechanism to synchronize these changes with the PostgreSQL database.
+  - The Department Head Dashboard Overview card showed a hardcoded roster count of "3 Members" and a hardcoded Department Head name instead of querying active database state.
+  - A crash occurred on descriptive exam file uploads due to a missing `import uuid` statement in the API controller.
+  - Quiz endpoints allowed direct access bypass (scraping or attempting quiz modules out-of-order without completing previous module content items).
+- Changed:
+  - `frontend/src/pages/Dashboard/Dashboard.tsx`:
+    - Refactored `handleStudyIncrement` to be asynchronous, invoking `PUT /api/enrollments/{enrollment_id}/progress-percent` with regex-validation fallback logic.
+    - Added `handleSaveProfile` function that validates inputs, splits full name into first/last components, and updates the database via `PUT /api/auth/profile`. Associated the edit profile button to invoke this sync path.
+    - Updated the Department Head Overview card to show the actual `roster.length` count and display the logged-in manager's name (`profileName`) when the filtered department is "All" or matches their own.
+  - `frontend/src/pages/CoursePlayer/CoursePlayer.tsx`: Refactored study notes load/save routines to first query the active module's database record using backend API endpoints `GET/PUT /api/modules/{module_id}/notes`. LocalStorage is kept as a local cache fallback for offline resilience and mock course previews.
+  - `app/schemas/auth.py`: Added `ProfileUpdateRequest` Pydantic model validation schema.
+  - `app/services/auth_service.py`: Added `update_profile` static method to process name split and enforce employee code unique constraints.
+  - `app/api/auth.py`: Registered `PUT /api/auth/profile` controller route.
+  - `app/api/exam.py`: Added missing `import uuid` statement to prevent descriptive exam document upload crashes.
+  - `app/services/quiz_service.py`: Implemented `verify_quiz_access` helper verifying module sequential locking orders for learners, and integrated it into `submit_attempt`.
+  - `app/api/quiz.py`: Secured `get_quiz` and `get_quiz_by_module` routes with `verify_quiz_access` logic to restrict ahead-of-time quiz retrieval.
+- Tests added: Manual UI and network tab verification.
+- Migration: No
+- Known risk/follow-up: None
+
 ## [2026-07-13] Exams Module & Assessment Extensions Release
 - **Problem**: 
   - Module quizzes were restricted to simple MCQs, preventing Multiple-Select (MSQ) questions or open-ended written checkpoints (Notes) inside module sections.

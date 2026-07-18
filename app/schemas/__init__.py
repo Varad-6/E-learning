@@ -32,6 +32,8 @@ from app.schemas.enrollment import (
     EnrollmentStatus,
     ProgressUpdate,
     UserProgressResponse,
+    TestMarkResponse,
+    RosterEmployeeResponse,
 )
 from app.schemas.quiz import (
     QuizCreate,
@@ -52,6 +54,13 @@ from app.schemas.admin import (
     UserUpdate,
     UserListResponse,
     RoleAssignmentRequest,
+)
+from app.schemas.audit_log import (
+    AuditLogCreate,
+    AuditLogResponse,
+)
+from app.schemas.badge import (
+    UserBadgeResponse,
 )
 
 __all__ = [
@@ -90,6 +99,8 @@ __all__ = [
     "EnrollmentStatus",
     "ProgressUpdate",
     "UserProgressResponse",
+    "TestMarkResponse",
+    "RosterEmployeeResponse",
     # Quiz
     "QuizCreate",
     "QuizResponse",
@@ -107,4 +118,9 @@ __all__ = [
     "UserUpdate",
     "UserListResponse",
     "RoleAssignmentRequest",
+    # AuditLog
+    "AuditLogCreate",
+    "AuditLogResponse",
+    # Badge
+    "UserBadgeResponse",
 ]

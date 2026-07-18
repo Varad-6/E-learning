@@ -365,3 +365,63 @@ class EnrollmentService:
         db.refresh(enrollment)
         return enrollment
 
+    @staticmethod
+    def get_department_roster(db: Session, department_id: UUID) -> List[dict]:
+        """Retrieve the learning roster of all employees in a department, including progress and quiz scores."""
+        from app.models.quiz_attempt import QuizAttempt
+        from app.models.quiz import Quiz
+        from app.models.course_module import CourseModule
+        from app.models.course import Course
+
+        users = db.query(User).filter(User.department_id == department_id, User.is_deleted == False).all()
+
+        roster = []
+        for user in users:
+            # Check completed courses count
+            completed_count = db.query(CourseEnrollment).filter(
+                CourseEnrollment.user_id == user.id,
+                CourseEnrollment.status == "completed"
+            ).count()
+
+            # Find newest active course enrollment
+            active_enroll = db.query(CourseEnrollment).filter(
+                CourseEnrollment.user_id == user.id,
+                CourseEnrollment.status.in_(["enrolled", "in_progress"])
+            ).order_by(CourseEnrollment.enrolled_at.desc()).first()
+
+            assigned_course = "None"
+            progress_percent = 0
+            if active_enroll:
+                assigned_course = active_enroll.course_code
+                progress_percent = active_enroll.progress_percent
+
+            # Fetch all quiz attempts
+            attempts = db.query(QuizAttempt).filter(QuizAttempt.user_id == user.id).all()
+            test_marks = []
+            for att in attempts:
+                course_code = "None"
+                if att.quiz and att.quiz.module and att.quiz.module.course:
+                    course_code = att.quiz.module.course.course_code
+
+                test_marks.append({
+                    "courseCode": course_code,
+                    "testName": att.quiz.title if att.quiz else "Quiz",
+                    "score": int(att.score)
+                })
+
+            full_name = f"{user.first_name} {user.last_name}".strip()
+
+            roster.append({
+                "id": user.id,
+                "name": full_name,
+                "code": user.employee_code,
+                "email": user.email,
+                "coursesTaken": completed_count,
+                "assignedCourse": assigned_course,
+                "progressPercent": progress_percent,
+                "testMarks": test_marks
+            })
+
+        return roster
+
+

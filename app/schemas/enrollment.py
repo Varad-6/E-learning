@@ -48,3 +48,19 @@ class ProgressUpdate(BaseModel):
     content_id: UUID = Field(..., description="ID of the module content")
     completed: bool = Field(..., description="Completion status")
     time_spent_seconds: int = Field(0, ge=0, description="Time spent in seconds on this content")
+
+class TestMarkResponse(BaseModel):
+    courseCode: str
+    testName: str
+    score: int
+
+class RosterEmployeeResponse(BaseModel):
+    id: UUID
+    name: str
+    code: str
+    email: str
+    coursesTaken: int
+    assignedCourse: str
+    progressPercent: int
+    testMarks: List[TestMarkResponse] = []
+

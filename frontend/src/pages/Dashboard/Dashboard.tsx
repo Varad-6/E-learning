@@ -157,46 +157,7 @@ export const Dashboard: React.FC = () => {
   ]);
 
   // React States for Manager View
-  const [roster] = useState<RosterEmployee[]>([
-    { 
-      id: 'e1', 
-      name: 'Alice Smith', 
-      code: 'EMP-3041', 
-      email: 'alice.smith@company.com', 
-      coursesTaken: 2, 
-      assignedCourse: 'AI-101', 
-      progressPercent: 80,
-      testMarks: [
-        { courseCode: 'AI-101', testName: 'Machine Learning Basics', score: 88 },
-        { courseCode: 'AI-101', testName: 'Neural Networks Lab', score: 92 }
-      ]
-    },
-    { 
-      id: 'e2', 
-      name: 'Bob Johnson', 
-      code: 'EMP-3042', 
-      email: 'bob.johnson@company.com', 
-      coursesTaken: 3, 
-      assignedCourse: 'FICO-202', 
-      progressPercent: 100,
-      testMarks: [
-        { courseCode: 'FICO-202', testName: 'Asset Accounting Exam', score: 100 },
-        { courseCode: 'SD-102', testName: 'Shipping Matrix Quiz', score: 85 }
-      ]
-    },
-    { 
-      id: 'e3', 
-      name: 'Charlie Davis', 
-      code: 'EMP-3043', 
-      email: 'charlie.davis@company.com', 
-      coursesTaken: 1, 
-      assignedCourse: 'ABAP-301', 
-      progressPercent: 40,
-      testMarks: [
-        { courseCode: 'ABAP-301', testName: 'Open SQL Queries Test', score: 76 }
-      ]
-    }
-  ]);
+  const [roster, setRoster] = useState<RosterEmployee[]>([]);
 
 
 
@@ -247,6 +208,42 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  const fetchDBAuditLogs = async () => {
+    try {
+      const response = await apiCall('/api/admin/audit-logs');
+      if (response.ok) {
+        const data = await response.json();
+        const mapped = data.map((log: any) => {
+          const date = new Date(log.timestamp);
+          const formattedTime = date.toISOString().replace('T', ' ').substring(0, 19);
+          return {
+            id: log.id,
+            timestamp: formattedTime,
+            actor: log.actor,
+            action: log.action,
+            target: log.target,
+            details: log.details || ''
+          };
+        });
+        setAuditLogs(mapped);
+      }
+    } catch (err) {
+      console.error('Failed to fetch audit logs:', err);
+    }
+  };
+
+  const fetchDBRoster = async () => {
+    try {
+      const response = await apiCall('/api/enrollments/roster');
+      if (response.ok) {
+        const data = await response.json();
+        setRoster(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch roster:', err);
+    }
+  };
+
   useEffect(() => {
     const savedEmail = localStorage.getItem('isLoggedInEmail');
     const savedRole = localStorage.getItem('isLoggedInRole');
@@ -260,6 +257,14 @@ export const Dashboard: React.FC = () => {
       const activeRole = savedRole || 'Employee';
       if (savedRole) setRole(savedRole);
       if (savedDept) setDept(savedDept);
+
+      if (activeRole === 'Admin') {
+        fetchDBAuditLogs();
+      }
+
+      if (activeRole === 'Manager') {
+        fetchDBRoster();
+      }
 
       const fetchDepts = async () => {
         try {
@@ -312,32 +317,123 @@ export const Dashboard: React.FC = () => {
   }, [navigate]);
 
   // Handler: Standard Employee Study Action
-  const handleStudyIncrement = (itemId: string) => {
+  const handleStudyIncrement = async (itemId: string) => {
     let justCompleted = false;
     
-    setMyProgress(prev => {
-      const updatedProgress = prev.map(item => {
-        if (item.id === itemId) {
-          const updated = Math.min(item.progressPercent + 20, 100);
-          if (item.progressPercent < 100 && updated === 100) {
-            justCompleted = true;
+    // Check if the itemId is a valid UUID before sending to backend
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId);
+    
+    if (!isUuid) {
+      // Fallback for local mock data items
+      setMyProgress(prev => {
+        const updatedProgress = prev.map(item => {
+          if (item.id === itemId) {
+            const updated = Math.min(item.progressPercent + 20, 100);
+            if (item.progressPercent < 100 && updated === 100) {
+              justCompleted = true;
+            }
+            return { ...item, progressPercent: updated };
           }
-          return { ...item, progressPercent: updated };
+          return item;
+        });
+        
+        if (justCompleted) {
+          const newCompletedCount = updatedProgress.filter(p => p.progressPercent === 100).length;
+          const newBadge = getBadgeForCompletions(newCompletedCount);
+          if (newBadge) {
+            setCelebratedBadge(newBadge);
+            setShowBadgeOverlay(true);
+          }
         }
-        return item;
+        return updatedProgress;
       });
-      
-      if (justCompleted) {
-        const newCompletedCount = updatedProgress.filter(p => p.progressPercent === 100).length;
-        const newBadge = getBadgeForCompletions(newCompletedCount);
-        if (newBadge) {
-          setCelebratedBadge(newBadge);
-          setShowBadgeOverlay(true);
-        }
+      return;
+    }
+
+    // Backend sync path
+    const item = myProgress.find(p => p.id === itemId);
+    if (!item) return;
+
+    const newPercent = Math.min(item.progressPercent + 20, 100);
+
+    try {
+      const response = await apiCall(`/api/enrollments/${itemId}/progress-percent?percent=${newPercent}`, {
+        method: 'PUT'
+      });
+
+      if (response.ok) {
+        setMyProgress(prev => {
+          const updatedProgress = prev.map(p => {
+            if (p.id === itemId) {
+              if (p.progressPercent < 100 && newPercent === 100) {
+                justCompleted = true;
+              }
+              return { ...p, progressPercent: newPercent };
+            }
+            return p;
+          });
+
+          if (justCompleted) {
+            const newCompletedCount = updatedProgress.filter(p => p.progressPercent === 100).length;
+            const newBadge = getBadgeForCompletions(newCompletedCount);
+            if (newBadge) {
+              setCelebratedBadge(newBadge);
+              setShowBadgeOverlay(true);
+            }
+          }
+
+          return updatedProgress;
+        });
+      } else {
+        const err = await response.json();
+        alert(err.detail || 'Failed to update progress on server.');
       }
-      
-      return updatedProgress;
-    });
+    } catch (err) {
+      console.error('Failed to sync progress with backend:', err);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profileName.trim()) {
+      alert('Profile Name cannot be empty.');
+      return;
+    }
+    if (!profileEmpId.trim()) {
+      alert('Employee ID cannot be empty.');
+      return;
+    }
+
+    const nameParts = profileName.trim().split(/\s+/);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    try {
+      const response = await apiCall('/api/auth/profile', {
+        method: 'PUT',
+        body: JSON.stringify({
+          first_name: firstName,
+          last_name: lastName,
+          employee_code: profileEmpId.trim()
+        })
+      });
+
+      if (response.ok) {
+        localStorage.setItem('profileName', profileName.trim());
+        localStorage.setItem('profileEmpId', profileEmpId.trim());
+        setIsEditingProfile(false);
+        alert('Profile details successfully synchronized with backend!');
+      } else {
+        const err = await response.json();
+        alert(err.detail || 'Failed to update profile details on server.');
+      }
+    } catch (err) {
+      console.error('Failed to sync profile changes:', err);
+      // Fallback
+      localStorage.setItem('profileName', profileName.trim());
+      localStorage.setItem('profileEmpId', profileEmpId.trim());
+      setIsEditingProfile(false);
+      alert('Profile saved locally (offline mode).');
+    }
   };
 
   const handleEnrollCourse = async (courseId: string) => {
@@ -578,10 +674,10 @@ export const Dashboard: React.FC = () => {
                     style={{ width: '100%', fontSize: '0.82rem' }}
                     onClick={() => {
                       if (isEditingProfile) {
-                        localStorage.setItem('profileName', profileName);
-                        localStorage.setItem('profileEmpId', profileEmpId);
+                        handleSaveProfile();
+                      } else {
+                        setIsEditingProfile(true);
                       }
-                      setIsEditingProfile(!isEditingProfile);
                     }}
                   >
                     {isEditingProfile ? 'Save Profile' : 'Edit Profile Info'}
@@ -1198,7 +1294,9 @@ export const Dashboard: React.FC = () => {
                       <div style={{ marginTop: '12px', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ color: 'var(--text-secondary)' }}>Department Head:</span>
-                          <span style={{ fontWeight: '600' }}>{getManagerForDept(activeManagerFilterDept)}</span>
+                          <span style={{ fontWeight: '600' }}>
+                            {activeManagerFilterDept === 'All' || activeManagerFilterDept === dept ? profileName : getManagerForDept(activeManagerFilterDept)}
+                          </span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ color: 'var(--text-secondary)' }}>Matching Courses:</span>
@@ -1208,7 +1306,7 @@ export const Dashboard: React.FC = () => {
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ color: 'var(--text-secondary)' }}>Roster Node Count:</span>
-                          <span style={{ fontWeight: '600' }}>3 Members</span>
+                          <span style={{ fontWeight: '600' }}>{roster.length} {roster.length === 1 ? 'Member' : 'Members'}</span>
                         </div>
                       </div>
                     </div>

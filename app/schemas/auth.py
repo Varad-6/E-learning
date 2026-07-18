@@ -40,3 +40,8 @@ class RefreshTokenResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+class ProfileUpdateRequest(BaseModel):
+    first_name: str = Field(..., min_length=1, max_length=50, description="User first name")
+    last_name: str = Field(..., max_length=50, description="User last name")
+    employee_code: str = Field(..., min_length=1, max_length=30, description="Unique employee identifier code")

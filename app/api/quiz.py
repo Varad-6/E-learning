@@ -39,7 +39,9 @@ def get_quiz(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return QuizService.get_quiz(db, quiz_id=quiz_id)
+    quiz = QuizService.get_quiz(db, quiz_id=quiz_id)
+    QuizService.verify_quiz_access(db, user=current_user, quiz=quiz)
+    return quiz
 
 @router.post(
     "/{quiz_id}/questions",
@@ -118,7 +120,9 @@ def get_quiz_by_module(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return QuizService.get_quiz_by_module(db, module_id=module_id)
+    quiz = QuizService.get_quiz_by_module(db, module_id=module_id)
+    QuizService.verify_quiz_access(db, user=current_user, quiz=quiz)
+    return quiz
 
 @router.delete(
     "/module/{module_id}",

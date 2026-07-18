@@ -10,6 +10,7 @@ from app.schemas.course import (
     CourseCreate, CourseUpdate, CourseResponse, CourseListResponse
 )
 from app.services.course_service import CourseService
+from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/api/courses", tags=["Courses"])
 
@@ -75,7 +76,15 @@ def create_course(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
-    return CourseService.create_course(db, request=request, user_id=current_user.id)
+    course = CourseService.create_course(db, request=request, user_id=current_user.id)
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="CREATE_COURSE",
+        target=course.course_code or str(course.id),
+        details=f"Created course: '{course.title}'"
+    )
+    return course
 
 @router.put(
     "/{course_id}",
@@ -90,7 +99,15 @@ def update_course(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
-    return CourseService.update_course(db, course_id=course_id, request=request)
+    course = CourseService.update_course(db, course_id=course_id, request=request)
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="UPDATE_COURSE",
+        target=course.course_code or str(course.id),
+        details=f"Updated course details for: '{course.title}'"
+    )
+    return course
 
 @router.delete(
     "/{course_id}",
@@ -103,7 +120,15 @@ def delete_course(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
+    course = CourseService.get_course(db, course_id=course_id)
     CourseService.delete_course(db, course_id=course_id)
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="DELETE_COURSE",
+        target=course.course_code or str(course_id),
+        details=f"Deleted course: '{course.title}'"
+    )
     return None
 
 @router.post(
@@ -118,7 +143,15 @@ def publish_course(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
-    return CourseService.publish_course(db, course_id=course_id)
+    course = CourseService.publish_course(db, course_id=course_id)
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="PUBLISH_COURSE",
+        target=course.course_code or str(course.id),
+        details=f"Published course: '{course.title}'"
+    )
+    return course
 
 @router.post(
     "/{course_id}/submit-for-approval",
@@ -131,7 +164,15 @@ def submit_for_approval(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return CourseService.submit_for_approval(db, course_id=course_id, user_id=current_user.id)
+    course = CourseService.submit_for_approval(db, course_id=course_id, user_id=current_user.id)
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="SUBMIT_COURSE_APPROVAL",
+        target=course.course_code or str(course.id),
+        details=f"Submitted course '{course.title}' for manager approval"
+    )
+    return course
 
 @router.post(
     "/{course_id}/approve",
@@ -144,7 +185,15 @@ def approve_course(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
-    return CourseService.approve_course(db, course_id=course_id, reviewer_id=current_user.id)
+    course = CourseService.approve_course(db, course_id=course_id, reviewer_id=current_user.id)
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="APPROVE_COURSE",
+        target=course.course_code or str(course.id),
+        details=f"Approved course: '{course.title}'"
+    )
+    return course
 
 @router.post(
     "/{course_id}/reject",
@@ -158,6 +207,14 @@ def reject_course(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
 ):
-    return CourseService.reject_course(
+    course = CourseService.reject_course(
         db, course_id=course_id, reviewer_id=current_user.id, rejection_reason=rejection_reason
     )
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="REJECT_COURSE",
+        target=course.course_code or str(course.id),
+        details=f"Rejected course '{course.title}'. Reason: {rejection_reason}"
+    )
+    return course

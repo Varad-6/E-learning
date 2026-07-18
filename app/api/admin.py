@@ -6,6 +6,7 @@ from app.core.dependencies import get_db, RequireRoles
 from app.models.user import User
 from app.schemas.admin import UserCreate, UserUpdate, UserListResponse, RoleAssignmentRequest, AdminUserResponse
 from app.services.admin_service import AdminService
+from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -21,7 +22,15 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
-    return AdminService.create_user(db, request=request)
+    user = AdminService.create_user(db, request=request)
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="USER_CREATE",
+        target=user.employee_code,
+        details=f"Created user {user.first_name} {user.last_name} ({user.email}) in department {user.department_id or 'none'}"
+    )
+    return user
 
 @router.put(
     "/users/{user_id}",
@@ -36,7 +45,22 @@ def update_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
-    return AdminService.update_user(db, user_id=user_id, request=request)
+    user = AdminService.update_user(db, user_id=user_id, request=request)
+    details_list = []
+    if request.is_active is not None:
+        details_list.append(f"is_active={request.is_active}")
+    if request.is_deleted is not None:
+        details_list.append(f"is_deleted={request.is_deleted}")
+    details = f"Updated user properties: {', '.join(details_list)}" if details_list else "Updated user profile"
+
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="USER_UPDATE",
+        target=user.employee_code,
+        details=details
+    )
+    return user
 
 @router.get(
     "/users",
@@ -73,4 +97,12 @@ def assign_role(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User ID in path must match User ID in request body."
         )
-    return AdminService.assign_role(db, request=request)
+    user = AdminService.assign_role(db, request=request)
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="ROLE_UPDATE",
+        target=user.email,
+        details=f"Assigned roles: {', '.join(request.roles)}"
+    )
+    return user

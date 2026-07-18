@@ -8,7 +8,7 @@ from app.models.role import Role
 from app.schemas.auth import (
     LoginRequest, LoginResponse, ChangePasswordRequest, 
     ForgotPasswordRequest, VerifyOTPRequest, ResetPasswordRequest,
-    RefreshTokenRequest, RefreshTokenResponse
+    RefreshTokenRequest, RefreshTokenResponse, ProfileUpdateRequest
 )
 from app.core.security import (
     verify_password, get_password_hash, create_access_token, 
@@ -263,3 +263,25 @@ class AuthService:
     def logout(db: Session, refresh_token_str: str) -> None:
         """Revoke the user's refresh token to invalidate future refreshes."""
         TokenService.revoke_refresh_token(db, refresh_token_str)
+
+    @staticmethod
+    def update_profile(db: Session, user: User, request: ProfileUpdateRequest) -> User:
+        """Update current logged-in user's profile details after checking employee code uniqueness."""
+        # Check if employee code is already taken by another user
+        existing_user = db.query(User).filter(
+            User.employee_code == request.employee_code,
+            User.id != user.id,
+            User.is_deleted == False
+        ).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Employee code '{request.employee_code}' is already taken."
+            )
+            
+        user.first_name = request.first_name
+        user.last_name = request.last_name
+        user.employee_code = request.employee_code
+        db.commit()
+        db.refresh(user)
+        return user
