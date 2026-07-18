@@ -250,7 +250,7 @@ export const CreatorDashboard: React.FC = () => {
 
     const loadDepts = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/departments');
+        const response = await fetch('http://127.0.0.1:8080/api/departments');
         if (response.ok) {
           const data = await response.json();
           setDepartmentsList(data);
@@ -281,7 +281,7 @@ export const CreatorDashboard: React.FC = () => {
   const fetchDepartments = async () => {
     setIsLoadingDepts(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/departments');
+      const response = await fetch('http://127.0.0.1:8080/api/departments');
       if (response.ok) {
         const data = await response.json();
         setDepartmentsList(data);
@@ -970,7 +970,7 @@ export const CreatorDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="analytics-details-layout glass-panel" style={{ marginTop: '24px', padding: '24px' }}>
+          <div className="analytics-details-layout glass-panel" style={{ marginTop: 'var(--space-section-gap)', padding: 'var(--space-card-padding)' }}>
             <h3>Platform Guidelines & Department Scopes</h3>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.6', marginTop: '8px' }}>
               Corporate learning paths created by employees are in **Draft** state by default. They can compile syllabus contents, upload mock YouTube attachment links, and create MCQ checkpoints.
@@ -984,14 +984,14 @@ export const CreatorDashboard: React.FC = () => {
 
       {activeTab === 'departments' && isAdmin && (
         <div className="departments-canvas animate-fade-in" style={{ paddingBottom: '40px' }}>
-          <div className="pane-header" style={{ marginBottom: '28px' }}>
+          <div className="pane-header" style={{ marginBottom: 'var(--space-section-gap)' }}>
             <h2>🏢 Enterprise Department Manager</h2>
             <p>Define global training branches, coordinate departmental structures, and manage registries.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '30px', alignItems: 'flex-start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-section-gap)', alignItems: 'flex-start' }}>
             {/* Create Department Form Card */}
-            <div className="glass-panel" style={{ padding: '28px', borderRadius: 'var(--border-radius-md)' }}>
+            <div className="glass-panel" style={{ padding: 'var(--space-card-padding)', borderRadius: 'var(--border-radius-md)' }}>
               <h3 style={{ marginBottom: '16px', fontSize: '1.2rem', fontWeight: '700' }}>+ Create New Department</h3>
               <form onSubmit={handleCreateDeptSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
@@ -1035,7 +1035,7 @@ export const CreatorDashboard: React.FC = () => {
             </div>
 
             {/* Department List Grid */}
-            <div className="glass-panel" style={{ padding: '28px', borderRadius: 'var(--border-radius-md)' }}>
+            <div className="glass-panel" style={{ padding: 'var(--space-card-padding)', borderRadius: 'var(--border-radius-md)' }}>
               <h3 style={{ marginBottom: '16px', fontSize: '1.2rem', fontWeight: '700' }}>Active Corporate Departments</h3>
               <div className="logs-table-wrapper" style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {isLoadingDepts ? (

@@ -268,7 +268,7 @@ export const Dashboard: React.FC = () => {
 
       const fetchDepts = async () => {
         try {
-          const response = await fetch('http://127.0.0.1:8000/api/departments');
+          const response = await fetch('http://127.0.0.1:8080/api/departments');
           if (response.ok) {
             const data = await response.json();
             setDepartmentsList(data);
@@ -1700,15 +1700,23 @@ export const Dashboard: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {auditLogs.map((log) => (
-                        <tr key={log.id}>
-                          <td className="log-time-cell">{log.timestamp}</td>
-                          <td><code>{log.actor.split('@')[0]}</code></td>
-                          <td><span className="log-action-badge">{log.action}</span></td>
-                          <td><code>{log.target}</code></td>
-                          <td className="log-details-cell">{log.details}</td>
+                      {auditLogs.length > 0 ? (
+                        auditLogs.map((log) => (
+                          <tr key={log.id}>
+                            <td className="log-time-cell">{log.timestamp}</td>
+                            <td><code>{log.actor.split('@')[0]}</code></td>
+                            <td><span className="log-action-badge">{log.action}</span></td>
+                            <td><code>{log.target}</code></td>
+                            <td className="log-details-cell">{log.details}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px 0', minHeight: '120px' }}>
+                            No recent audit events detected in the registry.
+                          </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>

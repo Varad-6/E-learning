@@ -23,7 +23,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://elearning_user:postgres@postgres:5432/elearning
     ports:
-      - "8000:8000"
+      - "8080:8000"
     volumes:
       - .:/workspace
       - /workspace/venv
@@ -36,6 +36,10 @@ services:
       dockerfile: Dockerfile
     container_name: elearning-frontend
     restart: always
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - VITE_USE_POLLING=true
     ports:
       - "5173:5173"
     volumes:

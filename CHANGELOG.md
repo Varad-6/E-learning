@@ -2,6 +2,56 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+## [2026-07-18] Global UI Density & Sizing Pass
+- Problem: The UI felt excessively spaced out (bloated padding, massive font sizes, large vertical margins) making it feel unlike a dense enterprise application. 
+- Changed:
+  - `frontend/src/styles/theme.css`: Added a unified set of global density/sizing CSS variables (`--space-card-padding`, `--space-section-gap`, `--table-row-min-height`, `--navbar-height`, and `--font-size-*` tokens).
+  - `frontend/src/components/Navbar/Navbar.css`: Updated navbar container to use `--navbar-height` (60px) instead of 72px.
+  - `frontend/src/pages/Dashboard/Dashboard.css`: Replaced hardcoded `24px/28px` paddings with `--space-card-padding` and tightened margins with `--space-section-gap`. Standardized font scales for headings (`--font-size-h2`). Applied `--table-row-min-height` to the Audit Logs table empty states and normalized the `dept-registry-row` in the right pane to identically match the table row height for perfect alignment.
+  - `frontend/src/pages/Admin/UserAdminStudio.css`: Replaced oversized card/panel paddings (up to 32px) with `--space-card-padding`.
+- Tests added: N/A
+- Migration: No
+- Known risk/follow-up: None
+
+## [2026-07-18] Fix Exam Creator Context Course Dropdown & Spacing
+- Problem: The Context Course dropdown was disabled because the frontend was expecting `courseData.items`, but the API responds with `courseData.courses`. Additionally, the form spacing on this page was misaligned with the new `48px` global input height standard.
+- Changed:
+  - `frontend/src/pages/Creator/ExamCreator.tsx`: Updated `courseData.items` to `courseData.courses` in `fetchData()`. Adjusted layout gaps to `24px` and button heights to `48px` for premium breathing room aligned with the new desktop UI standards.
+- Tests added: N/A
+- Migration: No
+- Known risk/follow-up: None
+
+## [2026-07-18] Refine Text Inputs & Maximize Tab Layouts for Desktop
+- Problem: Text entry areas (inputs/textareas) felt cramped and lacked premium desktop-first sizing. Tab navigations were compact and left-aligned, wasting horizontal screen real estate on laptops.
+- Changed:
+  - `frontend/src/styles/theme.css`: Increased `.form-input-styled` padding to `14px 18px`, set font-size to `1rem`, added `min-height: 48px`, and created `textarea.form-input-styled` with `min-height: 120px`. Replaced default blue box-shadow with Upwork Green glow on focus.
+  - `frontend/src/pages/Admin/UserAdminStudio.css`: Updated `.dept-tabs` to `width: 100%` and `.dept-tab` to `flex: 1` with `text-align: center` so tabs stretch evenly across the full container width.
+- Tests added: N/A
+- Migration: No
+- Known risk/follow-up: None
+
+## [2026-07-18] Apply Upwork Branding & Fix Typography
+- Problem: The UI typography was broken (falling back to Serif) because the `Inter` font wasn't imported. Additionally, the Landing Page had duplicate headers, the Login Page had illegible text on dark backgrounds, and the color scheme didn't match the requested Upwork aesthetic.
+- Changed:
+  - `frontend/index.html`: Added the `Inter` Google Font import to fix all global typography.
+  - `frontend/src/styles/theme.css`: Updated root CSS variables to the Upwork brand palette (`#14a800` vibrant green, `#001e00` dark text, `#e4ebe4` borders).
+  - `frontend/src/pages/Landing/Landing.tsx`: Removed the redundant `<header>` component so the page integrates seamlessly with the global Navbar.
+  - `frontend/src/pages/Login/Login.css`: Forced `.login-left-pane p` text to `rgba(255, 255, 255, 0.85)` for visibility against the dark gradient background.
+- Tests added: Verified visually using Headless Playwright script and screenshots (`scratch/screenshot.py`).
+- Migration: No
+- Known risk/follow-up: None
+
+## [2026-07-18] Revert to Professional Enterprise B2B UI
+- Problem: The UI had drifted into overly stylistic/niche territories (neon Evolt and extreme Awwwards). It needed to be returned to an industry-standard, clean, and highly professional B2B Enterprise SaaS design.
+- Changed:
+  - `frontend/src/styles/theme.css`: Removed extreme dark mode, large shadow blurs, and drastic animations. Implemented a clean, professional light theme with Corporate Blue (`#2563eb`) and Deep Slate (`#0f172a`), using the Inter font.
+  - `frontend/src/styles/index.css`: Removed experimental glowing ambient orbs and restored a clean, solid background.
+  - `frontend/src/pages/Admin/UserAdminStudio.tsx` & `.css`: Simplified the grid and cards, standardized padding, removed dramatic hover scaling, and ensured tabs and buttons look like standard enterprise UI elements.
+  - `frontend/src/pages/Landing/Landing.tsx` & `.css`: Undid massive experimental typography and extreme negative space. Rebuilt a highly legible, trustworthy corporate landing page structure.
+- Tests added: None (Pure UI CSS rewrite, tested manually).
+- Migration: No
+- Known risk/follow-up: None
+
 ## [2026-07-17] Employee Progress, Study Notes, Profile Editing, Manager Dashboard, & Quiz Lock Backend Integration
 - Problem:
   - Clicking "Resume" or "Resume Study" on the Employee Dashboard updated course progress locally in the React state but failed to persist changes to the database. On page refresh, the user's progress was lost.

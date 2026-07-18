@@ -1,219 +1,38 @@
 @import './theme.css';
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-*:focus, *:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
-}
-
 html, body, #root {
   margin: 0 !important;
   padding: 0 !important;
   width: 100%;
   min-height: 100vh;
   background-color: var(--bg-main);
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0, transparent 50%), 
-    radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.08) 0, transparent 50%),
-    radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.04) 0, transparent 50%);
-  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.5;
-  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-title);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  color: var(--text-primary);
+  margin-top: 0;
 }
 
 a {
-  color: inherit;
+  color: var(--primary-brand);
   text-decoration: none;
   transition: var(--transition-smooth);
 }
 
-button, input, select, textarea {
-  font-family: inherit;
-  font-size: inherit;
+a:hover {
+  color: var(--primary-brand-hover);
+  text-decoration: underline;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--bg-main);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-color);
-}
-
-/* Base Utility Classes */
 .container {
-  width: 95%;
-  max-width: 1600px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 48px;
 }
-
-.glass-panel {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-premium);
-}
-
-/* Premium Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-40px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes pulseGlow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
-  }
-  50% {
-    box-shadow: 0 0 35px rgba(99, 102, 241, 0.25);
-  }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.animate-slide-left {
-  animation: slideInLeft 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.glow-hover {
-  transition: var(--transition-smooth);
-}
-
-.glow-hover:hover {
-  box-shadow: var(--shadow-glow);
-  border-color: var(--accent-hover);
-}
-
-/* Text highlight utility */
-.text-gradient {
-  background: linear-gradient(135deg, var(--accent-color) 0%, #a855f7 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* --- TOOLTIP & MICRO-INTERACTION ANIMATIONS --- */
-
-.tooltip-trigger {
-  position: relative;
-}
-
-.tooltip-trigger::before {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: 125%;
-  left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 6px 12px;
-  border-radius: var(--border-radius-sm);
-  font-size: 0.72rem;
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  box-shadow: var(--shadow-premium), 0 8px 16px rgba(0, 0, 0, 0.2);
-  z-index: 1200;
-  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.tooltip-trigger::after {
-  content: '';
-  position: absolute;
-  bottom: 115%;
-  left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  border-width: 5px;
-  border-style: solid;
-  border-color: var(--border-color) transparent transparent transparent;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 1200;
-  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.tooltip-trigger:hover::before {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-.tooltip-trigger:hover::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-/* Micro-interaction Hover Pop Animation */
-@keyframes hoverPop {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.025);
-  }
-  100% {
-    transform: scale(1.018);
-  }
-}
-
-.glow-hover {
-  transition: var(--transition-smooth);
-}
-
-.glow-hover:hover {
-  animation: hoverPop 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  box-shadow: var(--shadow-glow);
-  border-color: var(--accent-hover);
-}
-

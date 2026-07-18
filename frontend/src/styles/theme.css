@@ -1,58 +1,118 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Premium Dark Theme: Deep Cosmic Space & Indigo Neon */
-  --bg-main: #0a0d16;
-  --bg-card: rgba(20, 26, 42, 0.75);
-  --bg-card-hover: rgba(30, 38, 60, 0.85);
-  --border-color: rgba(255, 255, 255, 0.07);
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  
-  --accent-color: #6366f1; /* Premium Modern Indigo */
-  --accent-hover: #818cf8;
-  --accent-glow: rgba(99, 102, 241, 0.2);
-  
-  --neon-teal: #0d9488; /* Emerald Teal */
-  --neon-teal-glow: rgba(13, 148, 136, 0.12);
-  --neon-coral: #e11d48; /* Crimson Rose */
-  --neon-coral-glow: rgba(225, 29, 72, 0.12);
-  
-  --font-title: 'Outfit', sans-serif;
-  --font-body: 'Inter', sans-serif;
-  
-  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --glass-bg: rgba(20, 26, 42, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-blur: blur(12px);
-  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(255, 255, 255, 0.05);
-  --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.25);
-  
-  --border-radius-sm: 8px;
-  --border-radius-md: 12px;
-  --border-radius-lg: 20px;
-}
-
-[data-theme="light"] {
-  /* Clean Professional Light Mode */
+  /* Enterprise SaaS Light Mode */
   --bg-main: #f8fafc;
   --bg-card: #ffffff;
-  --bg-card-hover: #f1f5f9;
-  --border-color: #e2e8f0;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
+  --bg-input: #ffffff;
   
-  --accent-color: #4f46e5; /* Deep Royal Indigo */
-  --accent-hover: #4338ca;
-  --accent-glow: rgba(79, 70, 229, 0.08);
+  --accent-color: #001e00; /* Deep Upwork Black/Green */
+  --accent-hover: #1f57c3; /* Upwork Link Blue */
+  --primary-brand: #14a800; /* Upwork Green */
+  --primary-brand-hover: #108a00;
   
-  --neon-teal: #0f766e; /* Deep Teal */
-  --neon-teal-glow: rgba(15, 118, 110, 0.08);
-  --neon-coral: #be123c; /* Rose Red */
-  --neon-coral-glow: rgba(190, 18, 60, 0.08);
+  --success-color: #16a34a;
+  --warning-color: #ca8a04;
+  --danger-color: #dc2626;
   
-  --glass-bg: rgba(255, 255, 255, 0.8);
-  --glass-border: rgba(241, 245, 249, 0.8);
-  --shadow-premium: 0 10px 25px -5px rgba(15, 23, 42, 0.05), 0 4px 6px -2px rgba(15, 23, 42, 0.03);
-  --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.08);
+  --text-primary: #001e00;
+  --text-secondary: #5e6d55;
+  --text-muted: #94a3b8;
+  
+  --border-color: #e4ebe4;
+  --border-radius-sm: 4px;
+  --border-radius-md: 6px;
+  --border-radius-lg: 12px;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-title: 'Inter', system-ui, sans-serif;
+  --transition-smooth: all 0.2s ease-in-out;
+  
+  /* Enterprise Density & Sizing Tokens */
+  --space-card-padding: 20px;
+  --space-section-gap: 20px;
+  --table-row-min-height: 48px;
+  --navbar-height: 60px;
+  
+  /* Typography Scale */
+  --font-size-h1: 24px;
+  --font-size-h2: 20px;
+  --font-size-body: 14px;
+  --font-size-label: 12px;
+}
+
+[data-theme="dark"] {
+  --bg-main: #141414; /* Deep neutral dark background */
+  --bg-card: #1f1f1f; /* Slightly lighter neutral for cards */
+  --bg-input: #2a2a2a;
+  
+  --accent-color: #14a800; /* Upwork Green Accent */
+  --accent-hover: #108a00;
+  --primary-brand: #14a800;
+  --primary-brand-hover: #108a00;
+  
+  --text-primary: #f0f0f0;
+  --text-secondary: #a0a0a0;
+  --text-muted: #737373;
+  
+  --border-color: #333333;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+}
+
+/* Base Form Elements */
+.form-input-styled, .form-select-styled {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 14px 18px;
+  border-radius: var(--border-radius-md);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  min-height: 48px;
+  transition: var(--transition-smooth);
+  box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
+}
+
+textarea.form-input-styled {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.form-input-styled:focus, .form-select-styled:focus {
+  outline: none;
+  border-color: var(--primary-brand);
+  box-shadow: 0 0 0 3px rgba(20, 168, 0, 0.2); /* Upwork green glow */
+}
+
+.form-label-styled {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* Clean Cards */
+.glass-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
 }

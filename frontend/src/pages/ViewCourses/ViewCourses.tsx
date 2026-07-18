@@ -203,7 +203,7 @@ export const ViewCourses: React.FC = () => {
         {activeTab === 'in_progress' && (
           <>
             {activeEnrollments.length === 0 ? (
-              <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
+              <div className="empty-state-container glass-panel" style={{ padding: 'var(--space-card-padding)', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
                 <Bookmark size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
                 <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No active course enrollments. Select an available course to begin!</p>
               </div>
@@ -272,7 +272,7 @@ export const ViewCourses: React.FC = () => {
         {activeTab === 'completed' && (
           <>
             {completedEnrollments.length === 0 ? (
-              <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
+              <div className="empty-state-container glass-panel" style={{ padding: 'var(--space-card-padding)', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
                 <Bookmark size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
                 <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No completed courses yet. Complete course modules to see them here.</p>
               </div>
@@ -341,7 +341,7 @@ export const ViewCourses: React.FC = () => {
         {activeTab === 'available' && (
           <>
             {availableCourses.length === 0 ? (
-              <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
+              <div className="empty-state-container glass-panel" style={{ padding: 'var(--space-card-padding)', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
                 <Bookmark size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
                 <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>All catalog courses have been enrolled. Check your in-progress tab.</p>
               </div>

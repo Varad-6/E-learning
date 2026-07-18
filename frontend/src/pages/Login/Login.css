@@ -99,7 +99,7 @@
 }
 
 .login-left-pane p {
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.85);
   font-size: 1.05rem;
   line-height: 1.6;
   margin-bottom: 40px;

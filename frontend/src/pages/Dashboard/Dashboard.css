@@ -6,11 +6,11 @@
 .dashboard-hero-banner {
   border-radius: var(--border-radius-lg);
   border: 1px solid var(--border-color);
-  padding: 28px 32px;
+  padding: var(--space-card-padding);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 40px;
+  margin-bottom: var(--space-section-gap);
   background-color: var(--bg-card);
   box-shadow: var(--shadow-premium);
 }
@@ -100,11 +100,11 @@
 }
 
 .pane-header {
-  margin-bottom: 28px;
+  margin-bottom: var(--space-section-gap);
 }
 
 .pane-header h3 {
-  font-size: 1.35rem;
+  font-size: var(--font-size-h2);
   color: var(--text-primary);
   margin-bottom: 4px;
 }
@@ -228,7 +228,7 @@
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-md);
-  padding: 24px;
+  padding: var(--space-card-padding);
 }
 
 .sidebar-card-title {
@@ -487,7 +487,7 @@
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-md);
-  padding: 24px;
+  padding: var(--space-card-padding);
 }
 
 .logs-card-header {
@@ -519,7 +519,7 @@
   border-collapse: separate;
   border-spacing: 0;
   text-align: left;
-  font-size: 0.82rem;
+  font-size: var(--font-size-body);
 }
 
 .logs-table th {
@@ -538,6 +538,8 @@
   color: var(--text-primary);
   border-bottom: 1px solid var(--border-color);
   transition: var(--transition-smooth);
+  min-height: var(--table-row-min-height);
+  height: var(--table-row-min-height);
 }
 
 .logs-table tbody tr {
@@ -578,7 +580,7 @@
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-md);
-  padding: 24px;
+  padding: var(--space-card-padding);
 }
 
 .depts-card-header {
@@ -610,9 +612,11 @@
 .dept-registry-row {
   display: flex;
   justify-content: space-between;
-  padding-bottom: 10px;
+  align-items: center;
+  padding-bottom: 0;
   border-bottom: 1px solid var(--border-color);
-  font-size: 0.85rem;
+  font-size: var(--font-size-body);
+  min-height: var(--table-row-min-height);
 }
 
 .dept-registry-row:last-child {

@@ -28,6 +28,18 @@ export const ExamCreator: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  const filteredCourses = courses.filter(c => String(c.department_id) === String(selectedDepartment) || c.department_id === selectedDepartment);
+
+  useEffect(() => {
+    if (selectedDepartment && filteredCourses.length > 0) {
+      if (!filteredCourses.find(c => String(c.id) === String(selectedCourse))) {
+        setSelectedCourse(filteredCourses[0].id);
+      }
+    } else if (filteredCourses.length === 0) {
+      setSelectedCourse('');
+    }
+  }, [selectedDepartment, courses]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -35,9 +47,9 @@ export const ExamCreator: React.FC = () => {
         if (coursesRes.ok) {
           const courseData = await coursesRes.json();
           // Filter out unpublished/draft if needed, or get approved courses
-          setCourses(courseData.items || []);
-          if (courseData.items && courseData.items.length > 0) {
-            setSelectedCourse(courseData.items[0].id);
+          setCourses(courseData.courses || []);
+          if (courseData.courses && courseData.courses.length > 0) {
+            setSelectedCourse(courseData.courses[0].id);
           }
         }
         const deptsRes = await apiCall('/api/departments');
@@ -129,8 +141,8 @@ export const ExamCreator: React.FC = () => {
       </div>
 
       {success ? (
-        <div className="glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-          <CheckCircle size={48} style={{ color: '#10b981', margin: '0 auto 16px' }} />
+        <div className="glass-panel animate-float" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+          <CheckCircle size={48} className="pulse-active" style={{ color: '#10b981', margin: '0 auto 16px' }} />
           <h3 style={{ fontSize: '1.3rem', color: '#fff', marginBottom: '8px' }}>Exam Syllabus Published Successfully!</h3>
           <p style={{ color: 'var(--text-secondary)' }}>Assigning and loading parameters for department employees...</p>
         </div>
@@ -138,7 +150,7 @@ export const ExamCreator: React.FC = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '30px', alignItems: 'flex-start' }}>
           
           {/* Main workspace builder */}
-          <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+          <div className="glass-panel glow-hover" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '20px' }}>📝 Questions Constructor</h3>
 
             {questions.length === 0 ? (
@@ -174,7 +186,7 @@ export const ExamCreator: React.FC = () => {
             <form onSubmit={handleAddQuestion} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '24px' }}>
               <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '16px' }}>+ Append Question Task</h4>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: '24px', marginBottom: '24px' }}>
                 <div className="form-group-spaced" style={{ margin: 0 }}>
                   <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Question Description</label>
                   <input 
@@ -201,14 +213,14 @@ export const ExamCreator: React.FC = () => {
                 </div>
               </div>
 
-              <Button variant="outline" type="submit" leftIcon={<Plus size={16} />} style={{ width: '100%', height: '42px' }}>
+              <Button variant="outline" type="submit" leftIcon={<Plus size={16} />} style={{ width: '100%', height: '48px' }}>
                 Add Question to Exam Template
               </Button>
             </form>
           </div>
 
           {/* Sidebar parameters */}
-          <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="glass-panel glow-hover animate-float" style={{ animationDelay: '0.2s', padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '24px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>⚙️ Syllabus Settings</h3>
             
             <div className="form-group-spaced" style={{ margin: 0 }}>
@@ -224,19 +236,6 @@ export const ExamCreator: React.FC = () => {
             </div>
 
             <div className="form-group-spaced" style={{ margin: 0 }}>
-              <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Context Course</label>
-              <select 
-                className="form-input-styled" 
-                value={selectedCourse} 
-                onChange={(e) => setSelectedCourse(e.target.value)}
-              >
-                {courses.map(c => (
-                  <option key={c.id} value={c.id}>[{c.course_code}] {c.title}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group-spaced" style={{ margin: 0 }}>
               <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Assigned Target Department</label>
               <select 
                 className="form-input-styled" 
@@ -246,6 +245,24 @@ export const ExamCreator: React.FC = () => {
                 {departments.map(d => (
                   <option key={d.id} value={d.id}>{d.name} Team</option>
                 ))}
+              </select>
+            </div>
+
+            <div className="form-group-spaced" style={{ margin: 0 }}>
+              <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Context Course</label>
+              <select 
+                className="form-input-styled" 
+                value={selectedCourse} 
+                onChange={(e) => setSelectedCourse(e.target.value)}
+                disabled={filteredCourses.length === 0}
+              >
+                {filteredCourses.length > 0 ? (
+                  filteredCourses.map(c => (
+                    <option key={c.id} value={c.id}>[{c.course_code}] {c.title}</option>
+                  ))
+                ) : (
+                  <option value="">No courses in this department</option>
+                )}
               </select>
             </div>
 
@@ -269,7 +286,7 @@ export const ExamCreator: React.FC = () => {
               variant="primary" 
               onClick={handleSaveExam}
               disabled={loading}
-              style={{ width: '100%', height: '44px', fontWeight: '700', marginTop: '10px' }}
+              style={{ width: '100%', height: '48px', fontWeight: '700', marginTop: '10px' }}
             >
               {loading ? 'Publishing Exam...' : '🚀 Publish Exam Syllabus'}
             </Button>
