@@ -7,6 +7,7 @@ from app.models.user import User
 from app.schemas.admin import UserCreate, UserUpdate, UserListResponse, RoleAssignmentRequest, AdminUserResponse
 from app.services.admin_service import AdminService
 from app.services.audit_service import AuditService
+from app.services.notification_service import NotificationService
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
@@ -29,6 +30,16 @@ def create_user(
         action="USER_CREATE",
         target=user.employee_code,
         details=f"Created user {user.first_name} {user.last_name} ({user.email}) in department {user.department_id or 'none'}"
+    )
+    
+    # 🟢 Trigger provisioning notification for the new user
+    NotificationService.create_notification(
+        db,
+        user_id=user.id,
+        type="provisioning",
+        title="Welcome to Kaizen LMS! 👋",
+        message="Your corporate e-learning profile has been successfully provisioned. Please complete your profile and checklist.",
+        related_entity_id=user.id
     )
     return user
 
@@ -104,5 +115,15 @@ def assign_role(
         action="ROLE_UPDATE",
         target=user.email,
         details=f"Assigned roles: {', '.join(request.roles)}"
+    )
+    
+    # 🟢 Trigger account roles update notification
+    NotificationService.create_notification(
+        db,
+        user_id=user.id,
+        type="role_update",
+        title="Account Privileges Updated 🔐",
+        message=f"Your account roles have been updated to: {', '.join(request.roles)}",
+        related_entity_id=user.id
     )
     return user

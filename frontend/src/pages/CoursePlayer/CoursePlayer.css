@@ -1,11 +1,19 @@
 /* CoursePlayer.css - Upgraded Premium Study Player with Slide Drawer & Notes Pad */
 
 .course-player-container {
+  --bg-primary: var(--bg-main);
+  --bg-secondary: var(--bg-card);
+  --border-color: var(--border-color);
+  --text-primary: var(--text-primary);
+  --text-secondary: var(--text-secondary);
+  --input-bg: var(--bg-input);
+  --input-focus-bg: var(--bg-card);
+  --btn-secondary-bg: var(--bg-card-hover);
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background-color: var(--bg-primary, #090d16);
-  color: var(--text-primary, #f3f4f6);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   font-family: var(--font-body), sans-serif;
   overflow: hidden;
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -772,14 +780,14 @@
 
 /* 🟢 LIGHT THEME VARIABLE OVERRIDES FOR PREMIUM UX */
 [data-theme="light"] {
-  --bg-primary: #f8fafc;
-  --bg-secondary: #ffffff;
-  --border-color: #e2e8f0;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --input-bg: #f1f5f9;
-  --input-focus-bg: #ffffff;
-  --btn-secondary-bg: #e2e8f0;
+  --bg-primary: var(--bg-main);
+  --bg-secondary: var(--bg-card);
+  --border-color: var(--border-color);
+  --text-primary: var(--text-primary);
+  --text-secondary: var(--text-secondary);
+  --input-bg: var(--bg-input);
+  --input-focus-bg: var(--bg-card);
+  --btn-secondary-bg: var(--bg-card-hover);
 }
 
 [data-theme="light"] .curriculum-drawer {
@@ -833,4 +841,91 @@
 
 [data-theme="light"] .video-upload-panel {
   background: #f8fafc;
+}
+
+/* Light Mode Overrides for Course Player visual parity */
+[data-theme="light"] .course-player-container {
+  --bg-primary: #f7f8fa;
+  --bg-secondary: #ffffff;
+  --border-color: #e2e8f0;
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --input-bg: #f1f3f5;
+  --input-focus-bg: #ffffff;
+  --btn-secondary-bg: #eef1f4;
+}
+
+/* Ensure backgrounds and borders are clean in light mode */
+[data-theme="light"] .player-header {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+[data-theme="light"] .curriculum-drawer {
+  background: #ffffff !important;
+  border-right: 1px solid #e2e8f0 !important;
+  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .player-sidebar-notes {
+  background: #ffffff !important;
+  border-left: 1px solid #e2e8f0 !important;
+}
+
+[data-theme="light"] .module-header-trigger {
+  background: #f8fafc !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+[data-theme="light"] .module-contents-list {
+  background: #f1f5f9 !important;
+}
+
+[data-theme="light"] .content-item-row:hover {
+  background: #e2e8f0 !important;
+}
+
+[data-theme="light"] .content-item-row.active {
+  background: rgba(16, 185, 129, 0.08) !important;
+  border-left-color: var(--accent-color) !important;
+}
+
+[data-theme="light"] .notes-textarea {
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .notes-textarea:focus {
+  background: #ffffff !important;
+  border-color: var(--accent-color) !important;
+}
+
+[data-theme="light"] .reading-mode-viewer,
+[data-theme="light"] .quiz-player-panel {
+  background: #ffffff !important;
+}
+
+[data-theme="light"] .locked-screen-overlay,
+[data-theme="light"] .course-locked-overlay-panel {
+  background: rgba(239, 68, 68, 0.05) !important;
+  border: 1px solid rgba(239, 68, 68, 0.15) !important;
+}
+
+[data-theme="light"] .hamburger-btn,
+[data-theme="light"] .back-dashboard-btn {
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+[data-theme="light"] .hamburger-btn:hover,
+[data-theme="light"] .back-dashboard-btn:hover {
+  background: #f1f5f9 !important;
+  color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+}
+
+[data-theme="light"] .drawer-header h3,
+[data-theme="light"] .notes-header-row h3 {
+  color: #1e293b !important;
 }

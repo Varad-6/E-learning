@@ -1,80 +1,104 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  /* Enterprise SaaS Light Mode */
-  --bg-main: #f8fafc;
-  --bg-card: #ffffff;
-  --bg-input: #ffffff;
+  /* Spacing Scale (4px/8px-based) */
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-xxl: 48px;
+
+  /* Colors - Light Mode (Soft Layered Neutrals) */
+  --bg-main: #f7f8fa; /* Soft neutral page background */
+  --bg-card: #ffffff; /* Clean white card panels */
+  --bg-input: #f1f3f5; /* Distinct input field background */
+  --bg-card-hover: #eef1f4;
   
-  --accent-color: #001e00; /* Deep Upwork Black/Green */
-  --accent-hover: #1f57c3; /* Upwork Link Blue */
-  --primary-brand: #14a800; /* Upwork Green */
-  --primary-brand-hover: #108a00;
+  --accent-color: #10b981; /* Brand Emerald */
+  --accent-hover: #059669; /* Darker Emerald */
+  --accent-glow: rgba(16, 185, 129, 0.08);
+  --primary-brand: #10b981;
+  --primary-brand-hover: #059669;
   
-  --success-color: #16a34a;
-  --warning-color: #ca8a04;
-  --danger-color: #dc2626;
+  --success-color: #10b981; /* Brand Emerald */
+  --warning-color: #f97316; /* Brand Orange */
+  --danger-color: #ef4444; /* Brand Red */
   
-  --text-primary: #001e00;
-  --text-secondary: #5e6d55;
-  --text-muted: #94a3b8;
+  --neon-teal: var(--success-color);
+  --neon-coral: var(--danger-color);
+  --neon-teal-glow: rgba(16, 185, 129, 0.15);
+  --neon-coral-glow: rgba(239, 68, 68, 0.15);
   
-  --border-color: #e4ebe4;
-  --border-radius-sm: 4px;
-  --border-radius-md: 6px;
-  --border-radius-lg: 12px;
+  --text-primary: #1e293b; /* Slate-800 for high accessibility contrast */
+  --text-secondary: #475569; /* Slate-600 */
+  --text-muted: #64748b; /* Slate-500 */
+  
+  --border-color: #e2e8f0; /* Soft neutral border gray */
+  
+  /* Sizing & Border Radii (FitHabit standard) */
+  --border-radius-sm: 8px;   /* rounded-lg */
+  --border-radius-md: 12px;  /* rounded-xl */
+  --border-radius-lg: 24px;  /* rounded-3xl */
   
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-premium: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
   
-  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-title: 'Inter', system-ui, sans-serif;
-  --transition-smooth: all 0.2s ease-in-out;
+  /* Fonts - FitHabit Outfit & Plus Jakarta Sans stack */
+  --font-sans: 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-body: var(--font-sans);
+  --font-title: var(--font-sans);
+  --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   
-  /* Enterprise Density & Sizing Tokens */
-  --space-card-padding: 20px;
-  --space-section-gap: 20px;
-  --table-row-min-height: 48px;
-  --navbar-height: 60px;
+  /* Density & Sizing */
+  --space-card-padding: 24px;
+  --space-section-gap: 24px;
+  --table-row-min-height: 52px;
+  --navbar-height: 64px;
   
   /* Typography Scale */
-  --font-size-h1: 24px;
-  --font-size-h2: 20px;
+  --font-size-h1: 36px;
+  --font-size-h2: 30px;
   --font-size-body: 14px;
   --font-size-label: 12px;
 }
 
 [data-theme="dark"] {
-  --bg-main: #141414; /* Deep neutral dark background */
-  --bg-card: #1f1f1f; /* Slightly lighter neutral for cards */
-  --bg-input: #2a2a2a;
+  /* FitHabit Dark Mode Foundations */
+  --bg-main: #0b0c10;
+  --bg-card: #171923;
+  --bg-input: #11131c;
+  --bg-card-hover: #1f2330;
   
-  --accent-color: #14a800; /* Upwork Green Accent */
-  --accent-hover: #108a00;
-  --primary-brand: #14a800;
-  --primary-brand-hover: #108a00;
+  --accent-color: #10b981;
+  --accent-hover: #059669;
+  --primary-brand: #10b981;
+  --primary-brand-hover: #059669;
   
-  --text-primary: #f0f0f0;
-  --text-secondary: #a0a0a0;
-  --text-muted: #737373;
+  --text-primary: #f7fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #718096;
   
-  --border-color: #333333;
+  --border-color: #2d3748;
   
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.25), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
+  --shadow-premium: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
 }
 
-/* Base Form Elements */
+/* Base Form Elements styled according to FitHabit's layout */
 .form-input-styled, .form-select-styled {
   width: 100%;
   background: var(--bg-input);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 14px 18px;
+  padding: 12px 16px;
   border-radius: var(--border-radius-md);
   font-family: var(--font-body);
-  font-size: 1rem;
-  min-height: 48px;
+  font-size: 0.95rem;
+  min-height: 46px;
   transition: var(--transition-smooth);
   box-shadow: var(--shadow-sm);
   box-sizing: border-box;
@@ -88,31 +112,32 @@ textarea.form-input-styled {
 .form-input-styled:focus, .form-select-styled:focus {
   outline: none;
   border-color: var(--primary-brand);
-  box-shadow: 0 0 0 3px rgba(20, 168, 0, 0.2); /* Upwork green glow */
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); /* FitHabit emerald glow */
 }
 
 .form-label-styled {
   display: block;
   margin-bottom: 6px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
 }
 
-/* Clean Cards */
+/* Clean Cards modeled from FitHabit */
 .glass-panel {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-premium);
 }
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
+  animation: fadeIn 0.25s ease-out forwards;
 }

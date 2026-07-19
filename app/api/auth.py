@@ -109,3 +109,15 @@ def update_profile(
     db: Session = Depends(get_db)
 ):
     return AuthService.update_profile(db, user=current_user, request=request)
+
+@router.get(
+    "/profile",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get User Profile",
+    description="Retrieve details of the currently logged-in user profile."
+)
+def get_profile(
+    current_user: User = Depends(get_current_user)
+):
+    return current_user

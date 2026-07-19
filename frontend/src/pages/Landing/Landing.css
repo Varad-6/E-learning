@@ -9,19 +9,21 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px 48px;
+  padding: 16px 48px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
+  height: var(--navbar-height);
+  box-sizing: border-box;
 }
 
 .logo-section {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-weight: 700;
-  font-size: 1.5rem;
+  font-weight: 800;
+  font-size: 1.35rem;
   color: var(--text-primary);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .header-actions {
@@ -35,25 +37,52 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 24px;
+  padding: 60px 24px;
   text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ambient glow lights like FitHabit login page */
+.landing-hero::before {
+  content: '';
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, transparent 70%);
+  top: -100px;
+  left: 10%;
+  pointer-events: none;
+}
+
+.landing-hero::after {
+  content: '';
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.03) 0%, transparent 70%);
+  bottom: -50px;
+  right: 15%;
+  pointer-events: none;
 }
 
 .hero-title {
-  font-size: 3.5rem;
-  font-weight: 700;
+  font-size: 3rem;
+  font-weight: 800;
   color: var(--text-primary);
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   letter-spacing: -0.03em;
   max-width: 800px;
-  line-height: 1.1;
+  line-height: 1.2;
 }
 
 .hero-subtitle {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   color: var(--text-secondary);
   max-width: 600px;
-  margin-bottom: 48px;
+  margin-bottom: 40px;
   line-height: 1.5;
 }
 
@@ -64,11 +93,13 @@
   width: 100%;
   max-width: 1000px;
   margin: 0 auto;
+  position: relative;
+  z-index: 5;
 }
 
 .portal-card {
   padding: var(--space-card-padding);
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--border-radius-lg); /* 24px */
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   text-align: left;
@@ -82,31 +113,38 @@
 
 .portal-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-premium);
   border-color: var(--primary-brand);
 }
 
 .portal-icon {
-  background: #f1f5f9;
+  background: var(--bg-card-hover);
   width: 56px;
   height: 56px;
-  border-radius: var(--border-radius-md);
+  border-radius: var(--border-radius-md); /* 12px */
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary-brand);
+  color: var(--primary-brand); /* Emerald */
   margin-bottom: 24px;
+  border: 1px solid var(--border-color);
+  transition: var(--transition-smooth);
+}
+
+.portal-card:hover .portal-icon {
+  background-color: var(--accent-glow);
+  border-color: var(--primary-brand);
 }
 
 .portal-title {
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1.2rem;
+  font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .portal-desc {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
   line-height: 1.5;
   margin-bottom: 24px;
@@ -117,9 +155,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--primary-brand);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .portal-card:hover .portal-link-arrow {

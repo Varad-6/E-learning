@@ -12,6 +12,8 @@ from app.schemas.enrollment import (
 from app.services.enrollment_service import EnrollmentService
 from app.services.audit_service import AuditService
 from app.services.badge_service import BadgeService
+from app.services.notification_service import NotificationService
+from app.models.role import Role
 
 router = APIRouter(prefix="/api/enrollments", tags=["Enrollments"])
 
@@ -44,6 +46,16 @@ def enroll_user(
         action="ASSIGN_COURSE",
         target=enrollment.user.employee_code,
         details=f"Enrolled in course: '{enrollment.course.title}' (Code: {enrollment.course_code})"
+    )
+    
+    # 🟢 Trigger new course assigned notification for the user
+    NotificationService.create_notification(
+        db,
+        user_id=target_user_id,
+        type="enrollment",
+        title="New Course Assigned 📚",
+        message=f"You have been enrolled in course: '{enrollment.course.title}' ({enrollment.course_code}).",
+        related_entity_id=enrollment.id
     )
     return enrollment
 
@@ -147,6 +159,32 @@ def complete_course(
         )
     result = EnrollmentService.complete_course(db, enrollment_id=enrollment_id)
     BadgeService.check_and_award_badges(db, enrollment.user_id)
+    
+    # 🟢 Trigger completion notification for learner
+    NotificationService.create_notification(
+        db,
+        user_id=enrollment.user_id,
+        type="completion",
+        title="Course Completed! 🎉",
+        message=f"Congratulations! You have successfully completed the course: '{enrollment.course.title}'.",
+        related_entity_id=enrollment.id
+    )
+
+    # 🟢 Trigger training completed notification for department head/managers
+    if enrollment.user.department_id:
+        managers = db.query(User).join(User.roles).filter(
+            User.department_id == enrollment.user.department_id,
+            Role.name == "COURSE_MANAGER"
+        ).all()
+        for mgr in managers:
+            NotificationService.create_notification(
+                db,
+                user_id=mgr.id,
+                type="manager_alert",
+                title="Employee Training Completed",
+                message=f"{enrollment.user.first_name} {enrollment.user.last_name} in your department has completed the course: '{enrollment.course.title}'.",
+                related_entity_id=enrollment.id
+            )
     return result
 
 @router.put(

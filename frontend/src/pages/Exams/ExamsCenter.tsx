@@ -262,7 +262,7 @@ export const ExamsCenter: React.FC = () => {
             <Clock size={18} style={{ color: timeLeft && timeLeft < 300 ? '#ef4444' : 'var(--accent-color)' }} />
             <div>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase' }}>Time Remaining</span>
-              <span style={{ fontSize: '1.15rem', fontWeight: 800, color: timeLeft && timeLeft < 300 ? '#ef4444' : '#fff' }}>
+              <span style={{ fontSize: '1.15rem', fontWeight: 800, color: timeLeft && timeLeft < 300 ? '#ef4444' : 'var(--text-primary)' }}>
                 {timeLeft !== null ? formatTime(timeLeft) : 'Calculating...'}
               </span>
             </div>
@@ -280,7 +280,7 @@ export const ExamsCenter: React.FC = () => {
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Question {idx + 1} (Max Points: 10)</span>
               </div>
 
-              <h4 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#fff', marginBottom: '16px', lineHeight: '1.4' }}>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', lineHeight: '1.4' }}>
                 {q.question_text}
               </h4>
 

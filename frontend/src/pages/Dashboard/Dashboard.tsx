@@ -311,6 +311,24 @@ export const Dashboard: React.FC = () => {
           setProfileEmpId(emailPrefix || (activeRole === 'Employee' ? 'EMP-3041' : activeRole === 'Manager' ? 'MGR-1042' : 'ADM-0001'));
         }
       }
+
+      // Fetch profile from backend to overwrite stubs with real database values
+      const fetchProfile = async () => {
+        try {
+          const profileRes = await apiCall('/api/auth/profile');
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            const fullName = `${profileData.first_name} ${profileData.last_name}`;
+            setProfileName(fullName);
+            setProfileEmpId(profileData.employee_code);
+            localStorage.setItem('profileName', fullName);
+            localStorage.setItem('profileEmpId', profileData.employee_code);
+          }
+        } catch (err) {
+          console.error('Failed to fetch profile in dashboard:', err);
+        }
+      };
+      fetchProfile();
       
       fetchDBCourses();
     }

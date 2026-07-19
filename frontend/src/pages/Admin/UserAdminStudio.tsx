@@ -153,12 +153,12 @@ export const UserAdminStudio: React.FC = () => {
     <div className="admin-workspace container animate-fade-in" style={{ paddingBottom: '60px', marginTop: '30px' }}>
       
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '24px', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 600, margin: 0 }}>User Administration</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginTop: '4px' }}>Manage departments, personnel, and analytics.</p>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>User Administration</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginTop: '6px', marginBottom: 0 }}>Manage departments, personnel, and analytics.</p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <Button variant={activeTab === 'departments' ? 'primary' : 'outline'} onClick={() => { setActiveTab('departments'); setSelectedDept(null); }}>
             Departments
           </Button>

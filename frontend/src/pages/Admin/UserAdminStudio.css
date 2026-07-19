@@ -6,7 +6,7 @@
 
 .dept-card {
   padding: var(--space-card-padding);
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--border-radius-lg); /* 24px - FitHabit Card Style */
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -19,9 +19,9 @@
 }
 
 .dept-card:hover {
-  border-color: var(--primary-brand);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+  border-color: var(--primary-brand); /* Emerald */
+  box-shadow: var(--shadow-premium);
+  transform: translateY(-4px);
 }
 
 .dept-card-header {
@@ -31,27 +31,28 @@
 }
 
 .dept-icon {
-  background: #f1f5f9;
+  background: var(--bg-card-hover);
   width: 48px;
   height: 48px;
-  border-radius: var(--border-radius-md);
+  border-radius: var(--border-radius-md); /* 12px */
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--primary-brand);
+  border: 1px solid var(--border-color);
 }
 
 .dept-name {
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1.2rem;
+  font-weight: 700;
   margin: 0;
   color: var(--text-primary);
 }
 
 .dept-code {
   color: var(--text-secondary);
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .dept-card-footer {
@@ -68,13 +69,14 @@
   align-items: center;
   gap: 6px;
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .view-link {
   color: var(--primary-brand);
-  font-weight: 500;
-  font-size: 0.875rem;
+  font-weight: 700;
+  font-size: 0.82rem;
 }
 
 /* Detail View */
@@ -89,12 +91,14 @@
 
 .dept-detail-header h2 {
   font-size: 1.8rem;
+  font-weight: 800;
   margin-bottom: 24px;
+  letter-spacing: -0.02em;
 }
 
 .dept-tabs {
   display: flex;
-  gap: 24px;
+  gap: 8px;
   border-bottom: 1px solid var(--border-color);
   width: 100%;
 }
@@ -102,24 +106,26 @@
 .dept-tab {
   background: none;
   border: none;
-  padding: 0 0 12px 0;
+  padding: 10px 16px;
   color: var(--text-secondary);
-  font-size: 0.95rem;
-  font-weight: 500;
+  font-size: 0.88rem;
+  font-weight: 700;
   cursor: pointer;
+  border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
   position: relative;
-  transition: color 0.2s ease;
+  transition: var(--transition-smooth);
   flex: 1;
   text-align: center;
 }
 
 .dept-tab:hover {
   color: var(--text-primary);
+  background-color: var(--bg-card-hover);
 }
 
 .dept-tab.active {
   color: var(--primary-brand);
-  font-weight: 600;
+  background-color: var(--accent-glow);
 }
 
 .dept-tab.active::after {
@@ -140,7 +146,7 @@
 
 .personnel-card {
   padding: 16px;
-  border-radius: var(--border-radius-md);
+  border-radius: var(--border-radius-md); /* 12px */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -148,11 +154,13 @@
   border: 1px solid var(--border-color);
   cursor: pointer;
   transition: var(--transition-smooth);
+  box-shadow: var(--shadow-sm);
 }
 
 .personnel-card:hover {
   border-color: var(--primary-brand);
-  background: #f8fafc;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .person-info {
@@ -164,33 +172,36 @@
 .person-avatar {
   width: 40px;
   height: 40px;
-  background: #e2e8f0;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-color);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--text-primary);
 }
 
 .person-name {
-  font-size: 1rem;
+  font-size: 0.95rem;
   margin: 0 0 4px 0;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
 .person-role {
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(11, 12, 16, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -199,23 +210,24 @@
 
 .modal-content {
   background: var(--bg-card);
-  padding: 40px;
-  border-radius: var(--border-radius-lg);
+  padding: 32px;
+  border-radius: var(--border-radius-lg); /* 24px */
   width: 100%;
   max-width: 600px;
   border: 1px solid var(--border-color);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-premium);
 }
 
 .modal-header h2 {
-  font-size: 1.5rem;
-  margin: 0 0 4px 0;
-  font-weight: 600;
+  font-size: 1.35rem;
+  margin: 0 0 6px 0;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .modal-subtitle {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .analytics-grid {
@@ -227,39 +239,43 @@
 
 .analytics-card {
   padding: var(--space-card-padding);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--border-radius-md); /* 12px */
   border: 1px solid var(--border-color);
-  background: #f8fafc;
+  background: var(--bg-card-hover);
 }
 
 .analytics-label {
   display: block;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   margin-bottom: 12px;
-  font-weight: 500;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .analytics-value {
-  font-size: 1.8rem;
-  font-weight: 600;
+  font-size: 1.6rem;
+  font-weight: 800;
   color: var(--text-primary);
 }
 
 .analytics-value.huge {
-  font-size: 2.5rem;
+  font-size: 2.25rem;
   color: var(--primary-brand);
 }
 
 .progress-bar-bg {
   height: 8px;
-  background: #e2e8f0;
-  border-radius: 4px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 9999px;
   margin-bottom: 8px;
   overflow: hidden;
 }
 
 .progress-bar-fill {
   height: 100%;
-  background: var(--success-color);
+  background: linear-gradient(90deg, var(--warning-color) 0%, var(--success-color) 100%);
+  border-radius: 9999px;
 }

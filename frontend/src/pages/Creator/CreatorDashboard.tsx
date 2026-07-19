@@ -666,7 +666,6 @@ export const CreatorDashboard: React.FC = () => {
             <button 
               className={`sidebar-tab-btn ${activeTab === 'departments' ? 'active' : ''}`}
               onClick={() => setActiveTab('departments')}
-              style={{ borderLeft: '2px solid var(--accent-color)' }}
             >
               🏢 Departments
             </button>

@@ -6,6 +6,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Eye, Edit3, HelpCircle, FileText, Heading, Type, Link, Video, FileUp, Trash2, GripVertical } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 import './Creator.css';
 
 interface Block {
@@ -27,12 +28,14 @@ interface QuizQuestion {
 export const ModuleEditor: React.FC = () => {
   const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>();
   const navigate = useNavigate();
+  const { triggerToast } = useToast();
 
   // State
   const [moduleTitle, setModuleTitle] = useState('Explore Module');
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [notes, setNotes] = useState('');
   const [quizzes, setQuizzes] = useState<QuizQuestion[]>([]);
+  const [validationErrors, setValidationErrors] = useState<{[blockId: string]: string}>({});
   
   // Drag and Drop States
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -140,9 +143,63 @@ export const ModuleEditor: React.FC = () => {
     fetchModuleWorkspace();
   }, [courseId, moduleId]);
 
+  // Validation checker for URL schema fields
+  const validateBlockValue = (blockId: string, type: string, value: string) => {
+    if (!value.trim()) {
+      setValidationErrors(prev => {
+        const copy = { ...prev };
+        delete copy[blockId];
+        return copy;
+      });
+      return true;
+    }
+
+    let errorMsg = '';
+    const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?/;
+    const isUrl = urlPattern.test(value.trim());
+
+    if (!value.trim().startsWith('http://') && !value.trim().startsWith('https://')) {
+      errorMsg = 'URL must start with http:// or https://';
+    } else if (!isUrl) {
+      errorMsg = 'Please enter a valid URL';
+    } else if (type === 'youtube') {
+      const isYoutube = value.includes('youtube.com') || value.includes('youtu.be');
+      if (!isYoutube) {
+        errorMsg = 'Must be a valid YouTube URL (contains youtube.com or youtu.be)';
+      }
+    }
+
+    if (errorMsg) {
+      setValidationErrors(prev => ({ ...prev, [blockId]: errorMsg }));
+      return false;
+    } else {
+      setValidationErrors(prev => {
+        const copy = { ...prev };
+        delete copy[blockId];
+        return copy;
+      });
+      return true;
+    }
+  };
+
   // Actions: Save Module details to Database
   const handleSave = async () => {
     if (!moduleId) return;
+
+    // Validate all blocks before executing save operations
+    let hasErrors = false;
+    blocks.forEach(b => {
+      const mediaTypes = ['youtube', 'video', 'image', 'attachment', 'blog', 'website'];
+      if (mediaTypes.includes(b.type)) {
+        const isValid = validateBlockValue(b.id, b.type, b.value);
+        if (!isValid) hasErrors = true;
+      }
+    });
+
+    if (hasErrors) {
+      triggerToast('Please correct validation errors on media URL fields before saving.', 'error');
+      return;
+    }
 
     try {
       // 1. Save Content Blocks (Delete all existing contents first, then recreate them)
@@ -234,6 +291,12 @@ export const ModuleEditor: React.FC = () => {
 
   const updateBlockValue = (id: string, value: string) => {
     setBlocks(blocks.map(b => b.id === id ? { ...b, value } : b));
+    
+    // Auto-validate value on change
+    const block = blocks.find(b => b.id === id);
+    if (block) {
+      validateBlockValue(id, block.type, value);
+    }
   };
 
   const updateBlockLabel = (id: string, label: string) => {
@@ -350,7 +413,7 @@ export const ModuleEditor: React.FC = () => {
         </Button>
       </div>
 
-      <div className="creator-header" style={{ marginBottom: '16px' }}>
+      <div className="creator-header" style={{ marginBottom: '32px' }}>
         <div>
           <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-color)', fontWeight: '700' }}>Module Editor</span>
           <h1 style={{ fontSize: '1.8rem', marginTop: '4px' }}>{moduleTitle}</h1>
@@ -433,17 +496,24 @@ export const ModuleEditor: React.FC = () => {
                     )}
 
                     {(block.type === 'youtube' || block.type === 'blog' || block.type === 'website') && (
-                      <input 
-                        type="url" 
-                        className="form-input-styled" 
-                        placeholder={`Enter URL for ${block.type} link...`}
-                        value={block.value}
-                        onChange={(e) => updateBlockValue(block.id, e.target.value)}
-                      />
+                      <div style={{ width: '100%' }}>
+                        <input 
+                          type="url" 
+                          className="form-input-styled" 
+                          placeholder={`Enter URL for ${block.type} link...`}
+                          value={block.value}
+                          onChange={(e) => updateBlockValue(block.id, e.target.value)}
+                        />
+                        {validationErrors[block.id] && (
+                          <span style={{ color: 'var(--neon-coral, #ef4444)', fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', display: 'block' }}>
+                            ⚠️ {validationErrors[block.id]}
+                          </span>
+                        )}
+                      </div>
                     )}
 
                     {block.type === 'attachment' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                         <input 
                           type="text" 
                           className="form-input-styled" 
@@ -458,27 +528,46 @@ export const ModuleEditor: React.FC = () => {
                           value={block.value}
                           onChange={(e) => updateBlockValue(block.id, e.target.value)}
                         />
+                        {validationErrors[block.id] && (
+                          <span style={{ color: 'var(--neon-coral, #ef4444)', fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', display: 'block' }}>
+                            ⚠️ {validationErrors[block.id]}
+                          </span>
+                        )}
                       </div>
                     )}
 
                     {block.type === 'image' && (
-                      <input 
-                        type="url" 
-                        className="form-input-styled" 
-                        placeholder="Image Link or URL (e.g. https://domain.com/picture.png)..."
-                        value={block.value}
-                        onChange={(e) => updateBlockValue(block.id, e.target.value)}
-                      />
+                      <div style={{ width: '100%' }}>
+                        <input 
+                          type="url" 
+                          className="form-input-styled" 
+                          placeholder="Image Link or URL (e.g. https://domain.com/picture.png)..."
+                          value={block.value}
+                          onChange={(e) => updateBlockValue(block.id, e.target.value)}
+                        />
+                        {validationErrors[block.id] && (
+                          <span style={{ color: 'var(--neon-coral, #ef4444)', fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', display: 'block' }}>
+                            ⚠️ {validationErrors[block.id]}
+                          </span>
+                        )}
+                      </div>
                     )}
 
                     {block.type === 'video' && (
-                      <input 
-                        type="url" 
-                        className="form-input-styled" 
-                        placeholder="Video Embed Link or Direct URL (e.g. MP4 link)..."
-                        value={block.value}
-                        onChange={(e) => updateBlockValue(block.id, e.target.value)}
-                      />
+                      <div style={{ width: '100%' }}>
+                        <input 
+                          type="url" 
+                          className="form-input-styled" 
+                          placeholder="Video Embed Link or Direct URL (e.g. MP4 link)..."
+                          value={block.value}
+                          onChange={(e) => updateBlockValue(block.id, e.target.value)}
+                        />
+                        {validationErrors[block.id] && (
+                          <span style={{ color: 'var(--neon-coral, #ef4444)', fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', display: 'block' }}>
+                            ⚠️ {validationErrors[block.id]}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

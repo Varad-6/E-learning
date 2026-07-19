@@ -32,7 +32,56 @@ a:hover {
 }
 
 .container {
-  max-width: 100%;
+  width: 100%;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 0 48px;
+  padding: 0 40px;
+  box-sizing: border-box;
 }
+
+/* Premium Refined Empty States Override */
+.empty-state-container {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 48px !important;
+  border-radius: var(--border-radius-lg) !important; /* 24px */
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--shadow-sm) !important;
+  gap: 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.empty-state-container svg {
+  margin: 0 auto 4px !important;
+  color: var(--accent-color) !important;
+  opacity: 0.8 !important;
+  transition: var(--transition-smooth) !important;
+}
+
+.empty-state-container p {
+  color: var(--text-secondary) !important;
+  font-size: 0.88rem !important;
+  font-style: normal !important;
+  margin: 0 !important;
+  line-height: 1.5 !important;
+  max-width: 440px !important;
+  font-weight: 600 !important;
+}
+
+/* Consistent vertical spacing for headings and section titles */
+.creator-header,
+.canvas-header,
+.section-header-spaced,
+.page-header-spaced {
+  margin-bottom: var(--space-xl) !important;
+}
+
+/* Spacing between block elements in Module Editor / Content Composer */
+.content-blocks-list {
+  gap: var(--space-lg) !important;
+}
+

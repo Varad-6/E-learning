@@ -32,3 +32,4 @@ class User(Base):
     submitted_approvals = relationship("CourseApproval", foreign_keys="CourseApproval.submitted_by", back_populates="submitter", cascade="all, delete-orphan")
     reviewed_approvals = relationship("CourseApproval", foreign_keys="CourseApproval.reviewed_by", back_populates="reviewer", cascade="all, delete-orphan")
     badges = relationship("UserBadge", back_populates="user", cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")

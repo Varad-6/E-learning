@@ -7,8 +7,8 @@
 
 .input-label {
   font-family: var(--font-title);
-  font-weight: 500;
-  font-size: 0.85rem;
+  font-weight: 600;
+  font-size: 0.8rem;
   color: var(--text-secondary);
   letter-spacing: 0.02em;
   transition: var(--transition-smooth);
@@ -24,19 +24,21 @@
 .custom-input-field {
   width: 100%;
   padding: 12px 16px;
-  border-radius: var(--border-radius-sm);
-  background-color: var(--bg-card);
+  border-radius: var(--border-radius-md); /* 12px - FitHabit rounded-xl */
+  background-color: var(--bg-input);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
   font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   transition: var(--transition-smooth);
   outline: none;
+  box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
 }
 
 .custom-input-field::placeholder {
-  color: var(--text-secondary);
-  opacity: 0.5;
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 
 .custom-input-field:hover {
@@ -45,15 +47,15 @@
 
 .custom-input-field:focus {
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 1px var(--accent-color), var(--shadow-glow);
-  background-color: var(--bg-main);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  background-color: var(--bg-card);
 }
 
 /* Icon Support */
 .input-icon-left {
   position: absolute;
   left: 14px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   pointer-events: none;
@@ -70,22 +72,23 @@
 
 /* Error States */
 .input-has-error .custom-input-field {
-  border-color: var(--neon-coral);
+  border-color: var(--danger-color);
 }
 
 .input-has-error .custom-input-field:focus {
-  box-shadow: 0 0 0 1px var(--neon-coral), 0 0 15px var(--neon-coral-glow);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
 }
 
 .input-has-error .input-label {
-  color: var(--neon-coral);
+  color: var(--danger-color);
 }
 
 .input-error-msg {
-  font-size: 0.78rem;
-  color: var(--neon-coral);
+  font-size: 0.75rem;
+  color: var(--danger-color);
   font-family: var(--font-body);
-  margin-top: 2px;
+  font-weight: 600;
+  margin-top: 4px;
 }
 
 /* Password Toggle Styling */
@@ -94,7 +97,7 @@
   right: 14px;
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -109,4 +112,3 @@
 .custom-input-field.has-right-icon {
   padding-right: 44px;
 }
-

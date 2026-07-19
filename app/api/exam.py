@@ -9,12 +9,14 @@ import uuid
 
 from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
-from app.models.exam import Exam, ExamQuestion, ExamSubmission, ExamGrade
+from app.models.exam import Exam, ExamQuestion, ExamSubmission, ExamGrade, ExamReview
 from app.models.course import Course
 from app.models.department import Department
+from app.models.role import Role
+from app.services.notification_service import NotificationService
 from app.schemas.exam import (
     ExamCreate, ExamResponse, ExamQuestionResponse,
-    ExamSubmissionResponse, ExamGradeCreate, ExamGradeResponse
+    ExamSubmissionResponse, ExamGradeCreate, ExamGradeResponse, ExamReviewResponse
 )
 
 router = APIRouter(prefix="/api/exams", tags=["Exams"])
@@ -51,17 +53,27 @@ def create_exam(
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
 
-    # Create Exam
+    # Create Exam starting as unpublished pending approval
     new_exam = Exam(
         course_id=exam_in.course_id,
         department_id=exam_in.department_id,
         title=exam_in.title,
         duration_minutes=exam_in.duration_minutes,
-        is_published=exam_in.is_published,
+        is_published=False,
+        status="pending",
         created_by=current_user.id
     )
     db.add(new_exam)
     db.flush()  # Get ID
+
+    # Create corresponding ExamReview record
+    new_review = ExamReview(
+        exam_id=new_exam.id,
+        submitted_by=current_user.id,
+        status="pending",
+        department_id=new_exam.department_id
+    )
+    db.add(new_review)
 
     # Add questions
     for q in exam_in.questions:
@@ -231,6 +243,33 @@ def submit_exam(
     db.commit()
     db.refresh(sub)
 
+    # 🟢 Trigger notifications
+    # Learner notification
+    NotificationService.create_notification(
+        db,
+        user_id=current_user.id,
+        type="exam_submitted",
+        title="Exam Answers Submitted",
+        message=f"Your descriptive exam answers for '{sub.exam.title}' have been submitted successfully and are waiting for review.",
+        related_entity_id=sub.exam_id
+    )
+    
+    # Manager notification
+    if sub.exam.department_id:
+        managers = db.query(User).join(User.roles).filter(
+            User.department_id == sub.exam.department_id,
+            Role.name == "COURSE_MANAGER"
+        ).all()
+        for mgr in managers:
+            NotificationService.create_notification(
+                db,
+                user_id=mgr.id,
+                type="exam_submission_pending",
+                title="New Student Exam Submitted",
+                message=f"An employee ({current_user.first_name} {current_user.last_name}) has submitted answers for descriptive exam: '{sub.exam.title}'.",
+                related_entity_id=sub.id
+            )
+
     return ExamSubmissionResponse(
         id=sub.id,
         exam_id=sub.exam_id,
@@ -302,10 +341,15 @@ def get_submissions(
     if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         raise HTTPException(status_code=403, detail="Unauthorized role access.")
 
-    # Get submissions in submitted or graded state
-    subs = db.query(ExamSubmission).filter(
+    # Get submissions in submitted or graded state scoped to department/role
+    query = db.query(ExamSubmission).filter(
         ExamSubmission.status.in_(["submitted", "graded"])
-    ).all()
+    )
+    if "SYSTEM_ADMIN" not in user_roles:
+        query = query.join(User, ExamSubmission.user_id == User.id).filter(
+            User.department_id == current_user.department_id
+        )
+    subs = query.all()
 
     res = []
     for s in subs:
@@ -374,4 +418,290 @@ def grade_submission(
     db.commit()
     db.refresh(grade)
 
+    # 🟢 Trigger notification
+    NotificationService.create_notification(
+        db,
+        user_id=sub.user_id,
+        type="exam_graded",
+        title="Exam Results Available! 📝",
+        message=f"Your descriptive exam answers for '{sub.exam.title}' have been graded.",
+        related_entity_id=sub.exam_id
+    )
+
     return grade
+
+
+# Exam Review and Approval endpoints
+@router.post(
+    "/{exam_id}/submit-for-review",
+    response_model=ExamReviewResponse,
+    summary="Submit Exam Syllabus for Department Head Review"
+)
+def submit_exam_for_review(
+    exam_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Ensure current user is Admin or Manager
+    user_roles = [r.name for r in current_user.roles]
+    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+        raise HTTPException(status_code=403, detail="Unauthorized role access.")
+
+    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    # Update Exam status to pending, and set is_published to False
+    exam.status = "pending"
+    exam.is_published = False
+
+    # Check if there is an existing pending review for this exam
+    existing_review = db.query(ExamReview).filter(
+        ExamReview.exam_id == exam_id,
+        ExamReview.status == "pending"
+    ).first()
+
+    if existing_review:
+        db.commit()
+        db.refresh(existing_review)
+        existing_review.exam_title = exam.title
+        existing_review.creator_name = f"{exam.creator.first_name} {exam.creator.last_name}" if exam.creator else "System"
+        existing_review.department_name = exam.department.name if exam.department else "General"
+        
+        # 🟢 Trigger notifications
+        NotificationService.create_notification(
+            db,
+            user_id=existing_review.submitted_by,
+            type="exam_submitted",
+            title="Exam Syllabus Submitted",
+            message=f"Your exam syllabus '{exam.title}' has been submitted for review.",
+            related_entity_id=exam.id
+        )
+        if exam.department_id:
+            managers = db.query(User).join(User.roles).filter(
+                User.department_id == exam.department_id,
+                Role.name == "COURSE_MANAGER"
+            ).all()
+            for mgr in managers:
+                NotificationService.create_notification(
+                    db,
+                    user_id=mgr.id,
+                    type="exam_pending",
+                    title="New Exam Syllabus Pending Review",
+                    message=f"Exam syllabus '{exam.title}' by {exam.creator.first_name if exam.creator else 'System'} is pending your review.",
+                    related_entity_id=exam.id
+                )
+        return existing_review
+
+    # Create new review record
+    new_review = ExamReview(
+        exam_id=exam_id,
+        submitted_by=current_user.id,
+        status="pending",
+        department_id=exam.department_id
+    )
+    db.add(new_review)
+    db.commit()
+    db.refresh(new_review)
+
+    # Populate extra fields for response model
+    new_review.exam_title = exam.title
+    new_review.creator_name = f"{current_user.first_name} {current_user.last_name}"
+    new_review.department_name = exam.department.name if exam.department else "General"
+
+    # 🟢 Trigger notifications
+    NotificationService.create_notification(
+        db,
+        user_id=current_user.id,
+        type="exam_submitted",
+        title="Exam Syllabus Submitted",
+        message=f"Your exam syllabus '{exam.title}' has been submitted for review.",
+        related_entity_id=exam.id
+    )
+    if exam.department_id:
+        managers = db.query(User).join(User.roles).filter(
+            User.department_id == exam.department_id,
+            Role.name == "COURSE_MANAGER"
+        ).all()
+        for mgr in managers:
+            NotificationService.create_notification(
+                db,
+                user_id=mgr.id,
+                type="exam_pending",
+                title="New Exam Syllabus Pending Review",
+                message=f"Exam syllabus '{exam.title}' by {current_user.first_name} {current_user.last_name} is pending your review.",
+                related_entity_id=exam.id
+            )
+
+    return new_review
+
+
+@router.get(
+    "/reviews/pending",
+    response_model=List[ExamReviewResponse],
+    summary="Get Pending Exam Reviews for Current Department / Scope"
+)
+def get_pending_reviews(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Ensure current user is Admin or Manager
+    user_roles = [r.name for r in current_user.roles]
+    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+        raise HTTPException(status_code=403, detail="Unauthorized role access.")
+
+    query = db.query(ExamReview).filter(ExamReview.status == "pending")
+
+    # If the user is a COURSE_MANAGER, filter reviews scoped to their department
+    if "SYSTEM_ADMIN" not in user_roles:
+        query = query.filter(ExamReview.department_id == current_user.department_id)
+
+    reviews = query.all()
+
+    res = []
+    for r in reviews:
+        # Populate extra response fields
+        exam_title = r.exam.title if r.exam else "Untitled Exam"
+        creator_name = f"{r.submitter.first_name} {r.submitter.last_name}" if r.submitter else "System"
+        dept_name = r.department.name if r.department else "General"
+
+        res.append(
+            ExamReviewResponse(
+                id=r.id,
+                exam_id=r.exam_id,
+                submitted_by=r.submitted_by,
+                status=r.status,
+                reviewer_id=r.reviewer_id,
+                department_id=r.department_id,
+                rejection_reason=r.rejection_reason,
+                submitted_at=r.submitted_at,
+                reviewed_at=r.reviewed_at,
+                exam_title=exam_title,
+                creator_name=creator_name,
+                department_name=dept_name
+            )
+        )
+    return res
+
+
+@router.post(
+    "/reviews/{review_id}/approve",
+    response_model=ExamReviewResponse,
+    summary="Approve Exam Syllabus Review"
+)
+def approve_exam_review(
+    review_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Ensure current user is Admin or Manager
+    user_roles = [r.name for r in current_user.roles]
+    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+        raise HTTPException(status_code=403, detail="Unauthorized role access.")
+
+    review = db.query(ExamReview).filter(ExamReview.id == review_id).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Exam review not found")
+
+    review.status = "approved"
+    review.reviewer_id = current_user.id
+    review.reviewed_at = datetime.datetime.now(datetime.timezone.utc)
+
+    # Update associated exam to approved and published
+    if review.exam:
+        review.exam.status = "approved"
+        review.exam.is_published = True
+
+    db.commit()
+    db.refresh(review)
+
+    # 🟢 Trigger notification
+    if review.submitted_by:
+        NotificationService.create_notification(
+            db,
+            user_id=review.submitted_by,
+            type="exam_approved",
+            title="Exam Syllabus Approved! 🎉",
+            message=f"Your exam syllabus '{review.exam.title if review.exam else 'Untitled Exam'}' has been approved and published.",
+            related_entity_id=review.exam_id
+        )
+
+    review.exam_title = review.exam.title if review.exam else "Untitled Exam"
+    review.creator_name = f"{review.submitter.first_name} {review.submitter.last_name}" if review.submitter else "System"
+    review.department_name = review.department.name if review.department else "General"
+
+    return review
+
+
+@router.post(
+    "/reviews/{review_id}/reject",
+    response_model=ExamReviewResponse,
+    summary="Reject Exam Syllabus Review"
+)
+def reject_exam_review(
+    review_id: UUID,
+    rejection_reason: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Ensure current user is Admin or Manager
+    user_roles = [r.name for r in current_user.roles]
+    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+        raise HTTPException(status_code=403, detail="Unauthorized role access.")
+
+    review = db.query(ExamReview).filter(ExamReview.id == review_id).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Exam review not found")
+
+    review.status = "rejected"
+    review.reviewer_id = current_user.id
+    review.rejection_reason = rejection_reason
+    review.reviewed_at = datetime.datetime.now(datetime.timezone.utc)
+
+    # Update associated exam status
+    if review.exam:
+        review.exam.status = "rejected"
+        review.exam.is_published = False
+
+    db.commit()
+    db.refresh(review)
+
+    # 🟢 Trigger notification
+    if review.submitted_by:
+        NotificationService.create_notification(
+            db,
+            user_id=review.submitted_by,
+            type="exam_rejected",
+            title="Exam Syllabus Rejected ❌",
+            message=f"Your exam syllabus '{review.exam.title if review.exam else 'Untitled Exam'}' was rejected. Reason: {rejection_reason}",
+            related_entity_id=review.exam_id
+        )
+
+    review.exam_title = review.exam.title if review.exam else "Untitled Exam"
+    review.creator_name = f"{review.submitter.first_name} {review.submitter.last_name}" if review.submitter else "System"
+    review.department_name = review.department.name if review.department else "General"
+
+    return review
+
+
+@router.get(
+    "",
+    response_model=List[ExamResponse],
+    summary="Get All Exams (scoped by role/department)"
+)
+def get_all_exams(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user_roles = [r.name for r in current_user.roles]
+    query = db.query(Exam)
+
+    # Scoping filter
+    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" in user_roles:
+        query = query.filter(Exam.department_id == current_user.department_id)
+    elif "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+        query = query.filter(
+            (Exam.created_by == current_user.id) | (Exam.is_published == True)
+        )
+
+    return query.all()

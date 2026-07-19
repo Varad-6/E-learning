@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Play, Pause, Check, Volume2, RotateCcw,
   BookOpen, ChevronDown, ChevronRight, HelpCircle, Award, 
-  FileText, Download, Menu, X, Lock, Unlock, Clock
+  FileText, Download, Menu, X, Lock, Unlock, Clock, CheckCircle
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
@@ -24,6 +24,7 @@ interface Module {
   id: string;
   title: string;
   contents: ContentItem[];
+  tier?: 'beginner' | 'intermediate' | 'advanced';
 }
 
 export const CoursePlayer: React.FC = () => {
@@ -35,6 +36,8 @@ export const CoursePlayer: React.FC = () => {
   const [course, setCourse] = useState<any>(null);
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showLanding, setShowLanding] = useState(true);
+  const [landingActiveTab, setLandingActiveTab] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
 
   // Playback & UI states
   const [activeContentIndex, setActiveContentIndex] = useState(0);
@@ -66,6 +69,7 @@ export const CoursePlayer: React.FC = () => {
     {
       id: 'm1',
       title: 'Module 1: Continuous Improvement Philosophy',
+      tier: 'beginner',
       contents: [
         { 
           id: 'c1_doc', 
@@ -97,6 +101,7 @@ export const CoursePlayer: React.FC = () => {
     {
       id: 'm2',
       title: 'Module 2: Database Persistence Pipelines',
+      tier: 'intermediate',
       contents: [
         { 
           id: 'c2_doc', 
@@ -294,7 +299,8 @@ export const CoursePlayer: React.FC = () => {
           return {
             id: mod.id,
             title: mod.title.includes('Module') ? mod.title : `Module ${index + 1}: ${mod.title}`,
-            contents
+            contents,
+            tier: mod.tier || 'beginner'
           };
         });
 
@@ -401,7 +407,7 @@ export const CoursePlayer: React.FC = () => {
       
       // Fallback if not UUID or database call failed/returned 404
       if (course?.id && activeContent?.id) {
-        const savedNotes = localStorage.getItem(`kiezen_notes_${course.id}_${activeContent.id}`);
+        const savedNotes = localStorage.getItem(`kaizen_notes_${course.id}_${activeContent.id}`);
         setNotesText(savedNotes || '');
       }
     };
@@ -430,7 +436,7 @@ export const CoursePlayer: React.FC = () => {
           
           if (response.ok) {
             if (course?.id && activeContent?.id) {
-              localStorage.setItem(`kiezen_notes_${course.id}_${activeContent.id}`, notesText);
+              localStorage.setItem(`kaizen_notes_${course.id}_${activeContent.id}`, notesText);
             }
             alert('Notes saved successfully to database!');
             return;
@@ -446,7 +452,7 @@ export const CoursePlayer: React.FC = () => {
     
     // Fallback saving local only
     if (course?.id && activeContent?.id) {
-      localStorage.setItem(`kiezen_notes_${course.id}_${activeContent.id}`, notesText);
+      localStorage.setItem(`kaizen_notes_${course.id}_${activeContent.id}`, notesText);
       alert('Notes saved successfully locally!');
     }
   };
@@ -459,7 +465,7 @@ export const CoursePlayer: React.FC = () => {
     const element = document.createElement("a");
     const file = new Blob([notesText], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
-    element.download = `Kiezen_Notes_${course?.course_code || 'Course'}_Module_${Math.floor(activeContentIndex / 3) + 1}_Step_${(activeContentIndex % 3) + 1}.txt`;
+    element.download = `Kaizen_Notes_${course?.course_code || 'Course'}_Module_${Math.floor(activeContentIndex / 3) + 1}_Step_${(activeContentIndex % 3) + 1}.txt`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -677,6 +683,176 @@ export const CoursePlayer: React.FC = () => {
       <div className="course-player-container" style={{ alignItems: 'center', justifyContent: 'center' }}>
         <div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid var(--accent-color)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
         <p style={{ marginTop: '16px', color: '#9ca3af' }}>Initializing Course Player workspace...</p>
+      </div>
+    );
+  }
+
+  if (showLanding && course) {
+    const totalModulesCount = modules.length;
+    const beginnerModules = modules.filter(m => m.tier === 'beginner' || !m.tier);
+    const intermediateModules = modules.filter(m => m.tier === 'intermediate');
+    const advancedModules = modules.filter(m => m.tier === 'advanced');
+
+    const activeTierModules = 
+      landingActiveTab === 'beginner' ? beginnerModules :
+      landingActiveTab === 'intermediate' ? intermediateModules :
+      advancedModules;
+
+    return (
+      <div className="container animate-fade-in" style={{ marginTop: '40px', paddingBottom: '80px' }}>
+        
+        {/* Back navigation button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+          <Button variant="outline" onClick={() => navigate('/dashboard')} style={{ padding: '8px' }}>
+            <ArrowLeft size={16} />
+          </Button>
+          <div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--accent-color)', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.05em' }}>
+              Course Syllabus Preview
+            </span>
+            <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '4px 0 0 0' }}>{course.title}</h2>
+          </div>
+        </div>
+
+        {/* Grid Layout */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '40px', alignItems: 'flex-start' }}>
+          
+          {/* Left Column: Metadata & Course Details */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <span className="code-tag" style={{ display: 'inline-block', marginBottom: '16px', background: 'var(--accent-glow)', color: 'var(--accent-color)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                {course.course_code}
+              </span>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '12px' }}>About this Course</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: '1.6', margin: 0 }}>
+                {course.description || "Learn Kaizen principles and compliance standards scoped to this team department."}
+              </p>
+            </div>
+
+            {/* Metadata Cards Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="glass-panel" style={{ padding: '16px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Total Curriculum</span>
+                <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-color)' }}>{totalModulesCount} Modules</span>
+              </div>
+              <div className="glass-panel" style={{ padding: '16px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Estimated Duration</span>
+                <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-color)' }}>{course.duration || 'N/A'}</span>
+              </div>
+              <div className="glass-panel" style={{ padding: '16px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Target Scope</span>
+                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {course.departmentName || 'All Departments'}
+                </span>
+              </div>
+              <div className="glass-panel" style={{ padding: '16px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Priority Status</span>
+                <span style={{ fontSize: '1.2rem', fontWeight: 800, color: course.priority === 'High' ? 'var(--neon-coral)' : 'var(--accent-color)' }}>
+                  {course.priority || 'Medium'}
+                </span>
+              </div>
+            </div>
+
+            {/* Launch Study Player CTA Button */}
+            <div style={{ marginTop: '12px' }}>
+              <Button 
+                variant="primary" 
+                size="lg" 
+                onClick={() => setShowLanding(false)} 
+                style={{ width: '100%', height: '54px', fontSize: '1.05rem', fontWeight: 'bold' }}
+              >
+                Launch Study Player
+              </Button>
+            </div>
+          </div>
+
+          {/* Right Column: Difficulty-tier tabbed controls & scrollable list */}
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', height: '520px' }}>
+            
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '20px' }}>
+              {(['beginner', 'intermediate', 'advanced'] as const).map((tier) => {
+                const count = tier === 'beginner' ? beginnerModules.length : tier === 'intermediate' ? intermediateModules.length : advancedModules.length;
+                const isActive = landingActiveTab === tier;
+                return (
+                  <button
+                    key={tier}
+                    type="button"
+                    onClick={() => setLandingActiveTab(tier)}
+                    style={{
+                      border: 'none',
+                      background: 'none',
+                      fontSize: '0.95rem',
+                      fontWeight: 700,
+                      color: isActive ? 'var(--accent-color)' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      padding: '6px 12px',
+                      borderBottom: isActive ? '2px solid var(--accent-color)' : 'none',
+                      marginBottom: '-14px',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span style={{ textTransform: 'capitalize' }}>{tier}</span>
+                    <span style={{ fontSize: '0.75rem', background: isActive ? 'var(--accent-glow)' : 'var(--bg-input)', padding: '2px 6px', borderRadius: '4px' }}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Scrollable side drawer list */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '4px' }}>
+              {activeTierModules.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px 0', fontStyle: 'italic' }}>
+                  No modules registered under the {landingActiveTab} tier.
+                </div>
+              ) : (
+                activeTierModules.map((mod, index) => {
+                  const isCompleted = mod.contents.every(item => completedContentIds.has(item.id));
+                  return (
+                    <div 
+                      key={mod.id} 
+                      style={{ 
+                        padding: '16px', 
+                        borderRadius: '8px', 
+                        border: '1px solid var(--border-color)', 
+                        background: 'rgba(255, 255, 255, 0.01)',
+                        display: 'flex',
+                        gap: '12px',
+                        alignItems: 'flex-start'
+                      }}
+                    >
+                      <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--accent-color)', background: 'var(--accent-glow)', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', flexShrink: 0, justifyContent: 'center' }}>
+                        {index + 1}
+                      </span>
+                      
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                          <h4 style={{ fontSize: '0.95rem', fontWeight: '700', margin: '0 0 4px 0', color: 'var(--text-primary)' }}>
+                            {mod.title}
+                          </h4>
+                          {isCompleted && (
+                            <span style={{ color: 'var(--success-color)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', fontWeight: 'bold' }}>
+                              <CheckCircle size={14} /> Done
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: '1.4' }}>
+                          Includes {mod.contents.length} study resource lessons and assessment.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+          </div>
+
+        </div>
+
       </div>
     );
   }

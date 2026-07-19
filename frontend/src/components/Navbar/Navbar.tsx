@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User, LogOut, Bell, Trash2, CheckCircle2 } from 'lucide-react';
+import { 
+  User, LogOut, Bell, Trash2, CheckCircle2, X,
+  BookOpen, Award, FileText, CheckCircle, AlertTriangle, Settings, Info
+} from 'lucide-react';
 import { ThemeToggle } from '../ThemeToggle/ThemeToggle';
 import { Button } from '../Button/Button';
 import { apiCall, handleLogoutLocal } from '../../services/api';
@@ -9,9 +12,9 @@ import './Navbar.css';
 interface AppNotification {
   id: string;
   message: string;
-  type: 'submission' | 'approval' | 'rejection';
-  courseId: string;
-  deptName?: string;
+  title: string;
+  type: string;
+  relatedEntityId?: string;
   isRead: boolean;
   timestamp: string;
 }
@@ -27,6 +30,31 @@ export const Navbar: React.FC = () => {
   // Notification states
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  const fetchNotificationsBackend = async () => {
+    const email = localStorage.getItem('isLoggedInEmail');
+    if (!email) return;
+
+    try {
+      const res = await apiCall('/api/notifications');
+      if (res.ok) {
+        const data = await res.json();
+        const mapped: AppNotification[] = data.map((n: any) => ({
+          id: n.id,
+          message: n.message,
+          title: n.title,
+          type: n.type,
+          relatedEntityId: n.related_entity_id,
+          isRead: n.is_read,
+          timestamp: n.created_at
+        }));
+        setNotifications(mapped);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications from backend', err);
+    }
+  };
 
   const loadNotificationsAndProfile = () => {
     const email = localStorage.getItem('isLoggedInEmail');
@@ -39,16 +67,21 @@ export const Navbar: React.FC = () => {
     setUserDept(dept);
     setProfileName(name);
 
-    const localNotifs = localStorage.getItem('kaizen_notifications');
-    if (localNotifs) {
-      setNotifications(JSON.parse(localNotifs));
+    if (email) {
+      fetchNotificationsBackend();
     }
   };
 
   useEffect(() => {
     loadNotificationsAndProfile();
 
-    // Listen for custom cross-component notification updates
+    let intervalId: any;
+    if (localStorage.getItem('isLoggedInEmail')) {
+      intervalId = setInterval(() => {
+        fetchNotificationsBackend();
+      }, 15000); // Poll every 15 seconds
+    }
+
     const handleNotifChange = () => {
       loadNotificationsAndProfile();
     };
@@ -56,6 +89,7 @@ export const Navbar: React.FC = () => {
     window.addEventListener('kaizen_notifications_changed', handleNotifChange);
     return () => {
       window.removeEventListener('kaizen_notifications_changed', handleNotifChange);
+      if (intervalId) clearInterval(intervalId);
     };
   }, [location]);
 
@@ -91,85 +125,119 @@ export const Navbar: React.FC = () => {
     navigate('/');
   };
 
-  const syncNotifications = (updated: AppNotification[]) => {
-    setNotifications(updated);
-    localStorage.setItem('kaizen_notifications', JSON.stringify(updated));
-    // Dispatch event to sync other loaded components
-    window.dispatchEvent(new Event('kaizen_notifications_changed'));
+  const getNotifIcon = (type: string) => {
+    switch (type) {
+      case 'enrollment':
+        return <BookOpen size={16} style={{ color: 'var(--accent-color)' }} />;
+      case 'completion':
+        return <Award size={16} style={{ color: 'var(--accent-color)' }} />;
+      case 'exam_submitted':
+      case 'exam_submission_pending':
+      case 'exam_pending':
+        return <FileText size={16} style={{ color: 'var(--accent-color)' }} />;
+      case 'exam_graded':
+      case 'exam_approved':
+        return <CheckCircle size={16} style={{ color: 'var(--accent-color)' }} />;
+      case 'course_submitted':
+      case 'course_pending':
+        return <FileText size={16} style={{ color: 'var(--accent-color)' }} />;
+      case 'course_approved':
+        return <CheckCircle size={16} style={{ color: 'var(--accent-color)' }} />;
+      case 'course_rejected':
+      case 'exam_rejected':
+        return <AlertTriangle size={16} style={{ color: 'var(--neon-coral)' }} />;
+      case 'role_update':
+        return <Settings size={16} style={{ color: 'var(--accent-color)' }} />;
+      case 'provisioning':
+      default:
+        return <Info size={16} style={{ color: 'var(--accent-color)' }} />;
+    }
   };
 
-  // Scoped notifications filter
-  const localCourses = localStorage.getItem('creator_courses');
-  const coursesList = localCourses ? JSON.parse(localCourses) : [];
+  const getRelativeTime = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / (60 * 1000));
+      const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
+      const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
 
-  const filteredNotifs = notifications.filter(notif => {
-    if (notif.type === 'submission') {
-      if (userRole === 'Admin') return true;
-      if (userRole === 'Manager') return notif.deptName === userDept;
-      return false; // Standard employees don't see submissions
+      if (diffMins < 1) return 'just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      return `${diffDays}d ago`;
+    } catch {
+      return 'recent';
     }
-    
-    // Approval/Rejection alerts are mapped strictly to the creator of that specific course
-    const course = coursesList.find((c: any) => c.id === notif.courseId);
-    return course ? course.creatorName === profileName : false;
-  });
+  };
 
+  const filteredNotifs = notifications;
   const unreadCount = filteredNotifs.filter(n => !n.isRead).length;
 
-  const handleNotifClick = (notif: AppNotification) => {
-    const updated = notifications.map(n => n.id === notif.id ? { ...n, isRead: true } : n);
-    syncNotifications(updated);
+  const handleNotifClick = async (notif: AppNotification) => {
+    try {
+      await apiCall(`/api/notifications/${notif.id}/read`, { method: 'PUT' });
+      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
+    } catch (err) {
+      console.error(err);
+    }
     setIsNotifOpen(false);
+    setShowHistoryModal(false);
 
-    const course = coursesList.find((c: any) => c.id === notif.courseId);
-    if (notif.type === 'submission' && course && course.status !== 'Pending') {
-      alert(`This course (${course.title}) has already been reviewed and is currently ${course.status}.`);
-      return;
-    }
-
-    if (notif.type === 'submission') {
-      // Navigate to Approvals dashboard and open review drawer
-      navigate(`/creator/dashboard?tab=approvals&courseId=${notif.courseId}&dept=${notif.deptName || ''}`);
-    } else {
-      // Navigate to My Courses dashboard and open course list
-      navigate(`/creator/dashboard?tab=my_courses&courseId=${notif.courseId}`);
-    }
-  };
-
-  const handleDismissNotif = (notifId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const updated = notifications.filter(n => n.id !== notifId);
-    syncNotifications(updated);
-  };
-
-  const handleMarkAllRead = () => {
-    const updated = notifications.map(n => {
-      // Mark as read only if it matches active scoped visible notification feed list
-      const isVisible = filteredNotifs.some(vis => vis.id === n.id);
-      if (isVisible) {
-        return { ...n, isRead: true };
+    // Navigate to related views
+    if (notif.type.includes('course')) {
+      if (userRole === 'Employee') {
+        navigate('/dashboard?tab=my-courses');
+      } else {
+        navigate('/creator/dashboard?tab=my_courses');
       }
-      return n;
-    });
-    syncNotifications(updated);
+    } else if (notif.type.includes('exam') || notif.type.includes('review')) {
+      if (userRole === 'Employee') {
+        navigate('/exams');
+      } else {
+        navigate('/creator/dashboard?tab=approvals');
+      }
+    } else if (notif.type.includes('manager')) {
+      navigate('/creator/dashboard?tab=approvals');
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
+  const handleDismissNotif = async (notifId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await apiCall(`/api/notifications/${notifId}/read`, { method: 'PUT' });
+      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true } : n));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await apiCall('/api/notifications/read-all', { method: 'POST' });
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleClearAllNotifs = () => {
-    // Clear only the visible context notifications, preserving others
-    const updated = notifications.filter(n => !filteredNotifs.some(vis => vis.id === n.id));
-    syncNotifications(updated);
+    setNotifications([]);
   };
 
   return (
     <header className="navbar-header glass-panel">
-      <div className="navbar-container container">
+      <div className="navbar-container">
         <div 
           onClick={() => navigate('/')} 
           className="navbar-logo" 
           style={{ cursor: 'pointer' }}
           role="button"
         >
-          <span className="logo-text" style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '0.5px' }}>KIEZEN</span>
+          <span className="logo-text" style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '0.5px' }}>KAIZEN</span>
         </div>
 
         <nav className="navbar-links">
@@ -287,35 +355,45 @@ export const Navbar: React.FC = () => {
                   <div className="notif-dropdown-body scroll-bar-styled">
                     {filteredNotifs.length === 0 ? (
                       <div className="notif-empty-state">
-                        <CheckCircle2 size={28} style={{ opacity: 0.3, marginBottom: '8px', color: 'var(--neon-teal)' }} />
+                        <CheckCircle2 size={28} style={{ opacity: 0.3, marginBottom: '8px', color: 'var(--accent-color)' }} />
                         <p style={{ fontSize: '0.8rem' }}>No active alerts.</p>
                       </div>
                     ) : (
-                      filteredNotifs.map(notif => (
+                      filteredNotifs.slice(0, 5).map(notif => (
                         <div 
                           key={notif.id} 
                           className={`notif-feed-item ${notif.isRead ? 'read' : 'unread'}`}
                           onClick={() => handleNotifClick(notif)}
                         >
-                          <div className="notif-feed-content">
-                            <p className="notif-message-text">{notif.message}</p>
-                            <div className="notif-meta-row">
-                              <span className="notif-time">{notif.timestamp}</span>
-                              {notif.type === 'submission' && (
-                                <span className="notif-action-indicator">Click to Review</span>
-                              )}
+                          <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                            <div style={{ marginTop: '2px', flexShrink: 0 }}>
+                              {getNotifIcon(notif.type)}
+                            </div>
+                            <div className="notif-feed-content">
+                              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)', display: 'block', marginBottom: '2px' }}>
+                                {notif.title || 'Notification'}
+                              </span>
+                              <p className="notif-message-text" style={{ fontSize: '0.78rem', margin: 0 }}>{notif.message}</p>
+                              <div className="notif-meta-row" style={{ marginTop: '4px' }}>
+                                <span className="notif-time">{getRelativeTime(notif.timestamp)}</span>
+                              </div>
                             </div>
                           </div>
-                          <button 
-                            onClick={(e) => handleDismissNotif(notif.id, e)}
-                            className="notif-item-dismiss-btn"
-                            title="Dismiss alert"
-                          >
-                            <Trash2 size={12} />
-                          </button>
                         </div>
                       ))
                     )}
+                  </div>
+                  <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border-color)', textAlign: 'center' }}>
+                    <button 
+                      onClick={() => {
+                        setIsNotifOpen(false);
+                        setShowHistoryModal(true);
+                      }} 
+                      className="notif-header-action-btn"
+                      style={{ width: '100%', padding: '6px', fontWeight: 'bold' }}
+                    >
+                      View All Notifications
+                    </button>
                   </div>
                 </div>
               )}
@@ -349,6 +427,59 @@ export const Navbar: React.FC = () => {
           )}
         </div>
       </div>
+
+      {showHistoryModal && (
+        <div className="notif-history-modal-overlay" onClick={() => setShowHistoryModal(false)}>
+          <div className="notif-history-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="notif-history-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Bell size={20} style={{ color: 'var(--accent-color)' }} />
+                <h3>All Notifications</h3>
+              </div>
+              <button 
+                onClick={() => setShowHistoryModal(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="notif-history-modal-body scroll-bar-styled">
+              {filteredNotifs.length === 0 ? (
+                <div className="notif-empty-state" style={{ padding: '80px 0' }}>
+                  <CheckCircle2 size={40} style={{ opacity: 0.3, marginBottom: '12px', color: 'var(--accent-color)' }} />
+                  <p>You have no notifications yet.</p>
+                </div>
+              ) : (
+                filteredNotifs.map(notif => (
+                  <div 
+                    key={notif.id}
+                    className={`notif-history-item ${notif.isRead ? 'read' : 'unread'}`}
+                    onClick={() => handleNotifClick(notif)}
+                  >
+                    <div style={{ marginTop: '2px', flexShrink: 0 }}>
+                      {getNotifIcon(notif.type)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+                        <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                          {notif.title}
+                        </h4>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                          {getRelativeTime(notif.timestamp)}
+                        </span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                        {notif.message}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

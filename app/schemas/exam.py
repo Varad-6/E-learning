@@ -23,6 +23,7 @@ class ExamBase(BaseModel):
     department_id: UUID
     duration_minutes: int = 60
     is_published: bool = False
+    status: str = "draft"
 
 class ExamCreate(ExamBase):
     questions: List[ExamQuestionCreate]
@@ -66,6 +67,23 @@ class ExamGradeResponse(BaseModel):
     overall_feedback: Optional[str] = None
     graded_by: Optional[UUID] = None
     graded_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ExamReviewResponse(BaseModel):
+    id: UUID
+    exam_id: UUID
+    submitted_by: Optional[UUID] = None
+    status: str
+    reviewer_id: Optional[UUID] = None
+    department_id: UUID
+    rejection_reason: Optional[str] = None
+    submitted_at: datetime
+    reviewed_at: Optional[datetime] = None
+    exam_title: Optional[str] = None
+    creator_name: Optional[str] = None
+    department_name: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -14,6 +14,7 @@ class Exam(Base):
     title = Column(String, nullable=False)
     duration_minutes = Column(Integer, nullable=False, default=60)
     is_published = Column(Boolean, default=False, nullable=False)
+    status = Column(String, default="draft", nullable=False)  # draft, pending, approved, rejected
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -23,6 +24,7 @@ class Exam(Base):
     creator = relationship("User", foreign_keys=[created_by])
     questions = relationship("ExamQuestion", back_populates="exam", cascade="all, delete-orphan")
     submissions = relationship("ExamSubmission", back_populates="exam", cascade="all, delete-orphan")
+    reviews = relationship("ExamReview", back_populates="exam", cascade="all, delete-orphan")
 
 
 class ExamQuestion(Base):
@@ -67,3 +69,23 @@ class ExamGrade(Base):
     # Relationships
     submission = relationship("ExamSubmission", back_populates="grade")
     grader = relationship("User", foreign_keys=[graded_by])
+
+
+class ExamReview(Base):
+    __tablename__ = "exam_reviews"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    exam_id = Column(UUID(as_uuid=True), ForeignKey("exams.id", ondelete="CASCADE"), nullable=False)
+    submitted_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    status = Column(String, default="pending", nullable=False)  # pending, approved, rejected
+    reviewer_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id", ondelete="CASCADE"), nullable=False)
+    rejection_reason = Column(String, nullable=True)
+    submitted_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    exam = relationship("Exam", back_populates="reviews")
+    submitter = relationship("User", foreign_keys=[submitted_by])
+    reviewer = relationship("User", foreign_keys=[reviewer_id])
+    department = relationship("Department")

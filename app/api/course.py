@@ -6,11 +6,13 @@ from typing import Optional
 from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
 from app.models.course import Course
+from app.models.role import Role
 from app.schemas.course import (
     CourseCreate, CourseUpdate, CourseResponse, CourseListResponse
 )
 from app.services.course_service import CourseService
 from app.services.audit_service import AuditService
+from app.services.notification_service import NotificationService
 
 router = APIRouter(prefix="/api/courses", tags=["Courses"])
 
@@ -172,6 +174,33 @@ def submit_for_approval(
         target=course.course_code or str(course.id),
         details=f"Submitted course '{course.title}' for manager approval"
     )
+    
+    # 🟢 Trigger notifications
+    # Creator notification
+    NotificationService.create_notification(
+        db,
+        user_id=course.creator_id,
+        type="course_submitted",
+        title="Course Submitted for Approval",
+        message=f"Your course '{course.title}' has been submitted for review.",
+        related_entity_id=course.id
+    )
+    
+    # Manager notification
+    if course.department_id:
+        managers = db.query(User).join(User.roles).filter(
+            User.department_id == course.department_id,
+            Role.name == "COURSE_MANAGER"
+        ).all()
+        for mgr in managers:
+            NotificationService.create_notification(
+                db,
+                user_id=mgr.id,
+                type="course_pending",
+                title="New Course Pending Approval",
+                message=f"Course '{course.title}' by {current_user.first_name} {current_user.last_name} is pending your approval.",
+                related_entity_id=course.id
+            )
     return course
 
 @router.post(
@@ -192,6 +221,17 @@ def approve_course(
         action="APPROVE_COURSE",
         target=course.course_code or str(course.id),
         details=f"Approved course: '{course.title}'"
+    )
+    
+    # 🟢 Trigger notifications
+    # Creator notification
+    NotificationService.create_notification(
+        db,
+        user_id=course.creator_id,
+        type="course_approved",
+        title="Course Approved! 🎉",
+        message=f"Your course '{course.title}' has been approved and published by the managers.",
+        related_entity_id=course.id
     )
     return course
 
@@ -216,5 +256,16 @@ def reject_course(
         action="REJECT_COURSE",
         target=course.course_code or str(course.id),
         details=f"Rejected course '{course.title}'. Reason: {rejection_reason}"
+    )
+    
+    # 🟢 Trigger notifications
+    # Creator notification
+    NotificationService.create_notification(
+        db,
+        user_id=course.creator_id,
+        type="course_rejected",
+        title="Course Rejected ❌",
+        message=f"Your course '{course.title}' was rejected. Reason: {rejection_reason}",
+        related_entity_id=course.id
     )
     return course
