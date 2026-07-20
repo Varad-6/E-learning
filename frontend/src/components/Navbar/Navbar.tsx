@@ -224,7 +224,12 @@ export const Navbar: React.FC = () => {
     }
   };
 
-  const handleClearAllNotifs = () => {
+  const handleClearAllNotifs = async () => {
+    try {
+      await apiCall('/api/notifications/read-all', { method: 'POST' });
+    } catch (err) {
+      console.error('Failed to clear notifications on backend', err);
+    }
     setNotifications([]);
   };
 
@@ -327,7 +332,7 @@ export const Navbar: React.FC = () => {
               Leaderboard
             </div>
           )}
-          {userEmail && (userRole === 'Admin' || userRole === 'Manager') && (
+          {userEmail && userRole !== 'Admin' && (
             <div 
               onClick={() => navigate('/view-courses')} 
               className={`nav-link ${location.pathname === '/view-courses' ? 'active' : ''}`} 

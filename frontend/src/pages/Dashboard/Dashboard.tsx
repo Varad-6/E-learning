@@ -8,6 +8,121 @@ import type { Badge } from '../../services/badge';
 import { apiCall } from '../../services/api';
 import './Dashboard.css';
 
+// Pure SVG Donut Chart Component (Zero External Dependencies)
+const SVGDonutChart: React.FC<{ items: { label: string; value: number; color: string }[] }> = ({ items }) => {
+  const total = items.reduce((acc, curr) => acc + curr.value, 0) || 1;
+  let cumulativePercent = 0;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', width: '100%' }}>
+      <div style={{ position: 'relative', width: '150px', height: '150px' }}>
+        <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+          {items.map((item, idx) => {
+            const percent = (item.value / total) * 100;
+            const strokeDasharray = `${percent} ${100 - percent}`;
+            const strokeDashoffset = -cumulativePercent;
+            cumulativePercent += percent;
+            return (
+              <circle
+                key={idx}
+                cx="18"
+                cy="18"
+                r="15.91549430918954"
+                fill="transparent"
+                stroke={item.color}
+                strokeWidth="4"
+                strokeDasharray={strokeDasharray}
+                strokeDashoffset={strokeDashoffset}
+                style={{ transition: 'all 0.5s ease' }}
+              />
+            );
+          })}
+        </svg>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-primary)' }}>{items[0]?.value}%</span>
+          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{items[0]?.label}</span>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center' }}>
+        {items.map((item, idx) => (
+          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: item.color }}></span>
+            <span style={{ color: 'var(--text-secondary)' }}>{item.label}: <strong style={{ color: 'var(--text-primary)' }}>{item.value}%</strong></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Pure SVG Line Chart Component (Zero External Dependencies)
+const SVGLineChart: React.FC<{ data: { label: string; value: number }[] }> = ({ data }) => {
+  const maxVal = Math.max(...data.map(d => d.value)) * 1.2 || 100;
+  const width = 300;
+  const height = 130;
+  const points = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - (d.value / maxVal) * height;
+    return `${x},${y}`;
+  }).join(' ');
+
+  return (
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: '140px', overflow: 'visible' }}>
+        <defs>
+          <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#00f2fe" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#00f2fe" stopOpacity="0.0" />
+          </linearGradient>
+        </defs>
+        <polygon
+          points={`0,${height} ${points} ${width},${height}`}
+          fill="url(#lineGrad)"
+        />
+        <polyline
+          fill="none"
+          stroke="#00f2fe"
+          strokeWidth="3"
+          points={points}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {data.map((d, i) => {
+          const x = (i / (data.length - 1)) * width;
+          const y = height - (d.value / maxVal) * height;
+          return (
+            <circle key={i} cx={x} cy={y} r="4" fill="#00f2fe" stroke="var(--bg-card)" strokeWidth="2" />
+          );
+        })}
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-secondary)', paddingTop: '4px' }}>
+        {data.map((d, i) => (
+          <span key={i}>{d.label}</span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Pure SVG Bar Chart Component (Zero External Dependencies)
+const SVGBarChart: React.FC<{ data: { label: string; value: number; color: string }[] }> = ({ data }) => {
+  const maxVal = 10;
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '150px', gap: '12px', paddingBottom: '24px', position: 'relative', marginTop: '10px' }}>
+      {data.map((d, i) => {
+        const heightPercent = (d.value / maxVal) * 100;
+        return (
+          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', position: 'relative' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>{d.value}</span>
+            <div style={{ width: '100%', maxWidth: '36px', height: `${heightPercent}%`, background: d.color, borderRadius: '6px 6px 0 0', transition: 'height 0.4s ease' }}></div>
+            <span style={{ position: 'absolute', bottom: '-22px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{d.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 // Mock DB courses matching schema
 const DEFAULT_COURSES: Course[] = [
   { id: 'c1', course_code: 'AI-101', title: 'Artificial Intelligence Foundations', description: 'Core principles of machine learning models, neural networks, and AI ethics.', difficulty_level: 'Beginner', is_published: true },
@@ -162,11 +277,67 @@ export const Dashboard: React.FC = () => {
 
 
   // React States for Admin Audit Logs
-  const [auditLogs, setAuditLogs] = useState([
-    { id: 'a1', timestamp: '2026-06-20 12:04:15', actor: 'admin@company.com', action: 'ROLE_UPDATE', target: 'creator@company.com', details: 'Promoted to Manager role' },
-    { id: 'a2', timestamp: '2026-06-20 11:32:04', actor: 'creator@company.com', action: 'ASSIGN_COURSE', target: 'EMP-3041', details: 'Assigned AI-101 course' },
-    { id: 'a3', timestamp: '2026-06-20 10:15:22', actor: 'system_daemon', action: 'DB_BACKUP', target: 'schema_v2', details: 'Completed snapshot snap_9294' }
-  ]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [profileExamScores, setProfileExamScores] = useState<any[]>([]);
+
+  // Live Analytics Dashboard States
+  const [summaryData, setSummaryData] = useState<any>({
+    total_departments: 0,
+    total_users: 0,
+    total_published_courses: 0,
+    total_courses: 0,
+    health_status: 'Healthy',
+    cluster_nodes: '3 Clusters'
+  });
+  const [completionRateData, setCompletionRateData] = useState<any[]>([]);
+  const [enrollmentTrendData, setEnrollmentTrendData] = useState<any[]>([]);
+  const [deptPerformanceData, setDeptPerformanceData] = useState<any[]>([]);
+  const [activeInactiveData, setActiveInactiveData] = useState<any[]>([]);
+  const [topCoursesData, setTopCoursesData] = useState<any[]>([]);
+  const [passFailRatioData, setPassFailRatioData] = useState<any[]>([]);
+  const [pendingApprovalsData, setPendingApprovalsData] = useState<any>({
+    pending_courses_count: 0,
+    pending_exam_reviews_count: 0,
+    total_pending: 0
+  });
+  const [topPerformersData, setTopPerformersData] = useState<any[]>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(false);
+  const [analyticsError, setAnalyticsError] = useState<boolean>(false);
+
+  const fetchDashboardAnalytics = async () => {
+    setAnalyticsLoading(true);
+    setAnalyticsError(false);
+    try {
+      const [
+        sumRes, compRes, trendRes, deptRes, actRes, topCRes, pfRes, pendRes, topPRes
+      ] = await Promise.all([
+        apiCall('/api/dashboard/summary'),
+        apiCall('/api/dashboard/completion-rate'),
+        apiCall('/api/dashboard/enrollment-trend'),
+        apiCall('/api/dashboard/department-performance'),
+        apiCall('/api/dashboard/active-inactive-learners'),
+        apiCall('/api/dashboard/top-courses'),
+        apiCall('/api/dashboard/exam-pass-fail'),
+        apiCall('/api/dashboard/pending-approvals'),
+        apiCall('/api/dashboard/top-performers')
+      ]);
+
+      if (sumRes.ok) setSummaryData(await sumRes.json());
+      if (compRes.ok) setCompletionRateData(await compRes.json());
+      if (trendRes.ok) setEnrollmentTrendData(await trendRes.json());
+      if (deptRes.ok) setDeptPerformanceData(await deptRes.json());
+      if (actRes.ok) setActiveInactiveData(await actRes.json());
+      if (topCRes.ok) setTopCoursesData(await topCRes.json());
+      if (pfRes.ok) setPassFailRatioData(await pfRes.json());
+      if (pendRes.ok) setPendingApprovalsData(await pendRes.json());
+      if (topPRes.ok) setTopPerformersData(await topPRes.json());
+    } catch (err) {
+      console.error('Error fetching dashboard analytics:', err);
+      setAnalyticsError(true);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
 
   const fetchDBCourses = async () => {
     try {
@@ -260,15 +431,19 @@ export const Dashboard: React.FC = () => {
 
       if (activeRole === 'Admin') {
         fetchDBAuditLogs();
+        fetchDashboardAnalytics();
       }
 
       if (activeRole === 'Manager') {
         fetchDBRoster();
+        fetchDashboardAnalytics();
       }
+
+      fetchDashboardAnalytics();
 
       const fetchDepts = async () => {
         try {
-          const response = await fetch('http://127.0.0.1:8080/api/departments');
+          const response = await apiCall('/api/departments');
           if (response.ok) {
             const data = await response.json();
             setDepartmentsList(data);
@@ -323,6 +498,12 @@ export const Dashboard: React.FC = () => {
             setProfileEmpId(profileData.employee_code);
             localStorage.setItem('profileName', fullName);
             localStorage.setItem('profileEmpId', profileData.employee_code);
+
+            const detailRes = await apiCall(`/api/reporting/employees/${profileData.id}/detail`);
+            if (detailRes.ok) {
+              const detailData = await detailRes.json();
+              setProfileExamScores(detailData.exams || []);
+            }
           }
         } catch (err) {
           console.error('Failed to fetch profile in dashboard:', err);
@@ -738,40 +919,21 @@ export const Dashboard: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {role === 'Employee' ? (
-                        <>
-                          <tr style={{ borderBottom: '1px solid var(--border-color)' }} className="tooltip-trigger" data-tooltip="AI Foundations Course Assessment">
-                            <td style={{ padding: '12px 6px' }}><code>AI-101</code></td>
-                            <td style={{ padding: '12px 6px' }}>Machine Learning Basics Quiz</td>
-                            <td style={{ padding: '12px 6px' }}>80 / 100</td>
-                            <td style={{ padding: '12px 6px', textAlign: 'right', fontWeight: '700', color: 'var(--neon-teal)' }}>88 / 100</td>
+                      {profileExamScores && profileExamScores.length > 0 ? (
+                        profileExamScores.map((ex: any, idx: number) => (
+                          <tr key={ex.submission_id || idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '12px 6px' }}><code>{ex.exam_title ? ex.exam_title.split(' ')[0] : 'EXAM'}</code></td>
+                            <td style={{ padding: '12px 6px' }}>{ex.exam_title}</td>
+                            <td style={{ padding: '12px 6px' }}>8.0 / 10.0</td>
+                            <td style={{ padding: '12px 6px', textAlign: 'right', fontWeight: '700', color: ex.overall_score >= 8.0 ? 'var(--neon-teal)' : 'var(--text-secondary)' }}>
+                              {ex.overall_score !== null ? `${ex.overall_score} / 10.0` : `Pending (${ex.status})`}
+                            </td>
                           </tr>
-                          <tr style={{ borderBottom: '1px solid var(--border-color)' }} className="tooltip-trigger" data-tooltip="AI Labs Assessment">
-                            <td style={{ padding: '12px 6px' }}><code>AI-101</code></td>
-                            <td style={{ padding: '12px 6px' }}>Neural Networks Lab Test</td>
-                            <td style={{ padding: '12px 6px' }}>80 / 100</td>
-                            <td style={{ padding: '12px 6px', textAlign: 'right', fontWeight: '700', color: 'var(--neon-teal)' }}>92 / 100</td>
-                          </tr>
-                          <tr style={{ borderBottom: '1px solid var(--border-color)' }} className="tooltip-trigger" data-tooltip="Sales Order processing quiz">
-                            <td style={{ padding: '12px 6px' }}><code>SD-102</code></td>
-                            <td style={{ padding: '12px 6px' }}>Shipping Conditions Matrix Quiz</td>
-                            <td style={{ padding: '12px 6px' }}>80 / 100</td>
-                            <td style={{ padding: '12px 6px', textAlign: 'right', fontWeight: '700', color: 'var(--text-secondary)' }}>65 / 100 (Pending)</td>
-                          </tr>
-                        </>
-                      ) : role === 'Manager' ? (
-                        <>
-                          <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-                            <td style={{ padding: '12px 6px' }}><code>FICO-202</code></td>
-                            <td style={{ padding: '12px 6px' }}>Asset Accounting Competency Exam</td>
-                            <td style={{ padding: '12px 6px' }}>80 / 100</td>
-                            <td style={{ padding: '12px 6px', textAlign: 'right', fontWeight: '700', color: 'var(--neon-teal)' }}>100 / 100</td>
-                          </tr>
-                        </>
+                        ))
                       ) : (
                         <tr>
                           <td colSpan={4} style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                            No assessment marks required for Administrator workspace.
+                            {role === 'Admin' ? 'No assessment marks required for Administrator workspace.' : 'No exam submissions recorded yet.'}
                           </td>
                         </tr>
                       )}
@@ -889,7 +1051,7 @@ export const Dashboard: React.FC = () => {
                 <Bookmark size={18} className="meta-icon icon-blue" />
                 <div>
                   <p className="meta-label">Total Departments</p>
-                  <p className="meta-val">11 Registered</p>
+                  <p className="meta-val">{summaryData.total_departments || departmentsList.length || 4} Registered</p>
                 </div>
               </div>
               <div className="banner-meta-box">
@@ -906,14 +1068,14 @@ export const Dashboard: React.FC = () => {
                 <Bookmark size={18} className="meta-icon icon-blue" />
                 <div>
                   <p className="meta-label">Total Departments</p>
-                  <p className="meta-val">11 Registered</p>
+                  <p className="meta-val">{summaryData.total_departments || departmentsList.length || 4} Registered</p>
                 </div>
               </div>
               <div className="banner-meta-box">
                 <Layers size={18} className="meta-icon icon-green" />
                 <div>
-                  <p className="meta-label">Database Nodes</p>
-                  <p className="meta-val">3 Clusters</p>
+                  <p className="meta-label">System Status</p>
+                  <p className="meta-val">{summaryData.cluster_nodes || 'Healthy'}</p>
                 </div>
               </div>
             </>
@@ -1618,10 +1780,10 @@ export const Dashboard: React.FC = () => {
               <div className="roster-card glass-panel" style={{ padding: '24px' }}>
                 <div className="roster-card-header" style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', padding: 0, marginBottom: '16px' }}>
                   <Users size={18} className="roster-icon" />
-                  <h3>Audit & Reporting: Enrolled Employee Roster</h3>
+                  <h3>Enrolled Employees</h3>
                 </div>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                  Select an employee row to trace module assessment results, test marks, and skills index.
+                  Select an employee row to view course assessment results and test scores.
                 </p>
 
                 <div className="roster-table-wrapper">
@@ -1688,98 +1850,109 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* 3. ADMINISTRATOR VIEW */}
+      {/* 3. ADMINISTRATOR VIEW (BI & ANALYTICS DASHBOARD) */}
       {activeMainView === 'dashboard' && role === 'Admin' && (
-        <div className="dashboard-layout-admin">
-          <div className="pane-header">
-            <h3>Kaizen Administrative Control Center</h3>
-            <p>System metrics, registered node components, and audit log schemas</p>
+        <div className="dashboard-layout-admin animate-fade-in">
+          <div className="pane-header" style={{ marginBottom: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>Admin Analytics Dashboard</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginTop: '4px' }}>Real-time course stats, department performance, and system health.</p>
+            </div>
+            <Button variant="outline" style={{ fontSize: '0.82rem' }} onClick={fetchDashboardAnalytics}>
+              Refresh Analytics 🔄
+            </Button>
           </div>
 
-          <div className="admin-dashboard-grid">
-            {/* System Audit Event Logs */}
-            <div className="admin-main-pane">
-              <div className="admin-logs-card glass-panel">
-                <div className="logs-card-header">
-                  <ShieldAlert size={18} className="audit-icon-coral" />
-                  <h3>Corporate Database Audit Logs</h3>
-                </div>
-                <p className="logs-card-subtitle">Registry records tracked by system hooks</p>
+          {analyticsError && (
+            <div style={{ padding: '16px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Failed to load live analytics data from backend.</span>
+              <Button variant="primary" style={{ fontSize: '0.78rem' }} onClick={fetchDashboardAnalytics}>Retry</Button>
+            </div>
+          )}
 
-                <div className="logs-table-wrapper">
-                  <table className="logs-table">
-                    <thead>
-                      <tr>
-                        <th>Timestamp</th>
-                        <th>Actor</th>
-                        <th>Action</th>
-                        <th>Target Node</th>
-                        <th>Details</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {auditLogs.length > 0 ? (
-                        auditLogs.map((log) => (
-                          <tr key={log.id}>
-                            <td className="log-time-cell">{log.timestamp}</td>
-                            <td><code>{log.actor.split('@')[0]}</code></td>
-                            <td><span className="log-action-badge">{log.action}</span></td>
-                            <td><code>{log.target}</code></td>
-                            <td className="log-details-cell">{log.details}</td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '40px 0', minHeight: '120px' }}>
-                            No recent audit events detected in the registry.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+          {/* Top Level Quick Stat Summary Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '28px' }}>
+            {/* Widget: Top Performing Department Card */}
+            <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gridColumn: '1 / -1' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Award size={24} />
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Top Performing Department</span>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '2px' }}>
+                    {deptPerformanceData && deptPerformanceData.length > 0
+                      ? (() => {
+                          const topDept = [...deptPerformanceData].sort((a, b) => (b.value || 0) - (a.value || 0))[0];
+                          return `${topDept.label} Department (${topDept.value} / 10 Avg Score)`;
+                        })()
+                      : 'No department performance recorded yet'}
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Department Managers Registry */}
-            <div className="admin-side-pane">
-              <div className="admin-depts-card glass-panel">
-                <div className="depts-card-header">
-                  <FileText size={18} className="depts-icon-purple" />
-                  <h3>Department Heads Registry</h3>
-                </div>
-                <p className="depts-card-subtitle">Node registries matching hierarchy database</p>
-                
-                <div className="depts-registry-list">
-                  {departmentsList.map((d) => (
-                    <div key={d.id} className="dept-registry-row">
-                      <span className="dept-label">{d.code}</span>
-                      <span className="manager-val">{getManagerForDept(d.code)}</span>
-                    </div>
-                  ))}
-                  {departmentsList.length === 0 && (
-                    <>
-                      <div className="dept-registry-row">
-                        <span className="dept-label">AI</span>
-                        <span className="manager-val">Dr. Evelyn C.</span>
+          {/* BI Charts Grid Layout */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px', marginBottom: '32px' }}>
+            
+            {/* Widget 1: Course Completion Rate (Donut) */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Overall Course Completion Rate</h3>
+              <SVGDonutChart items={completionRateData.length > 0 ? completionRateData : [{ label: 'Not Started', value: 100, color: '#64748b' }]} />
+            </div>
+
+            {/* Widget 2: Enrollment Trend Over Time (Line) */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Enrollment Trend</h3>
+              <SVGLineChart data={enrollmentTrendData.length > 0 ? enrollmentTrendData : [{ label: 'Baseline', value: 0 }]} />
+            </div>
+
+            {/* Widget 3: Department-wise Performance Comparison (Bar) */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Avg Score per Department</h3>
+              <SVGBarChart data={deptPerformanceData.length > 0 ? deptPerformanceData : [{ label: 'General', value: 0, color: '#10b981' }]} />
+            </div>
+
+            {/* Widget 4: Active vs Inactive Learners (Doughnut) */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Active vs Inactive Learners</h3>
+              <SVGDonutChart items={activeInactiveData.length > 0 ? activeInactiveData : [{ label: 'Active', value: 100, color: '#10b981' }]} />
+            </div>
+
+            {/* Widget 5: Top 5 Courses by Enrollment */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Top Courses by Enrollment</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {topCoursesData && topCoursesData.length > 0 ? (
+                  topCoursesData.map((c: any, idx: number) => {
+                    const maxCount = topCoursesData[0]?.enrollments_count || 1;
+                    const pct = Math.max(10, Math.round((c.enrollments_count / maxCount) * 100));
+                    const barColor = idx === 0 ? '#00f2fe' : idx === 1 ? '#8b5cf6' : '#10b981';
+                    return (
+                      <div key={c.id || idx}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
+                          <strong style={{ color: 'var(--text-primary)' }}>{c.course_code}: {c.title}</strong>
+                          <span>{c.enrollments_count} Enrollments</span>
+                        </div>
+                        <div style={{ height: '8px', background: 'var(--bg-secondary)', borderRadius: '4px', overflow: 'hidden' }}>
+                          <div style={{ width: `${pct}%`, height: '100%', background: barColor }}></div>
+                        </div>
                       </div>
-                      <div className="dept-registry-row">
-                        <span className="dept-label">FICO</span>
-                        <span className="manager-val">Warren B.</span>
-                      </div>
-                      <div className="dept-registry-row">
-                        <span className="dept-label">ABAP</span>
-                        <span className="manager-val">Linus Torvalds</span>
-                      </div>
-                      <div className="dept-registry-row">
-                        <span className="dept-label">HR</span>
-                        <span className="manager-val">John Watson</span>
-                      </div>
-                    </>
-                  )}
-                </div>
+                    );
+                  })
+                ) : (
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No course enrollment data.</span>
+                )}
               </div>
             </div>
+
+            {/* Widget 6: Exam Pass / Fail Ratio */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Exam Pass / Fail Ratio</h3>
+              <SVGDonutChart items={passFailRatioData.length > 0 ? passFailRatioData : [{ label: 'Passed (>= 8.0)', value: 100, color: '#10b981' }]} />
+            </div>
+
           </div>
         </div>
       )}

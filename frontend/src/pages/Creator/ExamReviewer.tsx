@@ -269,7 +269,7 @@ export const ExamReviewer: React.FC = () => {
         </Button>
         <div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>🧑‍🏫 Exam Grading & Review Studio</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Grade employee exam submissions or approve newly constructed exam syllabus templates.</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Grade employee exam submissions or approve newly constructed exam templates.</p>
         </div>
       </div>
 
@@ -319,7 +319,7 @@ export const ExamReviewer: React.FC = () => {
             transition: 'all 0.2s'
           }}
         >
-          Syllabus Approvals
+          Exam Approvals
         </button>
       </div>
 

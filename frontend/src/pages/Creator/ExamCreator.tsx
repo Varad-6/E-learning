@@ -136,7 +136,7 @@ export const ExamCreator: React.FC = () => {
           <ArrowLeft size={16} />
         </Button>
         <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>🛠️ Exam Syllabus Creator Studio</h2>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>🛠️ Exam Creator Studio</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Establish descriptive assessments, short-answer modules, and file upload checkpoints for employees.</p>
         </div>
       </div>
@@ -144,7 +144,7 @@ export const ExamCreator: React.FC = () => {
       {success ? (
         <div className="glass-panel animate-float" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
           <CheckCircle size={48} className="pulse-active" style={{ color: '#10b981', margin: '0 auto 16px' }} />
-          <h3 style={{ fontSize: '1.3rem', color: '#fff', marginBottom: '8px' }}>Exam Syllabus Published Successfully!</h3>
+          <h3 style={{ fontSize: '1.3rem', color: '#fff', marginBottom: '8px' }}>Exam Published Successfully!</h3>
           <p style={{ color: 'var(--text-secondary)' }}>Assigning and loading parameters for department employees...</p>
         </div>
       ) : (
@@ -156,7 +156,7 @@ export const ExamCreator: React.FC = () => {
 
             {questions.length === 0 ? (
               <div style={{ padding: '40px 0', color: 'var(--text-secondary)', fontStyle: 'italic', textAlign: 'center' }}>
-                No questions added to this exam syllabus yet. Use the selector constructor form below.
+                No questions added to this exam yet. Use the selector constructor form below.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
@@ -215,14 +215,14 @@ export const ExamCreator: React.FC = () => {
               </div>
 
               <Button variant="outline" type="submit" leftIcon={<Plus size={16} />} style={{ width: '100%', height: '48px' }}>
-                Add Question to Exam Template
+                Add Question to Exam
               </Button>
             </form>
           </div>
 
           {/* Sidebar parameters */}
-          <div className="glass-panel glow-hover animate-float" style={{ animationDelay: '0.2s', padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '24px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>⚙️ Syllabus Settings</h3>
+          <div className="glass-panel glow-hover animate-float" style={{ animationDelay: '0.2s', padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>⚙️ Exam Settings</h3>
             
             <div className="form-group-spaced" style={{ margin: 0 }}>
               <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Exam Title</label>
@@ -288,9 +288,9 @@ export const ExamCreator: React.FC = () => {
               variant="primary" 
               onClick={handleSaveExam}
               disabled={loading}
-              style={{ width: '100%', height: '48px', fontWeight: '700', marginTop: '10px' }}
+              style={{ width: '100%', minHeight: '48px', fontWeight: '700', marginTop: '16px' }}
             >
-              {loading ? 'Publishing Exam...' : '🚀 Publish Exam Syllabus'}
+              {loading ? 'Publishing Exam...' : '🚀 Publish Exam'}
             </Button>
           </div>
 

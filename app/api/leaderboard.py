@@ -1,6 +1,8 @@
+import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import sqlalchemy as sa
 from uuid import UUID
 from typing import List, Optional, Dict, Any
 
@@ -26,12 +28,61 @@ def get_leaderboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Fetch lists for dropdown selectors
+    # Fetch lists for dropdown selectors and department summary cards
     departments_list = db.query(Department).all()
-    dept_dicts = [{"id": d.id, "name": d.name, "code": d.code} for d in departments_list]
+    dept_dicts = []
+    for d in departments_list:
+        # Average exam score in department
+        avg_score_query = db.query(func.avg(ExamGrade.overall_score)).join(
+            ExamSubmission, ExamGrade.submission_id == ExamSubmission.id
+        ).join(
+            User, ExamSubmission.user_id == User.id
+        ).filter(
+            User.department_id == d.id,
+            ExamSubmission.status == "graded"
+        ).scalar()
+        avg_score = round(float(avg_score_query), 2) if avg_score_query is not None else None
+
+        # Top performer in department
+        top_perf = db.query(
+            User.first_name,
+            User.last_name,
+            func.avg(ExamGrade.overall_score).label("user_avg")
+        ).join(
+            ExamSubmission, ExamSubmission.user_id == User.id
+        ).join(
+            ExamGrade, ExamGrade.submission_id == ExamSubmission.id
+        ).filter(
+            User.department_id == d.id,
+            ExamSubmission.status == "graded"
+        ).group_by(
+            User.id, User.first_name, User.last_name
+        ).order_by(
+            func.avg(ExamGrade.overall_score).desc()
+        ).first()
+
+        top_performer_name = f"{top_perf[0]} {top_perf[1]}" if top_perf else None
+        top_performer_score = round(float(top_perf[2]), 2) if top_perf else None
+
+        # Employee count in department
+        headcount = db.query(User).filter(
+            User.department_id == d.id,
+            User.is_active == True,
+            User.is_deleted == False
+        ).count()
+
+        dept_dicts.append({
+            "id": str(d.id),
+            "name": d.name,
+            "code": d.code,
+            "avg_score": avg_score,
+            "top_performer_name": top_performer_name,
+            "top_performer_score": top_performer_score,
+            "employee_count": headcount
+        })
 
     exams_list = db.query(Exam).filter(Exam.is_published == True).all()
-    exam_dicts = [{"id": e.id, "title": e.title} for e.find in exams_list] if hasattr(exams_list, 'find') else [{"id": e.id, "title": e.title} for e in exams_list]
+    exam_dicts = [{"id": str(e.id), "title": e.title} for e.find in exams_list] if hasattr(exams_list, 'find') else [{"id": str(e.id), "title": e.title} for e in exams_list]
 
     rankings = []
 
@@ -56,6 +107,7 @@ def get_leaderboard(
             ExamSubmission.user_id,
             ExamGrade.overall_score,
             ExamSubmission.submitted_at,
+            ExamSubmission.started_at,
             User.first_name,
             User.last_name,
             User.employee_code,
@@ -76,14 +128,25 @@ def get_leaderboard(
         sorted_subs = sorted(graded_subs, key=lambda x: (-x.overall_score, x.submitted_at or datetime.datetime.max))
 
         for idx, row in enumerate(sorted_subs):
+            time_taken_str = "N/A"
+            if row.submitted_at and row.started_at:
+                diff = row.submitted_at - row.started_at
+                minutes = int(diff.total_seconds() // 60)
+                seconds = int(diff.total_seconds() % 60)
+                time_taken_str = f"{minutes}m {seconds}s"
+            
+            date_str = row.submitted_at.strftime("%Y-%m-%d") if row.submitted_at else "N/A"
+
             rankings.append({
                 "rank": idx + 1,
-                "user_id": row.user_id,
+                "user_id": str(row.user_id),
                 "user_name": f"{row.first_name} {row.last_name}",
                 "employee_code": row.employee_code,
                 "department_name": row.department_name or "General",
                 "exams_completed": 1,
-                "score": round(float(row.overall_score), 2)
+                "score": round(float(row.overall_score), 2),
+                "time_taken": time_taken_str,
+                "date": date_str
             })
 
     else:
@@ -133,7 +196,7 @@ def get_leaderboard(
         for idx, r in enumerate(sorted_rows):
             rankings.append({
                 "rank": idx + 1,
-                "user_id": r.user_id,
+                "user_id": str(r.user_id),
                 "user_name": f"{r.first_name} {r.last_name}",
                 "employee_code": r.employee_code,
                 "department_name": r.department_name or "General",
@@ -169,8 +232,8 @@ def get_leaderboard(
 
     return {
         "scope": scope,
-        "department_id": department_id or current_user.department_id,
-        "exam_id": exam_id,
+        "department_id": str(department_id) if department_id else (str(current_user.department_id) if current_user.department_id else None),
+        "exam_id": str(exam_id) if exam_id else None,
         "min_exams": min_exams if scope != "exam" else 1,
         "current_user_rank": current_user_rank,
         "rankings": rankings,

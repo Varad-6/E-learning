@@ -127,3 +127,33 @@ def assign_role(
         related_entity_id=user.id
     )
     return user
+
+@router.delete(
+    "/users/{user_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Delete User",
+    description="Soft-delete a user profile by setting is_deleted=True and is_active=False. Restricted to System Admin and HR Admin."
+)
+def delete_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
+):
+    user = db.query(User).filter(User.id == user_id, User.is_deleted == False).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with ID {user_id} not found."
+        )
+    user.is_deleted = True
+    user.is_active = False
+    db.commit()
+
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="USER_DELETE",
+        target=user.employee_code,
+        details=f"Soft-deleted user {user.first_name} {user.last_name} ({user.email})"
+    )
+    return {"message": f"User {user.email} successfully deleted.", "user_id": str(user_id)}

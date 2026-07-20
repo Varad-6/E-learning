@@ -8,6 +8,13 @@ import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
 import './Creator.css';
 
+export interface Department {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+}
+
 interface CourseData {
   id: string;
   course_code: string;
@@ -19,6 +26,7 @@ interface CourseData {
   status: 'Draft' | 'Pending' | 'Approved' | 'Rejected';
   creatorName: string;
   creatorRole: string;
+  department_id?: string;
   departmentName: string;
   rejectionReason?: string;
   createdDate: string;
@@ -42,106 +50,7 @@ interface ToastMsg {
 
 
 
-const INITIAL_COURSES: CourseData[] = [
-  { 
-    id: 'c1', 
-    course_code: 'AI-101', 
-    title: 'Artificial Intelligence Foundations', 
-    description: 'Core principles of machine learning models, neural networks, and AI ethics.', 
-    priority: 'High', 
-    duration: '12 Hours', 
-    is_published: true, 
-    status: 'Approved', 
-    creatorName: 'Dr. Evelyn C.', 
-    creatorRole: 'Department Head', 
-    departmentName: 'AI', 
-    createdDate: '2026-06-20' 
-  },
-  { 
-    id: 'c2', 
-    course_code: 'FICO-202', 
-    title: 'SAP FICO Ledger & Asset Accounting', 
-    description: 'Learn financial control parameters, ledger structures, and cost calculations.', 
-    priority: 'Medium', 
-    duration: '16 Hours', 
-    is_published: true, 
-    status: 'Approved', 
-    creatorName: 'Dr. Evelyn C.', 
-    creatorRole: 'Department Head', 
-    departmentName: 'SAP FICO', 
-    createdDate: '2026-06-18' 
-  },
-  { 
-    id: 'c3', 
-    course_code: 'ABAP-301', 
-    title: 'ABAP Syntax & Database Orchestration', 
-    description: 'Advanced programming on SAP NetWeaver, custom database queries, and RFCs.', 
-    priority: 'High', 
-    duration: '20 Hours', 
-    is_published: true, 
-    status: 'Approved', 
-    creatorName: 'Systems Administrator', 
-    creatorRole: 'Admin', 
-    departmentName: 'SAP ABAP', 
-    createdDate: '2026-06-19' 
-  },
-  { 
-    id: 'c4', 
-    course_code: 'SD-102', 
-    title: 'Sales and Distribution Lifecycle', 
-    description: 'Master shipping structures, bill matrices, and customer logistics pipelines.', 
-    priority: 'Low', 
-    duration: '8 Hours', 
-    is_published: true, 
-    status: 'Approved', 
-    creatorName: 'John Doe', 
-    creatorRole: 'Employee', 
-    departmentName: 'SAP SD', 
-    createdDate: '2026-06-15' 
-  },
-  { 
-    id: 'c5', 
-    course_code: 'AI-201', 
-    title: 'Deep Learning Practical Guide', 
-    description: 'Hands-on project configuring CNN and RNN architectures using PyTorch.', 
-    priority: 'Medium', 
-    duration: '14 Hours', 
-    is_published: false, 
-    status: 'Pending', 
-    creatorName: 'John Doe', 
-    creatorRole: 'Employee', 
-    departmentName: 'AI', 
-    createdDate: '2026-06-22' 
-  },
-  { 
-    id: 'c6', 
-    course_code: 'ENG-303', 
-    title: 'SAP MM Inventory Management', 
-    description: 'Master warehouse inventories, goods receipt transfers, and automatic physical inventory checks.', 
-    priority: 'High', 
-    duration: '18 Hours', 
-    is_published: false, 
-    status: 'Pending', 
-    creatorName: 'Sarah Jenkins', 
-    creatorRole: 'Employee', 
-    departmentName: 'SAP MM', 
-    createdDate: '2026-06-23' 
-  },
-  { 
-    id: 'c7', 
-    course_code: 'SAL-104', 
-    title: 'Client Relationship Management Patterns', 
-    description: 'Basic guidelines for key accounts mapping and CRM integration pipelines.', 
-    priority: 'Low', 
-    duration: '6 Hours', 
-    is_published: false, 
-    status: 'Pending', 
-    creatorName: 'Timothy Vance', 
-    creatorRole: 'Employee', 
-    departmentName: 'Sales and Marketing', 
-    createdDate: '2026-06-22' 
-  }
-];
+const INITIAL_COURSES: CourseData[] = [];
 
 export const CreatorDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -151,6 +60,7 @@ export const CreatorDashboard: React.FC = () => {
   const [role, setRole] = useState('Employee');
   const [dept, setDept] = useState('AI');
   const [profileName, setProfileName] = useState('John Doe');
+  const [reviewModules, setReviewModules] = useState<any[]>([]);
 
   // Core list states
   const [courses, setCourses] = useState<CourseData[]>([]);
@@ -169,6 +79,7 @@ export const CreatorDashboard: React.FC = () => {
   
   // Admin approvals view
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
+  const [selectedCreatorDept, setSelectedCreatorDept] = useState<Department | null>(null);
 
   // Modals & Sliders
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -213,6 +124,7 @@ export const CreatorDashboard: React.FC = () => {
             status: frontendStatus,
             creatorName: c.creator_name || 'John Doe',
             creatorRole: c.creator_role || 'Employee',
+            department_id: c.department_id,
             departmentName: c.department_name || 'AI',
             createdDate: c.created_at ? c.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
             rejectionReason: c.rejection_reason || undefined
@@ -250,7 +162,7 @@ export const CreatorDashboard: React.FC = () => {
 
     const loadDepts = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8080/api/departments');
+        const response = await apiCall('/api/departments');
         if (response.ok) {
           const data = await response.json();
           setDepartmentsList(data);
@@ -277,20 +189,38 @@ export const CreatorDashboard: React.FC = () => {
     fetchDBCourses();
   }, []);
 
+  useEffect(() => {
+    if (reviewCourse) {
+      const fetchModules = async () => {
+        try {
+          const res = await apiCall(`/api/courses/${reviewCourse.id}/modules`);
+          if (res.ok) {
+            const data = await res.json();
+            setReviewModules(data || []);
+          }
+        } catch (err) {
+          console.error('Error loading review modules:', err);
+        }
+      };
+      fetchModules();
+    } else {
+      setReviewModules([]);
+    }
+  }, [reviewCourse]);
+
   // Handler: fetch departments for active tab
   const fetchDepartments = async () => {
     setIsLoadingDepts(true);
     try {
-      const response = await fetch('http://127.0.0.1:8080/api/departments');
+      const response = await apiCall('/api/departments');
       if (response.ok) {
         const data = await response.json();
         setDepartmentsList(data);
       }
     } catch (err) {
       console.error('Failed to reload departments', err);
-    } finally {
-      setIsLoadingDepts(false);
-    }
+    } opacity: 1;
+    setIsLoadingDepts(false);
   };
 
   useEffect(() => {
@@ -569,8 +499,8 @@ export const CreatorDashboard: React.FC = () => {
   const isDeptHead = role === 'Manager';
   const isAdmin = role === 'Admin';
   
-  // Filter courses owned by active user
-  const myCreatedCourses = courses.filter(c => {
+  // Filter courses: Admin sees all courses across departments, creators see self-owned
+  const myCreatedCourses = isAdmin ? courses : courses.filter(c => {
     return (
       c.creatorName === profileName || 
       (profileName === 'John Doe' && c.creatorName === 'John Doe') ||
@@ -580,6 +510,19 @@ export const CreatorDashboard: React.FC = () => {
   });
 
   const filteredMyCourses = myCreatedCourses.filter(c => {
+    if (selectedCreatorDept && selectedCreatorDept.code !== 'ALL') {
+      const targetCode = (selectedCreatorDept.code || '').toLowerCase();
+      const targetName = (selectedCreatorDept.name || '').toLowerCase();
+      const targetId = String(selectedCreatorDept.id || '');
+      const cDeptName = (c.departmentName || '').toLowerCase();
+      const cDeptId = String(c.department_id || '');
+      
+      const isDeptMatch = (cDeptId && targetId && cDeptId === targetId) || 
+                          cDeptName === targetName || 
+                          cDeptName === targetCode ||
+                          (targetName && cDeptName && (targetName.includes(cDeptName) || cDeptName.includes(targetName)));
+      if (!isDeptMatch) return false;
+    }
     if (statusFilter === 'All') return true;
     return c.status === statusFilter;
   });
@@ -650,26 +593,10 @@ export const CreatorDashboard: React.FC = () => {
         <div className="sidebar-tabs-header" style={{ marginBottom: '30px' }}>
           <button 
             className={`sidebar-tab-btn ${activeTab === 'my_courses' ? 'active' : ''}`}
-            onClick={() => setActiveTab('my_courses')}
+            onClick={() => { setActiveTab('my_courses'); setSelectedCreatorDept(null); }}
           >
-            My Created Courses
+            {isAdmin ? 'All Courses' : 'My Created Courses'}
           </button>
-
-          <button 
-            className={`sidebar-tab-btn ${activeTab === 'auditing' ? 'active' : ''}`}
-            onClick={() => setActiveTab('auditing')}
-          >
-            Studio Analytics
-          </button>
-
-          {isAdmin && (
-            <button 
-              className={`sidebar-tab-btn ${activeTab === 'departments' ? 'active' : ''}`}
-              onClick={() => setActiveTab('departments')}
-            >
-              🏢 Departments
-            </button>
-          )}
         </div>
       )}
 
@@ -694,102 +621,221 @@ export const CreatorDashboard: React.FC = () => {
                 {myCreatedCourses.filter(c => c.status === 'Pending').length}
               </div>
             </div>
-            <div className={`stat-card ${statusFilter === 'Approved' ? 'active-filter' : ''}`} onClick={() => setStatusFilter('Approved')} style={{ cursor: 'pointer' }}>
-              <div className="stat-card-title">Approved</div>
-              <div className="stat-card-value" style={{ color: 'var(--neon-teal)' }}>
-                {myCreatedCourses.filter(c => c.status === 'Approved').length}
-              </div>
-            </div>
-            <div className={`stat-card ${statusFilter === 'Rejected' ? 'active-filter' : ''}`} onClick={() => setStatusFilter('Rejected')} style={{ cursor: 'pointer' }}>
-              <div className="stat-card-title">Rejected</div>
-              <div className="stat-card-value" style={{ color: 'var(--neon-coral)' }}>
-                {myCreatedCourses.filter(c => c.status === 'Rejected').length}
-              </div>
-            </div>
           </div>
 
-          {/* Grid Canvas Header */}
-          <div className="course-grid-header">
-            <h2>{statusFilter} Courses</h2>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Showing {filteredMyCourses.length} courses
-            </span>
-          </div>
+          {/* Admin Department Drill-down Cards View */}
+          {isAdmin && !selectedCreatorDept ? (
+            <div>
+              <div className="course-grid-header" style={{ marginBottom: '20px' }}>
+                <div>
+                  <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Course Catalog by Department</h2>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                    Select a department card to view and manage its active course pathways.
+                  </p>
+                </div>
+              </div>
 
-          {/* Grid Canvas Body */}
-          {filteredMyCourses.length === 0 ? (
-            <div className="empty-state-banner">
-              <BookOpen size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
-              <h3>No Courses Found</h3>
-              <p>Try changing filters or click "Create New Course" to add a pathway syllabus.</p>
-            </div>
-          ) : (
-            <div className="creator-course-grid">
-              {filteredMyCourses.map((course) => (
-                <div 
-                  key={course.id} 
-                  className={`creator-course-card glass-panel status-${course.status.toLowerCase()} ${course.status === 'Rejected' ? 'card-rejected-border' : ''}`}
-                  onClick={() => navigate(`/creator/course/${course.id}`)}
-                  style={{ cursor: 'pointer' }}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
+                {/* Special Card for All Courses */}
+                <div
+                  className="glass-panel"
+                  onClick={() => setSelectedCreatorDept({ id: 'ALL', name: 'All Departments', code: 'ALL' } as any)}
+                  style={{
+                    padding: '24px',
+                    borderRadius: 'var(--border-radius-lg)',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--accent-color)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
                 >
-                  <div className="course-card-meta">
-                    <span className="course-badge-code">{course.course_code}</span>
-                    <span className={`course-badge-status status-${course.status.toLowerCase()}`}>
-                      {course.status}
-                    </span>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                      <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--accent-glow)', color: 'var(--accent-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <BookOpen size={24} />
+                      </div>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', background: 'var(--accent-glow)', color: 'var(--accent-color)' }}>
+                        ALL
+                      </span>
+                    </div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '0 0 8px 0', color: 'var(--text-primary)' }}>All Departments</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                      Global view of all courses created across every department.
+                    </p>
                   </div>
-                  
-                  <h3>{course.title}</h3>
-                  <p>{course.description}</p>
 
-                  {/* Rejection Alert notes */}
-                  {course.status === 'Rejected' && course.rejectionReason && (
-                    <div className="rejection-card-alert">
-                      <ShieldAlert size={14} className="rejection-alert-icon" />
-                      <span><strong>Rejection Feedback:</strong> {course.rejectionReason}</span>
-                    </div>
-                  )}
-                  
-                  <div className="course-card-footer">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span className="course-card-duration">
-                        <Clock size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-                        {course.duration}
-                      </span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                        Target: <strong>{course.departmentName}</strong>
-                      </span>
-                    </div>
-
-                    <Button
-                      variant={course.is_published ? "outline" : "primary"}
-                      size="sm"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        try {
-                          const res = await apiCall(`/api/courses/${course.id}`, {
-                            method: 'PUT',
-                            body: JSON.stringify({
-                              is_published: !course.is_published,
-                              status: 'approved'
-                            })
-                          });
-                          if (res.ok) {
-                            fetchDBCourses();
-                            triggerToast(course.is_published ? 'Course reverted to draft!' : 'Course published successfully!', 'success');
-                          }
-                        } catch (err) {
-                          console.error(err);
-                        }
-                      }}
-                      style={{ fontSize: '0.75rem', padding: '6px 12px' }}
-                    >
-                      {course.is_published ? 'Revert to Draft' : 'Publish'}
-                    </Button>
+                  <div style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--accent-color)' }}>
+                      {courses.length} Courses Total
+                    </span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent-color)' }}>View All &rarr;</span>
                   </div>
                 </div>
-              ))}
+
+                {departmentsList.map(d => {
+                  const deptCourseCount = courses.filter(c => {
+                    const targetCode = (d.code || '').toLowerCase();
+                    const targetName = (d.name || '').toLowerCase();
+                    const targetId = String(d.id || '');
+                    const cDeptName = (c.departmentName || '').toLowerCase();
+                    const cDeptId = String(c.department_id || '');
+                    return (cDeptId && targetId && cDeptId === targetId) || 
+                           cDeptName === targetName || 
+                           cDeptName === targetCode ||
+                           (targetName && cDeptName && (targetName.includes(cDeptName) || cDeptName.includes(targetName)));
+                  }).length;
+                  return (
+                    <div
+                      key={d.id}
+                      className="glass-panel"
+                      onClick={() => setSelectedCreatorDept(d)}
+                      style={{
+                        padding: '24px',
+                        borderRadius: 'var(--border-radius-lg)',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-color)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--accent-color)';
+                        e.currentTarget.style.transform = 'translateY(-4px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                          <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--accent-glow)', color: 'var(--accent-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <BookOpen size={24} />
+                          </div>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                            {d.code}
+                          </span>
+                        </div>
+                        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '0 0 8px 0', color: 'var(--text-primary)' }}>{d.name}</h3>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                          {d.description || 'Department course pathways.'}
+                        </p>
+                      </div>
+
+                      <div style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--accent-color)' }}>
+                          {deptCourseCount} {deptCourseCount === 1 ? 'Course' : 'Courses'}
+                        </span>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent-color)' }}>View Courses &rarr;</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+          ) : (
+            <>
+              {isAdmin && selectedCreatorDept && (
+                <div style={{ marginBottom: '20px' }}>
+                  <Button variant="outline" size="sm" onClick={() => setSelectedCreatorDept(null)} style={{ marginBottom: '16px' }}>
+                    &larr; Back to Departments
+                  </Button>
+                </div>
+              )}
+
+              {/* Grid Canvas Header */}
+              <div className="course-grid-header">
+                <h2>
+                  {selectedCreatorDept ? `${selectedCreatorDept.name} (${selectedCreatorDept.code})` : `${statusFilter} Courses`}
+                </h2>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Showing {filteredMyCourses.length} courses
+                </span>
+              </div>
+
+              {/* Grid Canvas Body */}
+              {filteredMyCourses.length === 0 ? (
+                <div className="empty-state-banner">
+                  <BookOpen size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+                  <h3>No Courses Found</h3>
+                  <p>Try changing filters or click "Create New Course" to add a course.</p>
+                </div>
+              ) : (
+                <div className="creator-course-grid">
+                  {filteredMyCourses.map((course) => (
+                    <div 
+                      key={course.id} 
+                      className={`creator-course-card glass-panel status-${course.status.toLowerCase()} ${course.status === 'Rejected' ? 'card-rejected-border' : ''}`}
+                      onClick={() => navigate(`/creator/course/${course.id}`)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="course-card-meta">
+                        <span className="course-badge-code">{course.course_code}</span>
+                        <span className={`course-badge-status status-${course.status.toLowerCase()}`}>
+                          {course.status}
+                        </span>
+                      </div>
+                      
+                      <h3>{course.title}</h3>
+                      <p>{course.description}</p>
+
+                      {/* Rejection Alert notes */}
+                      {course.status === 'Rejected' && course.rejectionReason && (
+                        <div className="rejection-card-alert">
+                          <ShieldAlert size={14} className="rejection-alert-icon" />
+                          <span><strong>Rejection Feedback:</strong> {course.rejectionReason}</span>
+                        </div>
+                      )}
+                      
+                      <div className="course-card-footer">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span className="course-card-duration">
+                            <Clock size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                            {course.duration}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                            Instructor: <strong>{course.creatorName}</strong> ({course.departmentName})
+                          </span>
+                        </div>
+
+                        <Button
+                          variant={course.is_published ? "outline" : "primary"}
+                          size="sm"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const res = await apiCall(`/api/courses/${course.id}`, {
+                                method: 'PUT',
+                                body: JSON.stringify({
+                                  is_published: !course.is_published,
+                                  status: 'approved'
+                                })
+                              });
+                              if (res.ok) {
+                                fetchDBCourses();
+                                triggerToast(course.is_published ? 'Course reverted to draft!' : 'Course published successfully!', 'success');
+                              }
+                            } catch (err) {
+                              console.error(err);
+                            }
+                          }}
+                          style={{ fontSize: '0.75rem', padding: '6px 12px' }}
+                        >
+                          {course.is_published ? 'Revert to Draft' : 'Publish'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </>
       )}
@@ -1077,42 +1123,39 @@ export const CreatorDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Slide-over Review Drawer Overlay */}
+      {/* Slide-over Course Details & Review Drawer */}
       {reviewCourse && (
-        <div className="modal-overlay review-overlay" onClick={() => setReviewCourse(null)}>
-          <div className="review-drawer-panel glass-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-header-row">
+        <div className="drawer-overlay" onClick={() => setReviewCourse(null)}>
+          <div className="drawer-container glass-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-header">
               <div>
-                <span className="code-tag">{reviewCourse.course_code}</span>
-                <h2>Course Review</h2>
+                <span className="course-code-badge">{reviewCourse.course_code}</span>
+                <h2>{reviewCourse.title}</h2>
               </div>
-              <button className="close-modal-btn" onClick={() => setReviewCourse(null)}>
-                <X size={24} />
+              <button className="close-drawer-btn" onClick={() => setReviewCourse(null)}>
+                <X size={20} />
               </button>
             </div>
 
-            <div className="drawer-scroll-body">
+            <div className="drawer-body">
               <section className="drawer-section">
-                <h3>General Information</h3>
-                <div className="info-grid-compact">
-                  <div>
-                    <label>Course Title</label>
-                    <p style={{ fontWeight: '600' }}>{reviewCourse.title}</p>
+                <h3>Course Metadata & Scope</h3>
+                <div className="metadata-grid">
+                  <div className="meta-item">
+                    <span>Department</span>
+                    <p>{reviewCourse.departmentName}</p>
                   </div>
-                  <div>
-                    <label>Creator Details</label>
+                  <div className="meta-item">
+                    <span>Submitted By</span>
                     <p>{reviewCourse.creatorName} ({reviewCourse.creatorRole})</p>
                   </div>
-                  <div>
-                    <label>Department Target</label>
-                    <p>{reviewCourse.departmentName} Department</p>
+                  <div className="meta-item">
+                    <span>Submission Date</span>
+                    <p>{reviewCourse.createdDate}</p>
                   </div>
-                  <div>
-                    <label>Priority / Length</label>
-                    <p>
-                      <span className={`course-badge-priority ${reviewCourse.priority.toLowerCase()}`} style={{ marginRight: '8px' }}>{reviewCourse.priority}</span>
-                      {reviewCourse.duration}
-                    </p>
+                  <div className="meta-item">
+                    <span>Estimated Duration</span>
+                    <p>{reviewCourse.duration}</p>
                   </div>
                 </div>
               </section>
@@ -1125,27 +1168,19 @@ export const CreatorDashboard: React.FC = () => {
               <section className="drawer-section">
                 <h3>Syllabus Curriculum Modules</h3>
                 <div className="simulated-syllabus-list">
-                  <div className="syllabus-sim-item">
-                    <span className="module-no">Module 1</span>
-                    <div>
-                      <h4>Core Foundations & Guidelines</h4>
-                      <p>Basic glossary, process parameters setup, and introduction timeline benchmarks.</p>
-                    </div>
-                  </div>
-                  <div className="syllabus-sim-item">
-                    <span className="module-no">Module 2</span>
-                    <div>
-                      <h4>Practical Workflow Applications</h4>
-                      <p>Hands-on sandbox exercise, common logging structures, and checklist audit reports.</p>
-                    </div>
-                  </div>
-                  <div className="syllabus-sim-item">
-                    <span className="module-no">Module 3</span>
-                    <div>
-                      <h4>Final Comprehensive MCQ Review</h4>
-                      <p>10 check questions evaluating student knowledge retention limits.</p>
-                    </div>
-                  </div>
+                  {reviewModules && reviewModules.length > 0 ? (
+                    reviewModules.map((mod: any, idx: number) => (
+                      <div key={mod.id || idx} className="syllabus-sim-item">
+                        <span className="module-no">Module {mod.sequence_no || idx + 1}</span>
+                        <div>
+                          <h4>{mod.title}</h4>
+                          <p>{mod.description || 'Module syllabus content section.'}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No modules added to this course syllabus yet.</p>
+                  )}
                 </div>
               </section>
             </div>
@@ -1347,52 +1382,91 @@ export const CreatorDashboard: React.FC = () => {
                 {/* Duration */}
                 <div className="form-group-spaced">
                   <label className="form-label-styled">
-                    Duration <span className="required-star">*</span>
+                    Course Duration <span className="required-star">*</span>
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
+
+                  {/* Date Range Helper Picker */}
+                  <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '8px' }}>
+                      📅 Auto-calculate from Start & End Date:
+                    </span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Start Date:</span>
+                        <input 
+                          type="date" 
+                          className="form-input-styled" 
+                          style={{ fontSize: '0.82rem', padding: '6px' }}
+                          onChange={(e) => {
+                            const start = new Date(e.target.value);
+                            const endInput = document.getElementById('duration-end-date') as HTMLInputElement;
+                            if (endInput && endInput.value) {
+                              const end = new Date(endInput.value);
+                              const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24));
+                              if (diffDays > 0) setDurationDays(diffDays);
+                            }
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>End Date:</span>
+                        <input 
+                          id="duration-end-date"
+                          type="date" 
+                          className="form-input-styled" 
+                          style={{ fontSize: '0.82rem', padding: '6px' }}
+                          onChange={(e) => {
+                            const end = new Date(e.target.value);
+                            const startInput = e.target.previousElementSibling?.previousElementSibling as HTMLInputElement;
+                            const startVal = (document.querySelector('input[type="date"]') as HTMLInputElement)?.value;
+                            if (startVal) {
+                              const start = new Date(startVal);
+                              const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24));
+                              if (diffDays > 0) setDurationDays(diffDays);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Structured Duration Inputs */}
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '6px' }}>
+                    Structured Duration Fields:
+                  </span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                     <div>
                       <input 
                         type="number" 
                         min="0"
-                        placeholder="d"
+                        placeholder="20"
                         className="form-input-styled" 
                         value={durationDays || ''}
                         onChange={(e) => setDurationDays(Math.max(0, parseInt(e.target.value) || 0))}
                       />
-                      <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Days</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Days</span>
                     </div>
                     <div>
                       <input 
                         type="number" 
                         min="0"
-                        placeholder="h"
+                        placeholder="0"
                         className="form-input-styled" 
                         value={durationHours || ''}
                         onChange={(e) => setDurationHours(Math.max(0, parseInt(e.target.value) || 0))}
                       />
-                      <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Hours</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Hours</span>
                     </div>
                     <div>
                       <input 
                         type="number" 
                         min="0"
-                        placeholder="m"
+                        placeholder="0"
                         className="form-input-styled" 
                         value={durationMinutes || ''}
                         onChange={(e) => setDurationMinutes(Math.max(0, parseInt(e.target.value) || 0))}
                       />
-                      <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Mins</span>
-                    </div>
-                    <div>
-                      <input 
-                        type="number" 
-                        min="0"
-                        placeholder="s"
-                        className="form-input-styled" 
-                        value={durationSeconds || ''}
-                        onChange={(e) => setDurationSeconds(Math.max(0, parseInt(e.target.value) || 0))}
-                      />
-                      <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Secs</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Minutes</span>
                     </div>
                   </div>
                   {errors.duration && (

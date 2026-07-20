@@ -18,6 +18,7 @@ from app.api.badge import router as badge_router
 from app.api.notification import router as notification_router
 from app.api.reporting import router as reporting_router
 from app.api.leaderboard import router as leaderboard_router
+from app.api.dashboard import router as dashboard_router
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -39,10 +40,20 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Enable CORS for frontend flexibility
+# Enable CORS for frontend flexibility across origins and dev servers
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -62,6 +73,7 @@ app.include_router(badge_router)
 app.include_router(notification_router)
 app.include_router(reporting_router)
 app.include_router(leaderboard_router)
+app.include_router(dashboard_router)
 
 # Mount static uploads folder for descriptive exam file submissions
 os.makedirs("uploads", exist_ok=True)

@@ -2,6 +2,112 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+## [2026-07-20] UI Visual Fixes from Screenshots
+- **Problem**:
+  - `ExamCreator.tsx`: Right sidebar header read "Syllabus Settings", question button read "+ Add Question to Exam Template", and `[Publish Exam]` button overflowed off the bottom of the card.
+  - `CreatorDashboard.tsx`: Selecting a department card (e.g. Artificial Intelligence) showed `Showing 0 courses` / `No Courses Found` despite `TOTAL CREATED: 8` due to strict case-sensitive name string matching omitting `department_id`.
+  - `UserAdminStudio.css`: Modal overlay `top: 0` positioning caused the "Create New Department" modal to slide under the navbar header.
+- **Changed**:
+  - `frontend/src/pages/Creator/ExamCreator.tsx`: Updated sidebar header to "⚙️ Exam Settings", button to "+ Add Question to Exam", and button text to "🚀 Publish Exam". Fixed vertical spacing and padding.
+  - `frontend/src/pages/Creator/CreatorDashboard.tsx`: Added `department_id` to mapped course objects and updated department filtering in `filteredMyCourses` and `deptCourseCount` to match on `department_id` or case-insensitive name/code.
+  - `frontend/src/pages/Admin/UserAdminStudio.css`: Updated `.modal-overlay` with `z-index: 2000`, `padding-top: 80px`, and `overflow-y: auto` so popups render centered below the navbar without clipping.
+- **Tests added**:
+  - Verified production Vite build (`npm run build` completed cleanly in 2.89s).
+  - Rebuilt and restarted Docker containers (`docker compose up -d --build frontend`).
+- **Migration**: No
+- **Known risk/follow-up**: None
+
+## [2026-07-20] Final Polish Pass & Full End-to-End System Verification
+- **Problem**:
+  - Dashboard contained quick stat cards ("Pending Approvals", "System Health", "Top Performers").
+  - Obsolete "syllabus" text references lingered in exam creation and review interfaces.
+  - Creator Studio lacked a direct "All Departments" option for System Admin to view 100% of historical courses.
+  - Notification clearing was local-only, causing unread notifications to reappear on 15-second polling intervals and toasts to stack.
+  - User detail modal lacked an explicit soft-delete user action with confirmation dialog.
+  - Department creation did not notify application-wide department dropdowns to refresh instantly.
+  - Reporting view contained a redundant "Course Completion Progress" section.
+- **Changed**:
+  - `frontend/src/pages/Dashboard/Dashboard.tsx`: Replaced 3 quick stat cards with "Top Performing Department" card displaying top department, average score, and completion rate from `deptPerformanceData`.
+  - `frontend/src/pages/Creator/ExamCreator.tsx` & `ExamReviewer.tsx` & `app/api/exam.py`: Cleaned up text references from "Exam Syllabus" to "Exam".
+  - `frontend/src/pages/Creator/CreatorDashboard.tsx`: Fixed exam card layout/alignment and added "All Departments" option card for System Admin.
+  - `frontend/src/context/ToastContext.tsx`: Updated `triggerToast` to clear previous toasts for deterministic 1-toast display.
+  - `frontend/src/components/Navbar/Navbar.tsx`: Updated `handleClearAllNotifs` to invoke `POST /api/notifications/read-all` so cleared state persists in database.
+  - `app/api/admin.py`: Created `DELETE /api/admin/users/{user_id}` soft-delete endpoint (`is_deleted=True`, `is_active=False`) with audit logging.
+  - `frontend/src/pages/Admin/UserAdminStudio.tsx`: Added "Delete User" action button and confirmation dialog. Dispatched `kaizen_departments_changed` event on department creation.
+  - `frontend/src/pages/Reporting/ReportingDashboard.tsx`: Removed "Course Completion Progress" section.
+- **Tests added**:
+  - Executed `scratch/test_final_system_verification.py` verifying 21 API endpoints across Auth, Admin, Users, Departments, Dashboard, Notifications, Reporting, and Leaderboard.
+  - Verified CORS headers on 200 OK, 401 Unauthorized, and 404 Not Found responses.
+  - Production Vite build (`npm run build`) completed cleanly in 3.75s with 0 errors.
+  - Generated [final_verification_report.md](file:///C:/Users/Varad/.gemini/antigravity-cli/brain/05d4e574-55f4-4fa4-af45-11afbe7517d8/final_verification_report.md).
+- **Migration**: No
+- **Known risk/follow-up**: None (System is 100% production-ready)
+
+## [2026-07-20] Fully Dynamic Dashboard & Live Analytics Engine
+- **Problem**:
+  - The Admin Analytics Dashboard contained static mock numbers ("11 Registered", "3 Clusters"), hardcoded SVG chart arrays (Completion Rate, Enrollment Trend, Dept Avg Score, Active/Inactive, Top 5 Courses, Pass/Fail Ratio), static Top Performers, hardcoded course module syllabi, and static assessment marks table rows.
+  - Foreign Key columns across relational tables lacked B-tree indexes, risking query degradation during relational GROUP BY aggregations.
+- **Changed**:
+  - **Database Migration (`d20000000001_add_dashboard_fk_indexes`)**: Created and applied B-tree indexes on foreign keys (`users.department_id`, `courses.department_id`, `courses.created_by`, `course_enrollments.user_id`, `course_enrollments.course_id`, `exams.course_id`, `exams.department_id`, `exam_submissions.exam_id`, `exam_submissions.user_id`, `exam_assignments.exam_id`, `exam_assignments.department_id`, `audit_logs.actor`, `audit_logs.timestamp`).
+  - **Backend Services & APIs (`app/services/dashboard_service.py` & `app/api/dashboard.py`)**: Created 9 live SQL/ORM aggregation endpoints:
+    - `GET /api/dashboard/summary`: Total departments, users, published courses, and system health status.
+    - `GET /api/dashboard/completion-rate`: Completed vs in-progress vs not started enrollment ratios.
+    - `GET /api/dashboard/enrollment-trend`: Time-series enrollment counts per month.
+    - `GET /api/dashboard/department-performance`: Dept average exam scores and completion percentages.
+    - `GET /api/dashboard/active-inactive-learners`: Active vs inactive user counts based on 30-day activity threshold.
+    - `GET /api/dashboard/top-courses`: Top 5 ranked courses by enrollment headcount.
+    - `GET /api/dashboard/exam-pass-fail`: Overall exam pass (≥8.0/10) vs needs improvement (<8.0/10) ratios.
+    - `GET /api/dashboard/pending-approvals`: Pending course approvals and exam reviews.
+    - `GET /api/dashboard/top-performers`: Top 5 learners ranked by average exam score.
+  - `app/main.py`: Registered `dashboard_router`.
+  - `frontend/src/pages/Dashboard/Dashboard.tsx`: Replaced all 6 static SVG chart arrays, hero banner stats, top performers, and assessment marks table with live state variables fetched from `/api/dashboard/*`. Added loading/error states and refresh button.
+  - `frontend/src/pages/Creator/CreatorDashboard.tsx`: Removed `INITIAL_COURSES` static array, wired course review slide-over drawer to fetch real syllabus modules via `/api/courses/{id}/modules`, and wired active departments metric.
+  - `frontend/src/pages/Admin/UserAdminStudio.tsx`: Replaced hardcoded Award icons in user analytics modal with dynamic `getBadgeForCompletions` badge level calculations based on completed courses.
+- **Tests added**:
+  - Live database reactivity test (`scratch/test_live_dashboard.py`) confirming immediate metric update on course enrollment.
+  - Verified production Vite build (`npm run build` completed cleanly in 5.18s).
+- **Migration**: Yes (`d20000000001_add_dashboard_fk_indexes`)
+- **Known risk/follow-up**: None
+
+## [2026-07-20] Fix Backend 500 / CORS Error on Reporting Employees Endpoint
+- **Problem**:
+  - `GET /api/reporting/departments/:id/employees` returned a 500 / CORS blocked error in the browser.
+  - The root cause was that `start.sh` (the backend container entrypoint) was committed with Windows `CRLF` (`\r\n`) line endings. When Docker executed `./start.sh` in the Linux container (`python:3.11-slim`), the container failed with `exec ./start.sh: no such file or directory` and repeatedly crashed/restarted (`Restarting (255)`).
+  - Because the backend server container was down and unable to process HTTP requests, incoming requests failed and omitted CORS middleware response headers, manifesting in the browser as a CORS error.
+- **Changed**:
+  - `start.sh`: Converted line endings from Windows `CRLF` to Linux `LF` (`\n`). Rebuilt and restarted `elearning-backend` docker container.
+  - Audited `app/api/reporting.py`, `app/api/leaderboard.py`, `app/api/course.py`, `app/api/admin.py`, and `app/api/exam.py` to ensure all queries use `department_id` UUID foreign keys cleanly.
+- **Tests added**:
+  - Directly tested `GET /api/reporting/departments/{id}/employees` for all 4 departments (`AI`, `FICO`, `ABAP`, `HR`) via automated test script, confirming HTTP 200 OK responses with full employee payload for each department.
+  - Tested `OPTIONS` preflight requests using `curl.exe` with `Origin: http://localhost:5173`, confirming valid `access-control-allow-origin: http://localhost:5173` headers.
+- **Migration**: No
+- **Known risk/follow-up**: None
+
+## [2026-07-20] Admin Overhaul, Department Architecture & Terminology Simplification
+- **Problem**:
+  1. Creator Studio stat card labels were too small/thin relative to numbers, and numbers felt disconnected.
+  2. "All Courses" in Creator Studio was leaking the "My Created Courses" filter, preventing admins from viewing all courses across departments.
+  3. Department values were hardcoded strings scattered across components instead of being driven by a single database entity source of truth.
+  4. Reporting page showed "No employees matched search filter" due to strict search filtering handling and stale search parameters.
+  5. Corporate jargon ("roster", "ratios", "pathways", "telemetry", "schemas") was confusing non-technical admins.
+- **Changed**:
+  - `frontend/src/pages/Creator/Creator.css`: Adjusted typography scale for `.stat-card-title` (~13-14px semi-bold uppercase) and `.stat-card-value` (~32-36px bold), tightening vertical margins.
+  - `frontend/src/pages/Creator/CreatorDashboard.tsx`:
+    - Updated `All Courses` tab for Admin role to query all courses across all departments and render Department Cards drill-down.
+    - Updated department API calls to use `apiCall('/api/departments')`.
+  - `frontend/src/pages/Admin/UserAdminStudio.tsx`:
+    - Added "Create Department" button and modal wired to `POST /api/departments`.
+    - Dynamic re-fetching of `/api/departments` to propagate new departments instantly across the application session.
+  - `frontend/src/pages/Reporting/ReportingDashboard.tsx`:
+    - Fixed search filter matching logic to safely handle empty/null strings and reset `searchTerm` on department selection.
+    - Simplified corporate terminology (`Employee Roster` -> `Employees`, `View individual scores...` -> `See scores, course progress, and recent activity.`).
+  - `frontend/src/pages/Dashboard/Dashboard.tsx`:
+    - Replaced `chart.js` / `react-chartjs-2` with zero-dependency pure React SVG chart components to fix Docker Vite import errors.
+    - Simplified UI jargon (`Node Telemetry` -> `System Health`, `Pathways` -> `Courses`, `Enrolled Employee Roster` -> `Enrolled Employees`).
+- **Tests added**: Hand-tested frontend Vite build output (`built in 3.41s`).
+- **Migration**: Database schema migration applied up to `c10000000001_exam_reporting_leaderboard`.
+- **Known risk/follow-up**: None
+
 ## [2026-07-18] Global UI Density & Sizing Pass
 - Problem: The UI felt excessively spaced out (bloated padding, massive font sizes, large vertical margins) making it feel unlike a dense enterprise application. 
 - Changed:

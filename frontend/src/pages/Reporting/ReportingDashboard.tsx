@@ -123,6 +123,7 @@ export const ReportingDashboard: React.FC = () => {
   const handleSelectDepartment = async (dept: DepartmentSummary) => {
     setSelectedDept(dept);
     setLevel(2);
+    setSearchTerm('');
     setLoading(true);
     try {
       const res = await apiCall(`/api/reporting/departments/${dept.id}/employees`);
@@ -162,12 +163,14 @@ export const ReportingDashboard: React.FC = () => {
     }
   };
 
-  // Filtering & Sorting Level 2 Roster
+  // Filtering & Sorting Level 2 Employees
   const filteredEmployees = deptEmployees.filter(emp => {
-    const fullName = `${emp.first_name} ${emp.last_name}`.toLowerCase();
-    const code = emp.employee_code.toLowerCase();
-    const search = searchTerm.toLowerCase();
-    return fullName.includes(search) || code.includes(search) || emp.email.toLowerCase().includes(search);
+    const search = searchTerm.trim().toLowerCase();
+    if (!search) return true;
+    const fullName = `${emp.first_name || ''} ${emp.last_name || ''}`.toLowerCase();
+    const code = (emp.employee_code || '').toLowerCase();
+    const email = (emp.email || '').toLowerCase();
+    return fullName.includes(search) || code.includes(search) || email.includes(search);
   });
 
   const sortedEmployees = [...filteredEmployees].sort((a, b) => {
@@ -333,7 +336,7 @@ export const ReportingDashboard: React.FC = () => {
                       </div>
 
                       <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px', color: 'var(--accent-color)', fontSize: '0.85rem', fontWeight: 700 }}>
-                        Drill Down to Roster <ArrowRight size={16} />
+                        View Employees <ArrowRight size={16} />
                       </div>
                     </div>
                   ))}
@@ -347,8 +350,8 @@ export const ReportingDashboard: React.FC = () => {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>👥 {selectedDept.name} — Employee Roster</h2>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>View individual scores, course completion ratios, and activity timestamps.</p>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>👥 {selectedDept.name} — Employees</h2>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>See scores, course progress, and recent activity.</p>
                 </div>
 
                 <div style={{ position: 'relative', width: '280px' }}>
@@ -499,41 +502,6 @@ export const ReportingDashboard: React.FC = () => {
               <div style={{ display: 'grid', gridTemplateColumns: selectedEmployee.score_trend.length >= 3 ? '1fr 340px' : '1fr', gap: '28px', alignItems: 'flex-start' }}>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-                  
-                  {/* Courses List */}
-                  <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: '0 0 16px 0', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-                      📚 Enrolled Courses Progress ({selectedEmployee.courses.length})
-                    </h3>
-
-                    {selectedEmployee.courses.length === 0 ? (
-                      <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>No courses enrolled yet.</p>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {selectedEmployee.courses.map(c => (
-                          <div key={c.enrollment_id} style={{ padding: '14px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                              <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                [{c.course_code}] {c.course_title}
-                              </h4>
-                              <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', background: c.status === 'completed' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(0, 242, 254, 0.1)', color: c.status === 'completed' ? '#10b981' : 'var(--accent-color)' }}>
-                                {c.status.toUpperCase()}
-                              </span>
-                            </div>
-
-                            {/* Progress bar */}
-                            <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ width: `${c.progress_percent}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-color), #3b82f6)', transition: 'width 0.4s ease' }} />
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
-                              <span>Progress: <strong>{c.progress_percent}%</strong></span>
-                              <span>Enrolled: {c.enrolled_at ? new Date(c.enrolled_at).toLocaleDateString() : 'N/A'}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
 
                   {/* Taken Exams & Reviewer Feedback */}
                   <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>

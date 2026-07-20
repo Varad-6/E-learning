@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Trophy, Medal, Award, Flame, Filter, Target, User, Building2, CheckCircle
+  Trophy, Medal, Award, Building2, ArrowLeft, ChevronRight, FileText, Clock, Calendar, Search, Users
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
@@ -15,82 +15,117 @@ interface RankingUser {
   department_name: string;
   exams_completed: number;
   score: number;
+  time_taken?: string;
+  date?: string;
 }
 
-interface CurrentUserRank {
-  rank: number | null;
-  total_participants: number;
-  score: number | null;
-  exams_completed: number;
-  min_required?: number;
-  department_name: string;
+interface DepartmentSummary {
+  id: string;
+  name: string;
+  code: string;
+  avg_score: number | null;
+  top_performer_name: string | null;
+  top_performer_score: number | null;
+  employee_count: number;
 }
 
-interface LeaderboardData {
-  scope: 'global' | 'department' | 'exam';
+interface ExamOption {
+  id: string;
+  title: string;
+}
+
+interface LeaderboardResponse {
+  scope: string;
   department_id: string | null;
   exam_id: string | null;
-  min_exams: number;
-  current_user_rank: CurrentUserRank | null;
   rankings: RankingUser[];
-  departments: { id: string; name: string; code: string }[];
-  exams: { id: string; title: string }[];
+  departments: DepartmentSummary[];
+  exams: ExamOption[];
 }
 
 export const Leaderboard: React.FC = () => {
   const navigate = useNavigate();
   const { triggerToast } = useToast();
 
-  const [scope, setScope] = useState<'global' | 'department' | 'exam'>('global');
-  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
+  // State for drill-down steps
+  // selectedDept: null -> Step 1 (Department Cards)
+  // selectedDept: Dept -> Step 2 (Select Exam)
+  // selectedExamId: set -> Step 3 (Table rendered)
+  const [departments, setDepartments] = useState<DepartmentSummary[]>([]);
+  const [selectedDept, setSelectedDept] = useState<DepartmentSummary | null>(null);
+  const [exams, setExams] = useState<ExamOption[]>([]);
   const [selectedExamId, setSelectedExamId] = useState<string>('');
-  const [minExamsThreshold, setMinExamsThreshold] = useState<number>(3);
-
+  
+  const [rankings, setRankings] = useState<RankingUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<LeaderboardData | null>(null);
+  const [tableLoading, setTableLoading] = useState(false);
 
-  const fetchLeaderboard = async () => {
+  // Initial fetch for Step 1
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  const fetchInitialData = async () => {
     try {
       setLoading(true);
-      let url = `/api/leaderboard?scope=${scope}&min_exams=${minExamsThreshold}`;
-      if (scope === 'department' && selectedDeptId) {
-        url += `&department_id=${selectedDeptId}`;
-      }
-      if (scope === 'exam' && selectedExamId) {
-        url += `&exam_id=${selectedExamId}`;
-      }
-
-      const res = await apiCall(url);
+      const res = await apiCall('/api/leaderboard?scope=global');
       if (res.ok) {
-        const resData: LeaderboardData = await res.json();
-        setData(resData);
-        if (scope === 'department' && !selectedDeptId && resData.department_id) {
-          setSelectedDeptId(resData.department_id);
-        }
-        if (scope === 'exam' && !selectedExamId && resData.exams.length > 0) {
-          setSelectedExamId(resData.exams[0].id);
-        }
+        const data: LeaderboardResponse = await res.json();
+        setDepartments(data.departments || []);
+        setExams(data.exams || []);
       } else {
-        const err = await res.json();
-        triggerToast(`Failed to load leaderboard: ${err.detail}`, 'error');
+        triggerToast('Failed to load department summaries.', 'error');
       }
     } catch (e) {
       console.error(e);
-      triggerToast('Error fetching leaderboard.', 'error');
+      triggerToast('Error fetching leaderboard service.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchLeaderboard();
-  }, [scope, selectedDeptId, selectedExamId, minExamsThreshold]);
+  // Fetch exam leaderboard when an exam is selected in Step 3
+  const handleSelectExam = async (examId: string) => {
+    setSelectedExamId(examId);
+    if (!examId) {
+      setRankings([]);
+      return;
+    }
+
+    try {
+      setTableLoading(true);
+      const res = await apiCall(`/api/leaderboard?scope=exam&exam_id=${examId}`);
+      if (res.ok) {
+        const data: LeaderboardResponse = await res.json();
+        setRankings(data.rankings || []);
+      } else {
+        triggerToast('Failed to load exam leaderboard rankings.', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      triggerToast('Error fetching exam leaderboard.', 'error');
+    } finally {
+      setTableLoading(false);
+    }
+  };
+
+  const handleSelectDeptCard = (dept: DepartmentSummary) => {
+    setSelectedDept(dept);
+    setSelectedExamId('');
+    setRankings([]);
+  };
+
+  const handleBackToDepartments = () => {
+    setSelectedDept(null);
+    setSelectedExamId('');
+    setRankings([]);
+  };
 
   const getRankBadge = (rank: number) => {
     if (rank === 1) {
       return (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', padding: '4px 10px', borderRadius: '12px', fontWeight: 800, fontSize: '0.82rem', boxShadow: '0 2px 10px rgba(245, 158, 11, 0.3)' }}>
-          <Trophy size={14} /> #1 Gold Topper
+          <Trophy size={14} /> #1 Gold
         </div>
       );
     }
@@ -115,155 +150,22 @@ export const Leaderboard: React.FC = () => {
     <div className="container animate-fade-in" style={{ marginTop: '36px', paddingBottom: '80px' }}>
       
       {/* Header Banner */}
-      <div className="glass-panel" style={{ padding: '28px', borderRadius: 'var(--border-radius-lg)', background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.05), rgba(59, 130, 246, 0.05))', border: '1px solid var(--border-color)', marginBottom: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+      <div className="glass-panel" style={{ padding: '28px', borderRadius: 'var(--border-radius-lg)', background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.05), rgba(59, 130, 246, 0.05))', border: '1px solid var(--border-color)', marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <Trophy size={28} style={{ color: '#f59e0b' }} />
-            <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0 }}>Company Leaderboard & Performance Ranking</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+            <Trophy size={32} style={{ color: '#f59e0b' }} />
+            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>Leaderboard & Exam Score Rankings</h1>
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
-            Recognizing excellence, top exam scores, and continuous learning across departments.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', margin: 0 }}>
+            Drill down into department metrics and select specific exams to inspect detailed learner scoreboards.
           </p>
         </div>
 
-        {/* Current User Highlight Card */}
-        {data?.current_user_rank && (
-          <div style={{ padding: '14px 20px', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--accent-color)', boxShadow: '0 4px 20px var(--accent-glow)' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--accent-color)', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>
-              🎯 Your Position Summary
-            </span>
-            {data.current_user_rank.rank ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--text-primary)' }}>
-                  Rank #{data.current_user_rank.rank}
-                </span>
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                  (Top score: <strong>{data.current_user_rank.score}/10</strong> in {data.current_user_rank.department_name})
-                </span>
-              </div>
-            ) : (
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                Exams Completed: <strong>{data.current_user_rank.exams_completed}</strong> / {data.current_user_rank.min_required || 3}
-                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--accent-color)', marginTop: '2px' }}>
-                  Complete {Math.max(0, (data.current_user_rank.min_required || 3) - data.current_user_rank.exams_completed)} more exam(s) to qualify for official rankings!
-                </span>
-              </div>
-            )}
-          </div>
+        {selectedDept && (
+          <Button variant="outline" onClick={handleBackToDepartments} leftIcon={<ArrowLeft size={16} />}>
+            Back to Departments
+          </Button>
         )}
-      </div>
-
-      {/* Selector Controls & Filters */}
-      <div className="glass-panel" style={{ padding: '16px 20px', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-        
-        {/* Scope Tabs */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            type="button"
-            onClick={() => setScope('global')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: scope === 'global' ? '1px solid var(--accent-color)' : '1px solid var(--border-color)',
-              background: scope === 'global' ? 'var(--accent-glow)' : 'transparent',
-              color: scope === 'global' ? 'var(--accent-color)' : 'var(--text-secondary)',
-              fontWeight: 700,
-              fontSize: '0.88rem',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            🌐 Company Global
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setScope('department')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: scope === 'department' ? '1px solid var(--accent-color)' : '1px solid var(--border-color)',
-              background: scope === 'department' ? 'var(--accent-glow)' : 'transparent',
-              color: scope === 'department' ? 'var(--accent-color)' : 'var(--text-secondary)',
-              fontWeight: 700,
-              fontSize: '0.88rem',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            🏛️ Department Level
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setScope('exam')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: scope === 'exam' ? '1px solid var(--accent-color)' : '1px solid var(--border-color)',
-              background: scope === 'exam' ? 'var(--accent-glow)' : 'transparent',
-              color: scope === 'exam' ? 'var(--accent-color)' : 'var(--text-secondary)',
-              fontWeight: 700,
-              fontSize: '0.88rem',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            📝 Specific Exam
-          </button>
-        </div>
-
-        {/* Dropdown Filters based on scope */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {scope === 'department' && data?.departments && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Department:</span>
-              <select 
-                className="form-input-styled" 
-                value={selectedDeptId}
-                onChange={(e) => setSelectedDeptId(e.target.value)}
-                style={{ height: '36px', padding: '4px 10px', fontSize: '0.85rem' }}
-              >
-                {data.departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {scope === 'exam' && data?.exams && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Exam:</span>
-              <select 
-                className="form-input-styled" 
-                value={selectedExamId}
-                onChange={(e) => setSelectedExamId(e.target.value)}
-                style={{ height: '36px', padding: '4px 10px', fontSize: '0.85rem', maxWidth: '260px' }}
-              >
-                {data.exams.map(e => (
-                  <option key={e.id} value={e.id}>{e.title}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {scope !== 'exam' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Min Exams:</span>
-              <select 
-                className="form-input-styled" 
-                value={minExamsThreshold}
-                onChange={(e) => setMinExamsThreshold(parseInt(e.target.value) || 1)}
-                style={{ height: '36px', width: '64px', padding: '4px', textAlign: 'center', fontSize: '0.85rem' }}
-              >
-                <option value="1">1+</option>
-                <option value="2">2+</option>
-                <option value="3">3+</option>
-                <option value="5">5+</option>
-              </select>
-            </div>
-          )}
-        </div>
       </div>
 
       {loading ? (
@@ -271,75 +173,182 @@ export const Leaderboard: React.FC = () => {
           <div className="animate-spin" style={{ width: '36px', height: '36px', border: '3px solid var(--accent-color)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
         </div>
       ) : (
-        <div>
-          {data?.rankings.length === 0 ? (
-            <div className="glass-panel" style={{ padding: '48px', textAlign: 'center', fontStyle: 'italic', color: 'var(--text-secondary)', borderRadius: 'var(--border-radius-lg)' }}>
-              <Target size={40} style={{ opacity: 0.3, marginBottom: '12px', color: 'var(--accent-color)' }} />
-              <p style={{ margin: 0, fontSize: '0.95rem' }}>No qualified participants found for this leaderboard criteria.</p>
-              <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem' }}>Employees must take and have graded exams to appear on leaderboard rankings.</p>
-            </div>
-          ) : (
-            <div className="glass-panel scroll-bar-styled" style={{ borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
-                    <th style={{ padding: '16px 20px', width: '140px', fontWeight: 800, color: 'var(--text-primary)' }}>Rank</th>
-                    <th style={{ padding: '16px 20px', fontWeight: 800, color: 'var(--text-primary)' }}>Learner Name</th>
-                    <th style={{ padding: '16px 20px', fontWeight: 800, color: 'var(--text-secondary)' }}>Department</th>
-                    <th style={{ padding: '16px 20px', fontWeight: 800, color: 'var(--text-secondary)' }}>Exams Completed</th>
-                    <th style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 800, color: 'var(--text-primary)' }}>Score / 10</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data?.rankings.map((user) => {
-                    const isTop3 = user.rank <= 3;
-                    return (
-                      <tr 
-                        key={user.user_id} 
-                        style={{ 
-                          borderBottom: '1px solid var(--border-color)', 
-                          background: isTop3 ? 'rgba(255,255,255,0.015)' : 'transparent',
-                          transition: 'background 0.2s ease'
-                        }}
-                        className="table-row-hover"
-                      >
-                        <td style={{ padding: '16px 20px' }}>
-                          {getRankBadge(user.rank)}
-                        </td>
+        <>
+          {/* STEP 1: Department Cards View */}
+          {!selectedDept && (
+            <div>
+              <div style={{ marginBottom: '20px' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Step 1: Select a Department</h2>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Click any department card to explore its assigned exams and participant scoreboards.</p>
+              </div>
 
-                        <td style={{ padding: '16px 20px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: isTop3 ? 'linear-gradient(135deg, var(--accent-color), #3b82f6)' : 'var(--bg-secondary)', color: isTop3 ? '#fff' : 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem' }}>
-                              {user.user_name.split(' ').map(n => n[0]).join('')}
-                            </div>
-                            <div>
-                              <strong style={{ color: 'var(--text-primary)', display: 'block' }}>{user.user_name}</strong>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{user.employee_code}</span>
-                            </div>
-                          </div>
-                        </td>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
+                {departments.map((dept) => (
+                  <div 
+                    key={dept.id} 
+                    className="glass-panel"
+                    onClick={() => handleSelectDeptCard(dept)}
+                    style={{ 
+                      padding: '24px', 
+                      borderRadius: 'var(--border-radius-lg)', 
+                      background: 'var(--bg-card)', 
+                      border: '1px solid var(--border-color)', 
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--accent-color)';
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-color)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                        <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--accent-glow)', color: 'var(--accent-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Building2 size={24} />
+                        </div>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                          {dept.code}
+                        </span>
+                      </div>
 
-                        <td style={{ padding: '16px 20px', color: 'var(--text-secondary)' }}>
-                          {user.department_name}
-                        </td>
+                      <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '0 0 12px 0', color: 'var(--text-primary)' }}>{dept.name}</h3>
 
-                        <td style={{ padding: '16px 20px', color: 'var(--text-secondary)' }}>
-                          <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{user.exams_completed}</span> exam(s)
-                        </td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                          <span>Members:</span>
+                          <strong style={{ color: 'var(--text-primary)' }}>{dept.employee_count} Learners</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                          <span>Avg Exam Score:</span>
+                          <strong style={{ color: dept.avg_score ? 'var(--accent-color)' : 'var(--text-muted)' }}>
+                            {dept.avg_score ? `${dept.avg_score} / 10` : 'No scores yet'}
+                          </strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                          <span>Top Performer:</span>
+                          <strong style={{ color: 'var(--text-primary)' }}>
+                            {dept.top_performer_name ? `${dept.top_performer_name} (${dept.top_performer_score})` : 'N/A'}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
 
-                        <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                          <span style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--accent-color)', padding: '4px 12px', borderRadius: '6px', background: 'var(--accent-glow)' }}>
-                            {user.score} / 10
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    <div style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent-color)' }}>View Department Leaderboard</span>
+                      <ChevronRight size={16} color="var(--accent-color)" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-        </div>
+
+          {/* STEP 2 & 3: Department Detail & Exam Leaderboard Table View */}
+          {selectedDept && (
+            <div className="animate-fade-in">
+              <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', marginBottom: '28px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                  <div>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--accent-color)', textTransform: 'uppercase' }}>Selected Department</span>
+                    <h2 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '4px 0 0 0' }}>{selectedDept.name} ({selectedDept.code})</h2>
+                  </div>
+
+                  {/* Step 2: Exam Selector */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <label style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>Select Exam:</label>
+                    <select
+                      className="form-input-styled"
+                      value={selectedExamId}
+                      onChange={(e) => handleSelectExam(e.target.value)}
+                      style={{ minWidth: '240px', padding: '8px 12px', fontSize: '0.9rem' }}
+                    >
+                      <option value="">-- Choose Exam --</option>
+                      {exams.map(ex => (
+                        <option key={ex.id} value={ex.id}>{ex.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 3: Table rendering */}
+              {!selectedExamId ? (
+                <div className="glass-panel" style={{ padding: '60px 20px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+                  <FileText size={48} style={{ opacity: 0.3, marginBottom: '16px', color: 'var(--accent-color)' }} />
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 8px 0' }}>No Exam Selected</h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>Please select an exam from the dropdown above to display the participant rankings table.</p>
+                </div>
+              ) : tableLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+                  <div className="animate-spin" style={{ width: '36px', height: '36px', border: '3px solid var(--accent-color)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
+                </div>
+              ) : rankings.length === 0 ? (
+                <div className="glass-panel" style={{ padding: '60px 20px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+                  <Users size={48} style={{ opacity: 0.3, marginBottom: '16px', color: 'var(--accent-color)' }} />
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 8px 0' }}>No Submissions Found</h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>There are no graded submissions yet for this exam.</p>
+                </div>
+              ) : (
+                <div className="glass-panel scroll-bar-styled" style={{ borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
+                        <th style={{ padding: '16px 20px', width: '120px', fontWeight: 800, color: 'var(--text-primary)' }}>Rank</th>
+                        <th style={{ padding: '16px 20px', fontWeight: 800, color: 'var(--text-primary)' }}>Name</th>
+                        <th style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 800, color: 'var(--text-primary)' }}>Score / 10</th>
+                        <th style={{ padding: '16px 20px', textAlign: 'center', fontWeight: 800, color: 'var(--text-secondary)' }}>Time Taken</th>
+                        <th style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 800, color: 'var(--text-secondary)' }}>Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rankings.map((user) => (
+                        <tr key={user.user_id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s ease' }} className="table-row-hover">
+                          <td style={{ padding: '16px 20px' }}>
+                            {getRankBadge(user.rank)}
+                          </td>
+                          <td style={{ padding: '16px 20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'var(--accent-glow)', color: 'var(--accent-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.85rem' }}>
+                                {user.user_name.split(' ').map(n => n[0]).join('')}
+                              </div>
+                              <div>
+                                <strong style={{ color: 'var(--text-primary)', display: 'block' }}>{user.user_name}</strong>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{user.employee_code}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                            <span style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--accent-color)', padding: '4px 12px', borderRadius: '6px', background: 'var(--accent-glow)' }}>
+                              {user.score} / 10
+                            </span>
+                          </td>
+                          <td style={{ padding: '16px 20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <Clock size={14} /> {user.time_taken || 'N/A'}
+                            </div>
+                          </td>
+                          <td style={{ padding: '16px 20px', textAlign: 'right', color: 'var(--text-secondary)' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <Calendar size={14} /> {user.date || 'N/A'}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

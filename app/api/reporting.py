@@ -154,13 +154,16 @@ def get_department_employees(
 
         last_enrollment = db.query(CourseEnrollment).filter(
             CourseEnrollment.user_id == emp.id
-        ).order_by(CourseEnrollment.last_accessed_at.desc()).first()
+        ).order_by(CourseEnrollment.enrolled_at.desc()).first()
 
         dates = []
         if last_submission and last_submission.submitted_at:
             dates.append(last_submission.submitted_at)
-        if last_enrollment and last_enrollment.last_accessed_at:
-            dates.append(last_enrollment.last_accessed_at)
+        if last_enrollment:
+            if last_enrollment.enrolled_at:
+                dates.append(last_enrollment.enrolled_at)
+            if last_enrollment.completed_at:
+                dates.append(last_enrollment.completed_at)
         if emp.created_at:
             dates.append(emp.created_at)
 

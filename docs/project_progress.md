@@ -14,6 +14,7 @@ This document traces the progress of the E-learning LMS backend development from
 | **Phase 3** | Service Layer Implementation | **Completed** | Phase 3 Services |
 | **Phase 4** | API Routes Layer | **Completed** | Phase 4 Routes |
 | **Phase 5** | Module & Content Management | **Completed** | Phase 5 Modules |
+| **Phase 6** | Admin Overhaul, Department Entity & Terminology Simplification | **Completed** | `c10000000001` |
 
 ---
 
@@ -249,6 +250,27 @@ Implement the complete module management and content layer of the LMS applicatio
 - Direct sequence mapping: Sequence fields (`sequence_no`) are returned directly in lists to enable seamless ordering on frontend screens.
 - Auto-progress linkage: Creating or completing content units immediately triggers recalculation of course completion status on progress tracking screens.
 - Embedded structure: `ModuleResponse` embeds nested `contents: List[ModuleContentResponse]` to prevent redundant API fetches on Module Detail and Viewer screens.
+
+#### Status
+**Completed**
+
+---
+
+### Phase 6: Admin Overhaul, Department Entity & Terminology Simplification
+
+#### Objective
+Refactor Department architecture to a single database source of truth (`departments` table), provide instant cross-session propagation for new departments, overhaul Creator Studio and Leaderboard drill-downs, fix Reporting search filters, and simplify site-wide corporate terminology.
+
+#### Key Updates
+- **Creator Studio**: Stat card typography scaled (`.stat-card-title` ~13-14px semi-bold, `.stat-card-value` ~32-36px bold). All Courses tab for Admin queries all courses across departments with Department Cards drill-down.
+- **Department Architecture**: Added "Create Department" modal in User Studio posting to `POST /api/departments` with live instant re-fetching.
+- **Reporting Bug Fix**: Fixed search filter logic in `ReportingDashboard.tsx` to handle empty search states safely and reset `searchTerm` on department drill-down.
+- **Terminology Simplification**: Replaced corporate jargon ("roster", "ratios", "telemetry", "schemas", "pathways") with clear, everyday phrasing site-wide.
+- **Dependency Optimization**: Replaced `chart.js` / `react-chartjs-2` with zero-dependency pure React SVG charts in `Dashboard.tsx` to resolve Docker Vite import errors.
+
+#### Database Migration
+- **Migration ID**: `c10000000001`
+- **Tables Modified/Created**: `departments`, `users.department_id` (FK), `courses.department_id` (FK), `exam_assignments`.
 
 #### Status
 **Completed**
