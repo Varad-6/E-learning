@@ -309,6 +309,26 @@ export const Navbar: React.FC = () => {
           )}
           {userEmail && (userRole === 'Admin' || userRole === 'Manager') && (
             <div 
+              onClick={() => navigate('/reporting')} 
+              className={`nav-link ${location.pathname.startsWith('/reporting') ? 'active' : ''}`} 
+              style={{ cursor: 'pointer' }}
+              role="button"
+            >
+              Reporting
+            </div>
+          )}
+          {userEmail && (
+            <div 
+              onClick={() => navigate('/leaderboard')} 
+              className={`nav-link ${location.pathname.startsWith('/leaderboard') ? 'active' : ''}`} 
+              style={{ cursor: 'pointer' }}
+              role="button"
+            >
+              Leaderboard
+            </div>
+          )}
+          {userEmail && (userRole === 'Admin' || userRole === 'Manager') && (
+            <div 
               onClick={() => navigate('/view-courses')} 
               className={`nav-link ${location.pathname === '/view-courses' ? 'active' : ''}`} 
               style={{ cursor: 'pointer' }}

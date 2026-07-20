@@ -9,7 +9,7 @@ import uuid
 
 from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
-from app.models.exam import Exam, ExamQuestion, ExamSubmission, ExamGrade, ExamReview
+from app.models.exam import Exam, ExamAssignment, ExamQuestion, ExamSubmission, ExamGrade, ExamReview
 from app.models.course import Course
 from app.models.department import Department
 from app.models.role import Role
@@ -36,22 +36,26 @@ def create_exam(
     db: Session = Depends(get_db)
 ):
     # Ensure current user is Admin or Manager (Course Admin)
-    # Check roles
     user_roles = [r.name for r in current_user.roles]
     if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         raise HTTPException(
-            status_code=status.HTTP_430_FORBIDDEN if hasattr(status, 'HTTP_430_FORBIDDEN') else 403,
+            status_code=403,
             detail="Only Admins or Course Managers can create exams."
         )
 
-    # Validate Course & Department exist
+    # Validate Course exists
     course = db.query(Course).filter(Course.id == exam_in.course_id).first()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    dept = db.query(Department).filter(Department.id == exam_in.department_id).first()
-    if not dept:
-        raise HTTPException(status_code=404, detail="Department not found")
+    # If department_id is provided, validate Department exists
+    if exam_in.department_id:
+        dept = db.query(Department).filter(Department.id == exam_in.department_id).first()
+        if not dept:
+            raise HTTPException(status_code=404, detail="Department not found")
+    elif "SYSTEM_ADMIN" not in user_roles:
+        # Managers must create exams for their own department
+        exam_in.department_id = current_user.department_id
 
     # Create Exam starting as unpublished pending approval
     new_exam = Exam(
@@ -65,6 +69,15 @@ def create_exam(
     )
     db.add(new_exam)
     db.flush()  # Get ID
+
+    # Create corresponding ExamAssignment record (relational link for department targeting)
+    # Retroactive inclusion rule: All employees currently in target department (or all departments if NULL)
+    # automatically receive this exam when active.
+    assignment = ExamAssignment(
+        exam_id=new_exam.id,
+        department_id=new_exam.department_id
+    )
+    db.add(assignment)
 
     # Create corresponding ExamReview record
     new_review = ExamReview(
@@ -97,13 +110,11 @@ def get_assigned_exams(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Retrieve all published exams corresponding to the user's department
-    if not current_user.department_id:
-        return []
-
+    # Retrieve all published exams corresponding to the user's department or all-departments exams
+    # This automatically includes new employees added to the department retroactively.
     published_exams = db.query(Exam).filter(
-        Exam.department_id == current_user.department_id,
-        Exam.is_published == True
+        Exam.is_published == True,
+        (Exam.department_id == current_user.department_id) | (Exam.department_id == None)
     ).all()
 
     response_list = []
@@ -126,6 +137,15 @@ def get_assigned_exams(
             db.commit()
             db.refresh(sub)
 
+        # Load grade information if graded
+        overall_score = None
+        overall_feedback = None
+        scores_dict = None
+        if sub.status == "graded" and sub.grade:
+            overall_score = sub.grade.overall_score
+            overall_feedback = sub.grade.overall_feedback
+            scores_dict = sub.grade.scores
+
         # Map to response schema
         response_list.append(
             ExamSubmissionResponse(
@@ -136,7 +156,10 @@ def get_assigned_exams(
                 started_at=sub.started_at,
                 submitted_at=sub.submitted_at,
                 answers=sub.answers or {},
-                exam_title=exam.title
+                exam_title=exam.title,
+                overall_score=overall_score,
+                overall_feedback=overall_feedback,
+                scores=scores_dict
             )
         )
 
@@ -254,21 +277,16 @@ def submit_exam(
         related_entity_id=sub.exam_id
     )
     
-    # Manager notification
-    if sub.exam.department_id:
-        managers = db.query(User).join(User.roles).filter(
-            User.department_id == sub.exam.department_id,
-            Role.name == "COURSE_MANAGER"
-        ).all()
-        for mgr in managers:
-            NotificationService.create_notification(
-                db,
-                user_id=mgr.id,
-                type="exam_submission_pending",
-                title="New Student Exam Submitted",
-                message=f"An employee ({current_user.first_name} {current_user.last_name}) has submitted answers for descriptive exam: '{sub.exam.title}'.",
-                related_entity_id=sub.id
-            )
+    # Reviewer notification (Creator of the exam)
+    if sub.exam.created_by:
+        NotificationService.create_notification(
+            db,
+            user_id=sub.exam.created_by,
+            type="exam_submission_pending",
+            title="New Student Exam Submitted",
+            message=f"An employee ({current_user.first_name} {current_user.last_name}) has submitted answers for descriptive exam: '{sub.exam.title}'.",
+            related_entity_id=sub.id
+        )
 
     return ExamSubmissionResponse(
         id=sub.id,
@@ -341,20 +359,30 @@ def get_submissions(
     if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         raise HTTPException(status_code=403, detail="Unauthorized role access.")
 
-    # Get submissions in submitted or graded state scoped to department/role
-    query = db.query(ExamSubmission).filter(
+    # Get submissions in submitted or graded state
+    query = db.query(ExamSubmission).join(Exam, ExamSubmission.exam_id == Exam.id).filter(
         ExamSubmission.status.in_(["submitted", "graded"])
     )
-    if "SYSTEM_ADMIN" not in user_roles:
-        query = query.join(User, ExamSubmission.user_id == User.id).filter(
-            User.department_id == current_user.department_id
-        )
+
+    # CRITICAL BUSINESS RULE B: Submission Routing — Manager vs Admin Reviewer Logic
+    # 1. If Manager created exam -> routes to Manager's review queue only.
+    # 2. If Admin created exam -> routes to Admin's review queue only (never to Manager).
+    if "SYSTEM_ADMIN" in user_roles:
+        admin_user_ids = [u.id for u in db.query(User.id).join(User.roles).filter(Role.name == "SYSTEM_ADMIN").all()]
+        query = query.filter(Exam.created_by.in_(admin_user_ids))
+    else:
+        # Manager sees ONLY submissions for exams created by themselves
+        query = query.filter(Exam.created_by == current_user.id)
+
     subs = query.all()
 
     res = []
     for s in subs:
-        # Load user and department names
-        dept_name = s.user.department.name if s.user.department else "General"
+        dept_name = s.user.department.name if s.user and s.user.department else "General"
+        overall_score = s.grade.overall_score if s.grade else None
+        overall_feedback = s.grade.overall_feedback if s.grade else None
+        scores_dict = s.grade.scores if s.grade else None
+
         res.append(
             ExamSubmissionResponse(
                 id=s.id,
@@ -364,10 +392,13 @@ def get_submissions(
                 started_at=s.started_at,
                 submitted_at=s.submitted_at,
                 answers=s.answers or {},
-                user_name=f"{s.user.first_name} {s.user.last_name}",
-                user_email=s.user.email,
+                user_name=f"{s.user.first_name} {s.user.last_name}" if s.user else "Learner",
+                user_email=s.user.email if s.user else "",
                 department_name=dept_name,
-                exam_title=s.exam.title
+                exam_title=s.exam.title if s.exam else "Untitled Exam",
+                overall_score=overall_score,
+                overall_feedback=overall_feedback,
+                scores=scores_dict
             )
         )
     return res
@@ -397,18 +428,25 @@ def grade_submission(
         if score < 0 or score > 10:
             raise HTTPException(status_code=400, detail="Each question score must be strictly between 0 and 10.")
 
+    # Calculate overall average score (0-10)
+    scores_list = list(grade_in.scores.values())
+    calculated_avg = sum(scores_list) / max(len(scores_list), 1) if scores_list else 0.0
+    overall_score = round(float(calculated_avg), 2)
+
     # Set or update grade
     grade = db.query(ExamGrade).filter(ExamGrade.submission_id == submission_id).first()
     if not grade:
         grade = ExamGrade(
             submission_id=submission_id,
             scores=grade_in.scores,
+            overall_score=overall_score,
             overall_feedback=grade_in.overall_feedback,
             graded_by=current_user.id
         )
         db.add(grade)
     else:
         grade.scores = grade_in.scores
+        grade.overall_score = overall_score
         grade.overall_feedback = grade_in.overall_feedback
         grade.graded_by = current_user.id
         grade.graded_at = datetime.datetime.now(datetime.timezone.utc)
@@ -424,7 +462,7 @@ def grade_submission(
         user_id=sub.user_id,
         type="exam_graded",
         title="Exam Results Available! 📝",
-        message=f"Your descriptive exam answers for '{sub.exam.title}' have been graded.",
+        message=f"Your descriptive exam answers for '{sub.exam.title if sub.exam else 'Exam'}' have been graded. Score: {overall_score}/10.",
         related_entity_id=sub.exam_id
     )
 

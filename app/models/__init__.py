@@ -15,7 +15,7 @@ from app.models.quiz_question import QuizQuestion
 from app.models.quiz_attempt import QuizAttempt
 from app.models.course_approval import CourseApproval
 from app.models.user_module_note import UserModuleNote
-from app.models.exam import Exam, ExamQuestion, ExamSubmission, ExamGrade, ExamReview
+from app.models.exam import Exam, ExamAssignment, ExamQuestion, ExamSubmission, ExamGrade, ExamReview
 from app.models.audit_log import AuditLog
 from app.models.user_badge import UserBadge
 from app.models.notification import Notification
@@ -39,6 +39,7 @@ __all__ = [
     "CourseApproval",
     "UserModuleNote",
     "Exam",
+    "ExamAssignment",
     "ExamQuestion",
     "ExamSubmission",
     "ExamGrade",

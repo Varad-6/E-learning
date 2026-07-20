@@ -97,10 +97,11 @@ export const ExamCreator: React.FC = () => {
 
     setLoading(true);
     try {
+      const targetDeptId = selectedDepartment === 'all' || !selectedDepartment ? null : selectedDepartment;
       const payload = {
         title: examTitle.trim(),
         course_id: selectedCourse,
-        department_id: selectedDepartment,
+        department_id: targetDeptId,
         duration_minutes: duration,
         is_published: true,
         questions: questions
@@ -242,6 +243,7 @@ export const ExamCreator: React.FC = () => {
                 value={selectedDepartment} 
                 onChange={(e) => setSelectedDepartment(e.target.value)}
               >
+                <option value="all">🌟 All Departments (Company-wide)</option>
                 {departments.map(d => (
                   <option key={d.id} value={d.id}>{d.name} Team</option>
                 ))}

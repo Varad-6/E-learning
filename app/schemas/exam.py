@@ -20,7 +20,7 @@ class ExamQuestionResponse(ExamQuestionBase):
 class ExamBase(BaseModel):
     title: str
     course_id: UUID
-    department_id: UUID
+    department_id: Optional[UUID] = None  # None = All Departments (Admin scope)
     duration_minutes: int = 60
     is_published: bool = False
     status: str = "draft"
@@ -40,6 +40,22 @@ class ExamResponse(ExamBase):
 class ExamSubmissionCreate(BaseModel):
     answers: Dict[str, str]  # maps question_id to text response
 
+class ExamGradeCreate(BaseModel):
+    scores: Dict[str, int]  # maps question_id to score 0-10
+    overall_feedback: Optional[str] = None
+
+class ExamGradeResponse(BaseModel):
+    id: UUID
+    submission_id: UUID
+    scores: Dict[str, int]
+    overall_score: Optional[float] = None
+    overall_feedback: Optional[str] = None
+    graded_by: Optional[UUID] = None
+    graded_at: datetime
+
+    class Config:
+        from_attributes = True
+
 class ExamSubmissionResponse(BaseModel):
     id: UUID
     exam_id: UUID
@@ -52,21 +68,9 @@ class ExamSubmissionResponse(BaseModel):
     user_email: Optional[str] = None
     department_name: Optional[str] = None
     exam_title: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-class ExamGradeCreate(BaseModel):
-    scores: Dict[str, int]  # maps question_id to score 0-10
+    overall_score: Optional[float] = None
     overall_feedback: Optional[str] = None
-
-class ExamGradeResponse(BaseModel):
-    id: UUID
-    submission_id: UUID
-    scores: Dict[str, int]
-    overall_feedback: Optional[str] = None
-    graded_by: Optional[UUID] = None
-    graded_at: datetime
+    scores: Optional[Dict[str, int]] = None
 
     class Config:
         from_attributes = True
@@ -77,7 +81,7 @@ class ExamReviewResponse(BaseModel):
     submitted_by: Optional[UUID] = None
     status: str
     reviewer_id: Optional[UUID] = None
-    department_id: UUID
+    department_id: Optional[UUID] = None
     rejection_reason: Optional[str] = None
     submitted_at: datetime
     reviewed_at: Optional[datetime] = None

@@ -16,6 +16,8 @@ import { CoursePlayer } from './pages/CoursePlayer/CoursePlayer';
 import { ExamCreator } from './pages/Creator/ExamCreator';
 import { ExamsCenter } from './pages/Exams/ExamsCenter';
 import { ExamReviewer } from './pages/Creator/ExamReviewer';
+import { ReportingDashboard } from './pages/Reporting/ReportingDashboard';
+import { Leaderboard } from './pages/Leaderboard/Leaderboard';
 import './styles/index.css';
 
 const AppContent: React.FC = () => {
@@ -40,6 +42,8 @@ const AppContent: React.FC = () => {
           <Route path="/creator/exams/create" element={<ExamCreator />} />
           <Route path="/creator/exams/review" element={<ExamReviewer />} />
           <Route path="/exams" element={<ExamsCenter />} />
+          <Route path="/reporting" element={<ReportingDashboard />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
         </Routes>
       </main>
       {!isAuthPage && !isPlayerPage && <Footer />}
