@@ -31,16 +31,18 @@
 /* Primary Button — Lightspeak Seafoam Emerald Teal */
 .btn-primary {
   background-color: var(--accent-color);
-  color: var(--btn-primary-text, #ffffff);
+  color: var(--btn-primary-text, #0c0c0c);
+  font-weight: 700;
   border: 1px solid var(--accent-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 14px rgba(187, 230, 99, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
   background-color: var(--accent-hover);
   border-color: var(--accent-hover);
+  color: var(--btn-primary-text, #0c0c0c);
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 20px rgba(187, 230, 99, 0.3);
 }
 
 .btn-primary:active:not(:disabled) {

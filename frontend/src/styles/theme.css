@@ -11,54 +11,58 @@
 
 :root,
 [data-theme="dark"] {
-  --bg-main: #0b0f19;
-  --bg-gradient: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 45%),
-                  radial-gradient(at 100% 0%, rgba(30, 41, 59, 0.5) 0%, transparent 55%),
-                  radial-gradient(at 50% 100%, rgba(15, 23, 42, 0.95) 0%, transparent 70%),
-                  #0b0f19;
+  --bg-main: #0c0c0c;
+  --bg-gradient: radial-gradient(at 0% 0%, rgba(15, 45, 25, 0.4) 0%, transparent 55%),
+                  radial-gradient(at 100% 0%, rgba(45, 45, 45, 0.35) 0%, transparent 50%),
+                  radial-gradient(at 50% 100%, rgba(12, 12, 12, 0.95) 0%, transparent 70%),
+                  #0c0c0c;
 
-  --bg-card: rgba(17, 24, 39, 0.85);
-  --bg-card-hover: rgba(30, 41, 59, 0.9);
-  --border-color: rgba(255, 255, 255, 0.1);
-  --login-left-bg: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(15, 23, 42, 0.95) 100%);
+  --bg-card: #191919;
+  --bg-card-hover: #2d2d2d;
+  --border-color: #2d2d2d;
+  --login-left-bg: linear-gradient(135deg, #0f2d19 0%, #0c0c0c 100%);
 
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-accent-bright: #818cf8; /* Ultra readable Indigo-blue text for tags & active states */
+  --text-primary: #ffffff;
+  --text-secondary: #9c9c9c;
+  --text-accent-bright: #bbe663; /* Lime Mist for text on dark panels */
 
-  /* Gold-Standard Dark Mode Accent — Indigo Blue */
-  --accent-color: #6366f1;
-  --accent-hover: #4f46e5;
-  --accent-glow: rgba(99, 102, 241, 0.16);
-  --glow-color: rgba(99, 102, 241, 0.22);
-  --btn-primary-text: #ffffff;
+  /* Primary Brand Accent — Lime Mist (#BBE663) */
+  --accent-color: #bbe663;
+  --accent-hover: #a3d944;
+  --accent-glow: rgba(187, 230, 99, 0.15);
+  --glow-color: rgba(187, 230, 99, 0.22);
+  --btn-primary-text: #0c0c0c;   /* Ultra crisp dark text on Lime Mist primary buttons */
 
-  --color-primary-50: rgba(99, 102, 241, 0.08);
-  --color-primary-100: rgba(99, 102, 241, 0.15);
-  --color-primary-200: #818cf8;
-  --color-primary-500: #6366f1;
-  --color-primary-600: #4f46e5;
-  --color-slate-800: #1e293b;
-  --color-slate-900: #0f172a;
-  --color-slate-600: #94a3b8;
+  /* Deep Fern Accent — Midnight Fern (#0F2D19) */
+  --bg-fern: #0f2d19;
+  --border-fern: rgba(187, 230, 99, 0.25);
+
+  --color-primary-50: rgba(187, 230, 99, 0.08);
+  --color-primary-100: rgba(187, 230, 99, 0.15);
+  --color-primary-200: #bbe663;
+  --color-primary-500: #bbe663;
+  --color-primary-600: #a3d944;
+  --color-slate-800: #2d2d2d;
+  --color-slate-900: #191919;
+  --color-slate-600: #9c9c9c;
   --color-slate-500: #64748b;
-  --color-slate-200: rgba(255, 255, 255, 0.15);
+  --color-slate-200: #2d2d2d;
 
   /* Status Tokens */
-  --neon-teal: #38bdf8;
-  --neon-teal-glow: rgba(56, 189, 248, 0.15);
-  --neon-coral: #f87171;
-  --neon-coral-glow: rgba(248, 113, 113, 0.14);
+  --neon-teal: #bbe663;
+  --neon-teal-glow: rgba(187, 230, 99, 0.15);
+  --neon-coral: #ff4d4d;
+  --neon-coral-glow: rgba(255, 77, 77, 0.15);
 
-  --font-title: 'Outfit', 'Inter', sans-serif;
+  --font-title: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   --transition-smooth: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  --glass-bg: rgba(15, 23, 42, 0.8);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(25, 25, 25, 0.85);
+  --glass-border: #2d2d2d;
   --glass-blur: blur(16px);
-  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.05);
-  --shadow-glow: 0 4px 16px rgba(99, 102, 241, 0.18);
+  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+  --shadow-glow: 0 4px 20px rgba(187, 230, 99, 0.18);
 
   --border-radius-sm: 8px;
   --border-radius-md: 12px;
@@ -67,45 +71,45 @@
 
 [data-theme="light"] {
   --bg-main: #fafbfe;
-  --bg-gradient: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.06) 0%, transparent 60%),
-                  radial-gradient(at 100% 0%, rgba(224, 231, 255, 0.3) 0%, transparent 50%),
+  --bg-gradient: radial-gradient(at 0% 0%, rgba(187, 230, 99, 0.12) 0%, transparent 60%),
+                  radial-gradient(at 100% 0%, rgba(213, 240, 229, 0.3) 0%, transparent 50%),
                   radial-gradient(at 50% 100%, rgba(248, 250, 252, 0.8) 0%, transparent 60%),
                   #fafbfe;
 
   --bg-card: #ffffff;
   --bg-card-hover: #f8fafc;
   --border-color: #cbd5e1;
-  --login-left-bg: linear-gradient(135deg, #eef2ff 0%, #fafbfe 100%);
+  --login-left-bg: linear-gradient(135deg, #f0faf6 0%, #fafbfe 100%);
 
   --text-primary: #0f172a;
   --text-secondary: #475569;
-  --text-accent-bright: #4338ca;
+  --text-accent-bright: #15803d;
 
-  --accent-color: #4f46e5;
-  --accent-hover: #4338ca;
-  --accent-glow: rgba(79, 70, 229, 0.12);
-  --glow-color: rgba(79, 70, 229, 0.18);
+  --accent-color: #16a34a;
+  --accent-hover: #15803d;
+  --accent-glow: rgba(22, 163, 74, 0.15);
+  --glow-color: rgba(22, 163, 74, 0.2);
   --btn-primary-text: #ffffff;
 
-  --color-primary-50: #eef2ff;
-  --color-primary-100: #e0e7ff;
-  --color-primary-200: #c7d2fe;
-  --color-primary-500: #6366f1;
-  --color-primary-600: #4f46e5;
+  --color-primary-50: #f0fdf4;
+  --color-primary-100: #dcfce7;
+  --color-primary-200: #bbf7d0;
+  --color-primary-500: #16a34a;
+  --color-primary-600: #15803d;
   --color-slate-800: #1e293b;
   --color-slate-900: #0f172a;
   --color-slate-600: #475569;
   --color-slate-500: #64748b;
   --color-slate-200: #cbd5e1;
 
-  --neon-teal: #0284c7;
-  --neon-teal-glow: rgba(2, 132, 199, 0.15);
+  --neon-teal: #16a34a;
+  --neon-teal-glow: rgba(22, 163, 74, 0.15);
   --neon-coral: #ef4444;
   --neon-coral-glow: rgba(239, 68, 68, 0.14);
 
   --glass-bg: rgba(255, 255, 255, 0.9);
   --glass-border: #cbd5e1;
   --shadow-premium: 0 4px 16px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
-  --shadow-glow: 0 4px 14px rgba(79, 70, 229, 0.18);
+  --shadow-glow: 0 4px 14px rgba(22, 163, 74, 0.18);
 }
 

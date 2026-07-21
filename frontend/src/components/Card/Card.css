@@ -42,9 +42,10 @@
 }
 
 .tag-beginner {
-  background-color: var(--accent-glow);
-  color: var(--text-accent-bright);
-  border: 1px solid var(--border-color);
+  background-color: var(--bg-fern, #0f2d19);
+  color: var(--text-accent-bright, #bbe663);
+  border: 1px solid var(--border-fern, rgba(187, 230, 99, 0.25));
+  font-weight: 600;
 }
 
 .tag-intermediate {
