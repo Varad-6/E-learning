@@ -42,9 +42,9 @@
 }
 
 .tag-beginner {
-  background-color: #f0faf6;
-  color: #2f8a6a;
-  border: 1px solid #d5f0e5;
+  background-color: var(--accent-glow);
+  color: var(--text-accent-bright);
+  border: 1px solid var(--border-color);
 }
 
 .tag-intermediate {
