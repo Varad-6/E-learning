@@ -17,10 +17,7 @@ html, body, #root {
   width: 100%;
   min-height: 100vh;
   background-color: var(--bg-main);
-  background-image: 
-    radial-gradient(at 0% 0%,   rgba(62, 163, 128, 0.05) 0, transparent 60%),
-    radial-gradient(at 100% 0%,  rgba(213, 240, 229, 0.25) 0, transparent 50%),
-    radial-gradient(at 50% 100%, rgba(248, 250, 252, 0.8) 0, transparent 60%);
+  background-image: var(--bg-gradient);
   background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-body);

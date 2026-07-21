@@ -46,7 +46,7 @@
 
 /* Left Branding Column */
 .login-left-pane {
-  background: linear-gradient(135deg, #f0faf6 0%, #fafbfe 100%);
+  background: var(--login-left-bg);
   position: relative;
   display: flex;
   align-items: center;

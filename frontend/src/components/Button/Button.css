@@ -48,49 +48,49 @@
   box-shadow: 0 2px 8px rgba(62, 163, 128, 0.2);
 }
 
-/* Secondary Button — Slate 100 Pill */
+/* Secondary Button */
 .btn-secondary {
-  background-color: #f1f5f9;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
+  background-color: var(--border-color);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: #e2e8f0;
-  color: #0f172a;
+  background-color: var(--bg-card-hover);
+  color: var(--text-primary);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .btn-secondary:active:not(:disabled) {
   transform: translateY(0);
 }
 
-/* Outline Button — Crisp White Card Border */
+/* Outline Button */
 .btn-outline {
-  background-color: #ffffff;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-premium);
 }
 
 .btn-outline:hover:not(:disabled) {
   border-color: var(--accent-color);
   color: var(--accent-color);
-  background-color: #f0faf6;
+  background-color: var(--accent-glow);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(62, 163, 128, 0.12);
+  box-shadow: var(--shadow-glow);
 }
 
-/* Ghost Button — Minimal Slate Text */
+/* Ghost Button */
 .btn-ghost {
   background-color: transparent;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .btn-ghost:hover:not(:disabled) {
-  color: #0f172a;
-  background-color: #f8fafc;
+  color: var(--text-primary);
+  background-color: var(--bg-card-hover);
 }
 
 /* Disabled State */

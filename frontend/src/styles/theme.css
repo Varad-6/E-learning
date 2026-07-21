@@ -1,59 +1,62 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap');
 
-:root {
-  /* ============================================================
-   * LIGHTSPEAK.AI DESIGN SYSTEM + LIGHT CHECKERED GRID
-   * Extracted directly from https://lightspeak.ai
-   *
-   * Design Language:
-   *   — Canvas: #FAFBFE + Light Slate Checkered Grid
-   *   — Surface/Cards: #FFFFFF + Crisp #CBD5E1 Borders & Elevation Shadows
-   *   — Primary Brand: #3EA380 (Fresh Seafoam Emerald Teal)
-   *   — Primary Hover: #2F8A6A (Deep Emerald Teal)
-   *   — Text Primary: #0F172A (Slate 900 - Ultra High Contrast)
-   *   — Text Secondary: #475569 (Slate 600 - High Contrast Subtext)
-   * ============================================================ */
+/* ============================================================
+ * MODERN DYNAMIC DESIGN SYSTEM (DARK & LIGHT THEMES)
+ *
+ * Primary Brand: #3EA380 (Fresh Seafoam Emerald Teal)
+ * Primary Hover: #34D399 (Vibrant Mint) / #2F8A6A (Deep Emerald Teal)
+ * Dark Canvas: Multi-stop Radial Gradient (#0B0F19 background)
+ * Glassmorphism: Luminous borders & glass elevation
+ * ============================================================ */
 
-  --bg-main: #fafbfe;           /* Lightspeak Cool Off-White Canvas */
-  --bg-card: #ffffff;           /* Pure White Card Surface */
-  --bg-card-hover: #f8fafc;     /* Soft Slate Hover */
-  --border-color: #cbd5e1;      /* Slate 300 Crisp Border */
+:root,
+[data-theme="dark"] {
+  --bg-main: #0b0f19;
+  --bg-gradient: radial-gradient(at 0% 0%, rgba(45, 212, 191, 0.06) 0%, transparent 45%),
+                  radial-gradient(at 100% 0%, rgba(30, 41, 59, 0.6) 0%, transparent 55%),
+                  radial-gradient(at 50% 100%, rgba(15, 23, 42, 0.95) 0%, transparent 70%),
+                  #0b0f19;
 
-  --text-primary: #0f172a;      /* Slate 900 Ultra Dark Text */
-  --text-secondary: #475569;    /* Slate 600 Crisp Readable Secondary Text */
+  --bg-card: rgba(17, 24, 39, 0.85);
+  --bg-card-hover: rgba(30, 41, 59, 0.9);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --login-left-bg: linear-gradient(135deg, rgba(20, 184, 166, 0.08) 0%, rgba(15, 23, 42, 0.95) 100%);
 
-  /* Primary CTA — Lightspeak Seafoam Emerald Teal */
-  --accent-color: #3ea380;
-  --accent-hover: #2f8a6a;
-  --accent-glow: rgba(62, 163, 128, 0.18);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
 
-  /* Lightspeak Color System Tokens */
-  --color-primary-50: #f0faf6;
-  --color-primary-100: #d5f0e5;
-  --color-primary-200: #a8dfc8;
-  --color-primary-500: #3ea380;
-  --color-primary-600: #2f8a6a;
+  /* Soothing Muted Emerald Teal — Eye-Friendly */
+  --accent-color: #2dd4bf;
+  --accent-hover: #14b8a6;
+  --accent-glow: rgba(45, 212, 191, 0.12);
+  --glow-color: rgba(45, 212, 191, 0.16);
+
+  --color-primary-50: rgba(45, 212, 191, 0.08);
+  --color-primary-100: rgba(45, 212, 191, 0.15);
+  --color-primary-200: #2dd4bf;
+  --color-primary-500: #2dd4bf;
+  --color-primary-600: #14b8a6;
   --color-slate-800: #1e293b;
   --color-slate-900: #0f172a;
-  --color-slate-600: #475569;
+  --color-slate-600: #94a3b8;
   --color-slate-500: #64748b;
-  --color-slate-200: #cbd5e1;
+  --color-slate-200: rgba(255, 255, 255, 0.15);
 
-  /* Semantic Status Tokens */
-  --neon-teal: #2f8a6a;          /* Emerald Teal = Active / Success */
-  --neon-teal-glow: rgba(62, 163, 128, 0.18);
-  --neon-coral: #ef4444;         /* Red = Alert */
-  --neon-coral-glow: rgba(239, 68, 68, 0.14);
+  /* Status Tokens — Softened */
+  --neon-teal: #10b981;
+  --neon-teal-glow: rgba(16, 185, 129, 0.12);
+  --neon-coral: #f87171;
+  --neon-coral-glow: rgba(248, 113, 113, 0.14);
 
   --font-title: 'Outfit', 'Inter', sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   --transition-smooth: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  --glass-bg: rgba(255, 255, 255, 0.9);
-  --glass-border: #cbd5e1;
-  --glass-blur: blur(12px);
-  --shadow-premium: 0 4px 16px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
-  --shadow-glow: 0 4px 14px rgba(62, 163, 128, 0.22);
+  --glass-bg: rgba(15, 23, 42, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-blur: blur(16px);
+  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+  --shadow-glow: 0 4px 20px rgba(45, 212, 191, 0.15);
 
   --border-radius-sm: 8px;
   --border-radius-md: 12px;
@@ -62,9 +65,15 @@
 
 [data-theme="light"] {
   --bg-main: #fafbfe;
+  --bg-gradient: radial-gradient(at 0% 0%, rgba(62, 163, 128, 0.08) 0%, transparent 60%),
+                  radial-gradient(at 100% 0%, rgba(213, 240, 229, 0.3) 0%, transparent 50%),
+                  radial-gradient(at 50% 100%, rgba(248, 250, 252, 0.8) 0%, transparent 60%),
+                  #fafbfe;
+
   --bg-card: #ffffff;
   --bg-card-hover: #f8fafc;
   --border-color: #cbd5e1;
+  --login-left-bg: linear-gradient(135deg, #f0faf6 0%, #fafbfe 100%);
 
   --text-primary: #0f172a;
   --text-secondary: #475569;
@@ -72,6 +81,7 @@
   --accent-color: #3ea380;
   --accent-hover: #2f8a6a;
   --accent-glow: rgba(62, 163, 128, 0.18);
+  --glow-color: rgba(62, 163, 128, 0.22);
 
   --color-primary-50: #f0faf6;
   --color-primary-100: #d5f0e5;
@@ -94,3 +104,4 @@
   --shadow-premium: 0 4px 16px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
   --shadow-glow: 0 4px 14px rgba(62, 163, 128, 0.22);
 }
+
