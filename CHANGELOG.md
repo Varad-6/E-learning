@@ -2,6 +2,18 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+## [2026-07-21] Shared Reusable Modal Component (Sticky Header + Internal Scroll Body + Sticky Footer)
+- **Problem**:
+  - Previous modal dialogs (Create Course, Create Department, Add User, Rejection Feedback, User Profile Detail, Module View) scrolled as a single un-contained block. Tall form inputs caused the modal title header and action buttons to scroll away out of view.
+- **Changed**:
+  - Created `frontend/src/components/Modal/Modal.tsx` & `Modal.css`: Standardized 3-zone modal shell architecture (`max-height: 85vh; display: flex; flex-direction: column; overflow: hidden`) with sticky pinned header (`flex-shrink: 0`), sticky pinned footer (`flex-shrink: 0`), and independent internal scrollable body (`flex: 1 1 auto; min-height: 0; overflow-y: auto`).
+  - Migrated `CreatorDashboard.tsx` (`isCreateModalOpen`, `rejectionCourse`), `UserAdminStudio.tsx` (`showCreateDeptModal`, `selectedUser`, `showDeleteConfirm`), `Dashboard.tsx` (`selectedCourseForModules`), and `CoursePlayer.tsx` (`showTimeUpModal`) to consume the shared `<Modal>` component.
+- **Tests added**:
+  - Production Vite build (`npm run build` completed cleanly in 2.86s).
+  - Rebuilt and restarted Docker containers (`docker compose up -d --build frontend`).
+- **Migration**: No
+- **Known risk/follow-up**: None
+
 ## [2026-07-21] Modal Top Clearance, Dynamic Department Selects & Tab Typography Pass
 - **Problem**:
   - `theme.css`: Flex centering (`align-items: center`) with `padding-top: 80px` pushed the tops of tall modals (`max-height: 85vh`) upward behind the fixed 64px navbar.

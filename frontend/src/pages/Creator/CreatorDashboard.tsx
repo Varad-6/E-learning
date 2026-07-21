@@ -5,6 +5,7 @@ import {
   ArrowLeft, Layers, ChevronRight, CheckCircle2
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
+import { Modal } from '../../components/Modal/Modal';
 import { apiCall } from '../../services/api';
 import './Creator.css';
 
@@ -1218,280 +1219,263 @@ export const CreatorDashboard: React.FC = () => {
       )}
 
       {/* Rejection Feedback Prompt Dialog */}
-      {rejectionCourse && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
-          <div className="modal-content-card glass-panel" style={{ maxWidth: '460px' }}>
-            <div className="modal-header-row">
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <AlertTriangle style={{ color: 'var(--neon-coral)' }} />
-                <span>Rejection Feedback</span>
-              </h2>
-              <button className="close-modal-btn" onClick={() => setRejectionCourse(null)}>
-                <X size={20} />
-              </button>
-            </div>
+      <Modal
+        isOpen={!!rejectionCourse}
+        onClose={() => setRejectionCourse(null)}
+        title="Rejection Feedback"
+        icon={<AlertTriangle style={{ color: 'var(--neon-coral)' }} />}
+        maxWidth="480px"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setRejectionCourse(null)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="primary" 
+              onClick={handleRejectSubmit}
+              disabled={!rejectionText.trim()}
+              style={{ backgroundColor: 'var(--neon-coral)', borderColor: 'var(--neon-coral)' }}
+            >
+              Confirm Reject
+            </Button>
+          </>
+        }
+      >
+        <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.4' }}>
+          Provide detailed feedback for <strong>{rejectionCourse?.title}</strong>. The creator will see this message and edit their course for resubmission.
+        </p>
 
-            <div className="rejection-prompt-body">
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.4' }}>
-                Provide detailed feedback for **{rejectionCourse.title}**. The creator will see this message and edit their course for resubmission.
-              </p>
-
-              <div className="form-group-spaced">
-                <label className="form-label-styled">Rejection Reason / Notes <span className="required-star">*</span></label>
-                <textarea 
-                  className="form-textarea-styled"
-                  placeholder="e.g. Please enrich Module 2 syllabus content or add a minimum duration."
-                  value={rejectionText}
-                  onChange={(e) => setRejectionText(e.target.value)}
-                  style={{ minHeight: '110px' }}
-                />
-              </div>
-            </div>
-
-            <div className="modal-footer-actions">
-              <Button variant="outline" onClick={() => setRejectionCourse(null)}>
-                Cancel
-              </Button>
-              <Button 
-                variant="primary" 
-                onClick={handleRejectSubmit}
-                disabled={!rejectionText.trim()}
-                style={{ backgroundColor: 'var(--neon-coral)', borderColor: 'var(--neon-coral)' }}
-              >
-                Confirm Reject
-              </Button>
-            </div>
-          </div>
+        <div className="form-group-spaced">
+          <label className="form-label-styled">Rejection Reason / Notes <span className="required-star">*</span></label>
+          <textarea 
+            className="form-textarea-styled"
+            placeholder="e.g. Please enrich Module 2 syllabus content or add a minimum duration."
+            value={rejectionText}
+            onChange={(e) => setRejectionText(e.target.value)}
+            style={{ minHeight: '110px' }}
+          />
         </div>
-      )}
-
-
+      </Modal>
 
       {/* Course Creation Modal Overlay */}
-      {isCreateModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content-card glass-panel">
-            <div className="modal-header-row">
-              <h2>Create Course Option</h2>
-              <button onClick={handleCloseCreateModal} className="close-modal-btn">
-                <X size={20} />
-              </button>
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={handleCloseCreateModal}
+        title="Create Course Option"
+        maxWidth="620px"
+        footer={
+          <>
+            <Button variant="outline" type="button" onClick={handleCloseCreateModal}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="button" onClick={(e) => handleCreateSubmit(e as any)}>
+              Create Modules
+            </Button>
+          </>
+        }
+      >
+        <form id="create-course-form" onSubmit={handleCreateSubmit}>
+          {/* Creator Name (Mandatory Input) */}
+          <div className="form-group-spaced">
+            <label className="form-label-styled">
+              Creator Name <span className="required-star">*</span>
+            </label>
+            <input 
+              type="text" 
+              className="form-input-styled" 
+              placeholder="Enter your name"
+              value={creatorNameInput}
+              onChange={(e) => setCreatorNameInput(e.target.value)}
+            />
+            {errors.creatorName && (
+              <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.creatorName}</p>
+            )}
+          </div>
+
+          {/* Title */}
+          <div className="form-group-spaced">
+            <label className="form-label-styled">
+              Course Title <span className="required-star">*</span>
+            </label>
+            <input 
+              type="text" 
+              className="form-input-styled" 
+              placeholder="e.g. Advanced Production Design"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+            {errors.title && (
+              <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.title}</p>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            {/* Code */}
+            <div className="form-group-spaced">
+              <label className="form-label-styled">
+                Course Code <span className="required-star">*</span>
+              </label>
+              <input 
+                type="text" 
+                className="form-input-styled" 
+                placeholder="e.g. APD-101"
+                value={courseCode}
+                onChange={(e) => setCourseCode(e.target.value)}
+              />
+              {errors.courseCode && (
+                <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.courseCode}</p>
+              )}
             </div>
 
-            <form onSubmit={handleCreateSubmit}>
-              {/* Creator Name (Mandatory Input) */}
-              <div className="form-group-spaced">
-                <label className="form-label-styled">
-                  Creator Name <span className="required-star">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  className="form-input-styled" 
-                  placeholder="Enter your name"
-                  value={creatorNameInput}
-                  onChange={(e) => setCreatorNameInput(e.target.value)}
-                />
-                {errors.creatorName && (
-                  <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.creatorName}</p>
+            {/* Target Department Selection */}
+            <div className="form-group-spaced">
+              <label className="form-label-styled">
+                Target Department <span className="required-star">*</span>
+              </label>
+              <select 
+                className="form-select-styled"
+                value={targetDeptInput}
+                onChange={(e) => setTargetDeptInput(e.target.value)}
+              >
+                {departmentsList.map(d => (
+                  <option key={d.id} value={d.code}>[{d.code}] {d.name}</option>
+                ))}
+                {departmentsList.length === 0 && (
+                  <option value="AI">[AI] Artificial Intelligence</option>
                 )}
-              </div>
-
-              {/* Title */}
-              <div className="form-group-spaced">
-                <label className="form-label-styled">
-                  Course Title <span className="required-star">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  className="form-input-styled" 
-                  placeholder="e.g. Advanced Production Design"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-                {errors.title && (
-                  <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.title}</p>
-                )}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                {/* Code */}
-                <div className="form-group-spaced">
-                  <label className="form-label-styled">
-                    Course Code <span className="required-star">*</span>
-                  </label>
-                  <input 
-                    type="text" 
-                    className="form-input-styled" 
-                    placeholder="e.g. APD-101"
-                    value={courseCode}
-                    onChange={(e) => setCourseCode(e.target.value)}
-                  />
-                  {errors.courseCode && (
-                    <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.courseCode}</p>
-                  )}
-                </div>
-
-                {/* Target Department Selection */}
-                <div className="form-group-spaced">
-                  <label className="form-label-styled">
-                    Target Department <span className="required-star">*</span>
-                  </label>
-                  <select 
-                    className="form-select-styled"
-                    value={targetDeptInput}
-                    onChange={(e) => setTargetDeptInput(e.target.value)}
-                  >
-                    {departmentsList.map(d => (
-                      <option key={d.id} value={d.code}>[{d.code}] {d.name}</option>
-                    ))}
-                    {departmentsList.length === 0 && (
-                      <option value="AI">[AI] Artificial Intelligence</option>
-                    )}
-                  </select>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="form-group-spaced">
-                <label className="form-label-styled">
-                  Course Description <span className="required-star">*</span>
-                </label>
-                <textarea 
-                  className="form-textarea-styled" 
-                  placeholder="Summarize course topics, learning targets, and outcomes..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-                {errors.description && (
-                  <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.description}</p>
-                )}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                {/* Priority */}
-                <div className="form-group-spaced">
-                  <label className="form-label-styled">
-                    Priority <span className="required-star">*</span>
-                  </label>
-                  <select 
-                    className="form-select-styled"
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value as any)}
-                  >
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Low">Low</option>
-                  </select>
-                </div>
-
-                {/* Duration */}
-                <div className="form-group-spaced">
-                  <label className="form-label-styled">
-                    Course Duration <span className="required-star">*</span>
-                  </label>
-
-                  {/* Date Range Helper Picker */}
-                  <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '8px' }}>
-                      📅 Auto-calculate from Start & End Date:
-                    </span>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      <div>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Start Date:</span>
-                        <input 
-                          type="date" 
-                          className="form-input-styled" 
-                          style={{ fontSize: '0.82rem', padding: '6px' }}
-                          onChange={(e) => {
-                            const start = new Date(e.target.value);
-                            const endInput = document.getElementById('duration-end-date') as HTMLInputElement;
-                            if (endInput && endInput.value) {
-                              const end = new Date(endInput.value);
-                              const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24));
-                              if (diffDays > 0) setDurationDays(diffDays);
-                            }
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>End Date:</span>
-                        <input 
-                          id="duration-end-date"
-                          type="date" 
-                          className="form-input-styled" 
-                          style={{ fontSize: '0.82rem', padding: '6px' }}
-                          onChange={(e) => {
-                            const end = new Date(e.target.value);
-                            const startInput = e.target.previousElementSibling?.previousElementSibling as HTMLInputElement;
-                            const startVal = (document.querySelector('input[type="date"]') as HTMLInputElement)?.value;
-                            if (startVal) {
-                              const start = new Date(startVal);
-                              const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24));
-                              if (diffDays > 0) setDurationDays(diffDays);
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Structured Duration Inputs */}
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '6px' }}>
-                    Structured Duration Fields:
-                  </span>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                    <div>
-                      <input 
-                        type="number" 
-                        min="0"
-                        placeholder="20"
-                        className="form-input-styled" 
-                        value={durationDays || ''}
-                        onChange={(e) => setDurationDays(Math.max(0, parseInt(e.target.value) || 0))}
-                      />
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Days</span>
-                    </div>
-                    <div>
-                      <input 
-                        type="number" 
-                        min="0"
-                        placeholder="0"
-                        className="form-input-styled" 
-                        value={durationHours || ''}
-                        onChange={(e) => setDurationHours(Math.max(0, parseInt(e.target.value) || 0))}
-                      />
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Hours</span>
-                    </div>
-                    <div>
-                      <input 
-                        type="number" 
-                        min="0"
-                        placeholder="0"
-                        className="form-input-styled" 
-                        value={durationMinutes || ''}
-                        onChange={(e) => setDurationMinutes(Math.max(0, parseInt(e.target.value) || 0))}
-                      />
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Minutes</span>
-                    </div>
-                  </div>
-                  {errors.duration && (
-                    <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.duration}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="modal-footer-actions">
-                <Button variant="outline" type="button" onClick={handleCloseCreateModal}>
-                  Cancel
-                </Button>
-                <Button variant="primary" type="submit">
-                  Create Modules
-                </Button>
-              </div>
-            </form>
+              </select>
+            </div>
           </div>
-        </div>
-      )}
+
+          {/* Description */}
+          <div className="form-group-spaced">
+            <label className="form-label-styled">
+              Course Description <span className="required-star">*</span>
+            </label>
+            <textarea 
+              className="form-textarea-styled" 
+              placeholder="Summarize course topics, learning targets, and outcomes..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            {errors.description && (
+              <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.description}</p>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            {/* Priority */}
+            <div className="form-group-spaced">
+              <label className="form-label-styled">
+                Priority <span className="required-star">*</span>
+              </label>
+              <select 
+                className="form-select-styled"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as any)}
+              >
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+
+            {/* Duration */}
+            <div className="form-group-spaced">
+              <label className="form-label-styled">
+                Course Duration <span className="required-star">*</span>
+              </label>
+
+              {/* Date Range Helper Picker */}
+              <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '12px' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '8px' }}>
+                  📅 Auto-calculate from Start & End Date:
+                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Start Date:</span>
+                    <input 
+                      type="date" 
+                      className="form-input-styled" 
+                      style={{ fontSize: '0.82rem', padding: '6px' }}
+                      onChange={(e) => {
+                        const start = new Date(e.target.value);
+                        const endInput = document.getElementById('duration-end-date') as HTMLInputElement;
+                        if (endInput && endInput.value) {
+                          const end = new Date(endInput.value);
+                          const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24));
+                          if (diffDays > 0) setDurationDays(diffDays);
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>End Date:</span>
+                    <input 
+                      id="duration-end-date"
+                      type="date" 
+                      className="form-input-styled" 
+                      style={{ fontSize: '0.82rem', padding: '6px' }}
+                      onChange={(e) => {
+                        const end = new Date(e.target.value);
+                        const startVal = (document.querySelector('input[type="date"]') as HTMLInputElement)?.value;
+                        if (startVal) {
+                          const start = new Date(startVal);
+                          const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24));
+                          if (diffDays > 0) setDurationDays(diffDays);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Structured Duration Inputs */}
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '6px' }}>
+                Structured Duration Fields:
+              </span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                <div>
+                  <input 
+                    type="number" 
+                    min="0"
+                    placeholder="20"
+                    className="form-input-styled" 
+                    value={durationDays || ''}
+                    onChange={(e) => setDurationDays(Math.max(0, parseInt(e.target.value) || 0))}
+                  />
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Days</span>
+                </div>
+                <div>
+                  <input 
+                    type="number" 
+                    min="0"
+                    placeholder="0"
+                    className="form-input-styled" 
+                    value={durationHours || ''}
+                    onChange={(e) => setDurationHours(Math.max(0, parseInt(e.target.value) || 0))}
+                  />
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Hours</span>
+                </div>
+                <div>
+                  <input 
+                    type="number" 
+                    min="0"
+                    placeholder="0"
+                    className="form-input-styled" 
+                    value={durationMinutes || ''}
+                    onChange={(e) => setDurationMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                  />
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Minutes</span>
+                </div>
+              </div>
+              {errors.duration && (
+                <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.duration}</p>
+              )}
+            </div>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

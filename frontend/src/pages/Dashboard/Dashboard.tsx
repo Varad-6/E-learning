@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, Users, ShieldAlert, Award, FileText, PlusCircle, Bookmark, Layers, BookOpen } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
+import { Modal } from '../../components/Modal/Modal';
 import type { Course } from '../../types/schema';
 import { getBadgeForCompletions } from '../../services/badge';
 import type { Badge } from '../../services/badge';
@@ -1968,54 +1969,49 @@ export const Dashboard: React.FC = () => {
       )}
 
       {/* Course Modules Modal View */}
-      {selectedCourseForModules && (
-        <div className="modal-overlay" onClick={() => setSelectedCourseForModules(null)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()} style={{ padding: '32px', maxWidth: '560px', width: '90%', borderRadius: 'var(--border-radius-md)', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-premium)' }}>
-            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{selectedCourseForModules.courseCode} Modules</span>
-                <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0 }}>{selectedCourseForModules.title}</h3>
-              </div>
-              <button onClick={() => setSelectedCourseForModules(null)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '1.5rem', cursor: 'pointer', padding: 0, lineHeight: 1 }}>&times;</button>
-            </div>
-            
-            <div className="modules-list" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {getModulesForCourse(selectedCourseForModules.courseCode, selectedCourseForModules.progressPercent).map((mod, index) => (
-                <div key={index} className="module-step-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span className="step-number" style={{ fontStyle: 'normal', fontWeight: '800', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>0{index + 1}</span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <span style={{ fontSize: '0.88rem', fontWeight: '600', color: 'var(--text-primary)' }}>{mod.title}</span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Duration: {mod.duration}</span>
-                    </div>
-                  </div>
-                  <span className={`status-badge ${mod.isCompleted ? 'completed' : 'pending'}`} style={{ fontSize: '0.72rem', fontWeight: '700', padding: '3px 8px', borderRadius: '4px', textTransform: 'uppercase', color: mod.isCompleted ? 'var(--neon-teal)' : 'var(--text-secondary)', backgroundColor: mod.isCompleted ? 'var(--neon-teal-glow)' : 'var(--border-color)' }}>
-                    {mod.isCompleted ? 'Completed' : 'Pending'}
-                  </span>
+      <Modal
+        isOpen={!!selectedCourseForModules}
+        onClose={() => setSelectedCourseForModules(null)}
+        title={selectedCourseForModules?.title || ''}
+        subtitle={selectedCourseForModules ? `${selectedCourseForModules.courseCode} Curriculum Modules` : ''}
+        maxWidth="560px"
+        footer={
+          <>
+            {selectedCourseForModules && selectedCourseForModules.progressPercent < 100 && (
+              <Button 
+                variant="primary" 
+                onClick={() => {
+                  handleStudyIncrement(selectedCourseForModules.id);
+                  setSelectedCourseForModules(prev => {
+                    if (!prev) return null;
+                    return { ...prev, progressPercent: Math.min(prev.progressPercent + 20, 100) };
+                  });
+                }}
+              >
+                Resume Study
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setSelectedCourseForModules(null)}>Close Syllabus</Button>
+          </>
+        }
+      >
+        <div className="modules-list" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {selectedCourseForModules && getModulesForCourse(selectedCourseForModules.courseCode, selectedCourseForModules.progressPercent).map((mod, index) => (
+            <div key={index} className="module-step-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span className="step-number" style={{ fontStyle: 'normal', fontWeight: '800', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>0{index + 1}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span style={{ fontSize: '0.88rem', fontWeight: '600', color: 'var(--text-primary)' }}>{mod.title}</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Duration: {mod.duration}</span>
                 </div>
-              ))}
+              </div>
+              <span className={`status-badge ${mod.isCompleted ? 'completed' : 'pending'}`} style={{ fontSize: '0.72rem', fontWeight: '700', padding: '3px 8px', borderRadius: '4px', textTransform: 'uppercase', color: mod.isCompleted ? 'var(--neon-teal)' : 'var(--text-secondary)', backgroundColor: mod.isCompleted ? 'var(--neon-teal-glow)' : 'var(--border-color)' }}>
+                {mod.isCompleted ? 'Completed' : 'Pending'}
+              </span>
             </div>
-
-            <div style={{ display: 'flex', gap: '12px', marginTop: '24px', justifyContent: 'flex-end' }}>
-              {selectedCourseForModules.progressPercent < 100 && (
-                <Button 
-                  variant="primary" 
-                  onClick={() => {
-                    handleStudyIncrement(selectedCourseForModules.id);
-                    setSelectedCourseForModules(prev => {
-                      if (!prev) return null;
-                      return { ...prev, progressPercent: Math.min(prev.progressPercent + 20, 100) };
-                    });
-                  }}
-                >
-                  Resume Study
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => setSelectedCourseForModules(null)}>Close Syllabus</Button>
-            </div>
-          </div>
+          ))}
         </div>
-      )}
+      </Modal>
 
       {/* Badge Celebration Overlay Modal */}
       {showBadgeOverlay && celebratedBadge && (

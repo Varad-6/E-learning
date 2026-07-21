@@ -6,6 +6,7 @@ import {
   UserCheck, UserX, Trash2, ArrowLeft, BarChart3, Award
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
+import { Modal } from '../../components/Modal/Modal';
 import { apiCall } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import { getBadgeForCompletions } from '../../services/badge';
@@ -374,157 +375,153 @@ export const UserAdminStudio: React.FC = () => {
       )}
 
       {/* User Analytics Modal */}
-      {selectedUser && (
-        <div className="modal-overlay" onClick={() => setSelectedUser(null)}>
-          <div className="modal-content animate-fade-in" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{selectedUser.first_name} {selectedUser.last_name}</h2>
-              <span className="modal-subtitle">{selectedUser.employee_code} | {selectedUser.email}</span>
+      <Modal
+        isOpen={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+        title={selectedUser ? `${selectedUser.first_name} ${selectedUser.last_name}` : ''}
+        subtitle={selectedUser ? `${selectedUser.employee_code} | ${selectedUser.email}` : ''}
+        maxWidth="600px"
+        footer={
+          <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+            <Button variant="outline" style={{ flex: 1 }} onClick={() => setSelectedUser(null)}>Close Analytics</Button>
+            <Button 
+              variant="outline" 
+              style={{ borderColor: '#ef4444', color: '#ef4444' }} 
+              leftIcon={<Trash2 size={16} />}
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              Delete User
+            </Button>
+          </div>
+        }
+      >
+        {modalLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+            <div className="animate-spin" style={{ width: '32px', height: '32px', border: '3px solid var(--accent-color)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
+          </div>
+        ) : (
+          <div className="analytics-grid">
+            <div className="analytics-card">
+              <span className="analytics-label">Courses Completed</span>
+              <span className="analytics-value huge">
+                {userProfileData ? userProfileData.courses_data?.filter((c: any) => c.status === 'completed').length : 0}
+              </span>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
+                Total Enrolled: {userProfileData ? userProfileData.courses_data?.length : 0}
+              </span>
             </div>
-            
-            {modalLoading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
-                <div className="animate-spin" style={{ width: '32px', height: '32px', border: '3px solid var(--accent-color)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
+            <div className="analytics-card">
+              <span className="analytics-label">Average Exam Score</span>
+              <span className="analytics-value huge">
+                {userProfileData && userProfileData.exams_data?.length > 0
+                  ? (userProfileData.exams_data.reduce((acc: number, item: any) => acc + (item.overall_score || 0), 0) / userProfileData.exams_data.length).toFixed(1)
+                  : 'N/A'}
+              </span>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
+                Exams Attempted: {userProfileData ? userProfileData.exams_data?.length : 0}
+              </span>
+            </div>
+            <div className="analytics-card" style={{ gridColumn: 'span 2' }}>
+              <span className="analytics-label">Earned Achievements</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                {(() => {
+                  const completedCount = userProfileData?.courses_data?.filter((c: any) => c.status === 'completed' || c.progress_percent === 100).length || 0;
+                  const badge = getBadgeForCompletions(completedCount);
+                  if (!badge) {
+                    return <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No badges earned yet.</span>;
+                  }
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '8px', background: badge.color, color: '#fff', fontSize: '0.85rem', fontWeight: '700' }}>
+                      <span style={{ fontSize: '1.2rem' }}>{badge.icon}</span>
+                      <span>{badge.name} (Level {badge.step}/10)</span>
+                    </div>
+                  );
+                })()}
               </div>
-            ) : (
-              <div className="analytics-grid">
-                <div className="analytics-card">
-                  <span className="analytics-label">Courses Completed</span>
-                  <span className="analytics-value huge">
-                    {userProfileData ? userProfileData.courses_data?.filter((c: any) => c.status === 'completed').length : 0}
-                  </span>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
-                    Total Enrolled: {userProfileData ? userProfileData.courses_data?.length : 0}
-                  </span>
-                </div>
-                <div className="analytics-card">
-                  <span className="analytics-label">Average Exam Score</span>
-                  <span className="analytics-value huge">
-                    {userProfileData && userProfileData.exams_data?.length > 0
-                      ? (userProfileData.exams_data.reduce((acc: number, item: any) => acc + (item.overall_score || 0), 0) / userProfileData.exams_data.length).toFixed(1)
-                      : 'N/A'}
-                  </span>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
-                    Exams Attempted: {userProfileData ? userProfileData.exams_data?.length : 0}
-                  </span>
-                </div>
-                <div className="analytics-card" style={{ gridColumn: 'span 2' }}>
-                  <span className="analytics-label">Earned Achievements</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
-                    {(() => {
-                      const completedCount = userProfileData?.courses_data?.filter((c: any) => c.status === 'completed' || c.progress_percent === 100).length || 0;
-                      const badge = getBadgeForCompletions(completedCount);
-                      if (!badge) {
-                        return <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No badges earned yet.</span>;
-                      }
-                      return (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '8px', background: badge.color, color: '#fff', fontSize: '0.85rem', fontWeight: '700' }}>
-                          <span style={{ fontSize: '1.2rem' }}>{badge.icon}</span>
-                          <span>{badge.name} (Level {badge.step}/10)</span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
-              <Button variant="outline" style={{ flex: 1 }} onClick={() => setSelectedUser(null)}>Close Analytics</Button>
-              <Button 
-                variant="outline" 
-                style={{ borderColor: '#ef4444', color: '#ef4444' }} 
-                leftIcon={<Trash2 size={16} />}
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                Delete User
-              </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Delete User Confirmation Modal */}
-      {showDeleteConfirm && selectedUser && (
-        <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="modal-content animate-fade-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', padding: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#ef4444', marginBottom: '16px' }}>
-              <AlertCircle size={28} />
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Confirm User Deletion</h3>
-            </div>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: '1.5', marginBottom: '24px' }}>
-              Are you sure you want to deactivate and soft-delete user <strong>{selectedUser.first_name} {selectedUser.last_name}</strong> (<code>{selectedUser.email}</code>)? Their historical activity and certificates will be preserved for auditing.
-            </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isDeletingUser}>
-                Cancel
-              </Button>
-              <Button 
-                variant="primary" 
-                style={{ background: '#ef4444', borderColor: '#ef4444' }} 
-                onClick={handleDeleteUser}
-                disabled={isDeletingUser}
-              >
-                {isDeletingUser ? 'Deleting...' : 'Yes, Delete User'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={showDeleteConfirm && !!selectedUser}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Confirm User Deletion"
+        icon={<AlertCircle style={{ color: '#ef4444' }} size={24} />}
+        maxWidth="440px"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isDeletingUser}>
+              Cancel
+            </Button>
+            <Button 
+              variant="primary" 
+              style={{ background: '#ef4444', borderColor: '#ef4444' }} 
+              onClick={handleDeleteUser}
+              disabled={isDeletingUser}
+            >
+              {isDeletingUser ? 'Deleting...' : 'Yes, Delete User'}
+            </Button>
+          </>
+        }
+      >
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: '1.5', margin: 0 }}>
+          Are you sure you want to deactivate and soft-delete user <strong>{selectedUser?.first_name} {selectedUser?.last_name}</strong> (<code>{selectedUser?.email}</code>)? Their historical activity and certificates will be preserved for auditing.
+        </p>
+      </Modal>
 
       {/* Create Department Modal */}
-      {showCreateDeptModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateDeptModal(false)}>
-          <div className="modal-content animate-fade-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h2>Create New Department</h2>
-              <span className="modal-subtitle">Add a department to the system</span>
-            </div>
-            
-            <form onSubmit={handleCreateDeptSubmit} style={{ marginTop: '20px' }}>
-              <div style={{ marginBottom: '16px' }}>
-                <label className="form-label-styled">Department Code <span className="required-star">*</span></label>
-                <input 
-                  className="form-input-styled" 
-                  value={newDeptCode} 
-                  onChange={e => setNewDeptCode(e.target.value)} 
-                  placeholder="e.g. DATA, QA, DEVOPS" 
-                  required 
-                />
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label className="form-label-styled">Department Name <span className="required-star">*</span></label>
-                <input 
-                  className="form-input-styled" 
-                  value={newDeptName} 
-                  onChange={e => setNewDeptName(e.target.value)} 
-                  placeholder="e.g. Data Engineering" 
-                  required 
-                />
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <label className="form-label-styled">Description (Optional)</label>
-                <textarea 
-                  className="form-input-styled" 
-                  rows={3} 
-                  value={newDeptDesc} 
-                  onChange={e => setNewDeptDesc(e.target.value)} 
-                  placeholder="Brief summary of department scope..." 
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <Button type="button" variant="outline" onClick={() => setShowCreateDeptModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary" disabled={deptSubmitting}>
-                  {deptSubmitting ? 'Creating...' : 'Create Department'}
-                </Button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showCreateDeptModal}
+        onClose={() => setShowCreateDeptModal(false)}
+        title="Create New Department"
+        subtitle="Add a department to the system"
+        maxWidth="500px"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setShowCreateDeptModal(false)}>Cancel</Button>
+            <Button type="button" variant="primary" disabled={deptSubmitting} onClick={(e) => handleCreateDeptSubmit(e as any)}>
+              {deptSubmitting ? 'Creating...' : 'Create Department'}
+            </Button>
+          </>
+        }
+      >
+        <form id="create-dept-form" onSubmit={handleCreateDeptSubmit}>
+          <div style={{ marginBottom: '16px' }}>
+            <label className="form-label-styled">Department Code <span className="required-star">*</span></label>
+            <input 
+              className="form-input-styled" 
+              value={newDeptCode} 
+              onChange={e => setNewDeptCode(e.target.value)} 
+              placeholder="e.g. DATA, QA, DEVOPS" 
+              required 
+            />
           </div>
-        </div>
-      )}
+
+          <div style={{ marginBottom: '16px' }}>
+            <label className="form-label-styled">Department Name <span className="required-star">*</span></label>
+            <input 
+              className="form-input-styled" 
+              value={newDeptName} 
+              onChange={e => setNewDeptName(e.target.value)} 
+              placeholder="e.g. Data Engineering" 
+              required 
+            />
+          </div>
+
+          <div style={{ marginBottom: '12px' }}>
+            <label className="form-label-styled">Description (Optional)</label>
+            <textarea 
+              className="form-input-styled" 
+              rows={3} 
+              value={newDeptDesc} 
+              onChange={e => setNewDeptDesc(e.target.value)} 
+              placeholder="Brief summary of department scope..." 
+            />
+          </div>
+        </form>
+      </Modal>
 
       {/* Create User Tab */}
       {activeTab === 'create_user' && (
