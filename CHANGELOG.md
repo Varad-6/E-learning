@@ -2,6 +2,40 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+## [2026-07-21] Modal Top Clearance, Dynamic Department Selects & Tab Typography Pass
+- **Problem**:
+  - `theme.css`: Flex centering (`align-items: center`) with `padding-top: 80px` pushed the tops of tall modals (`max-height: 85vh`) upward behind the fixed 64px navbar.
+  - `CreatorDashboard.tsx`: Create Course modal target department dropdown initialized with static fallback text (`AI`) instead of formatting options live from `/api/departments`.
+  - `Creator.css`: Filter tab headers ("All Courses", "My Created Courses") used small `0.9rem` text size.
+- **Changed**:
+  - `frontend/src/styles/theme.css`: Updated `.modal-overlay` to `align-items: flex-start`, `padding: 100px 20px 40px 20px`, and `.modal-content` to `max-height: calc(100vh - 140px)` for guaranteed navbar clearance app-wide.
+  - `frontend/src/pages/Creator/CreatorDashboard.tsx`: Formatted target department select options live as `[{d.code}] {d.name}`.
+  - `frontend/src/pages/Creator/Creator.css`: Upgraded `.sidebar-tab-btn` typography scale to `1.15rem` with bold (`800`) font weight and active pill background highlights.
+- **Tests added**:
+  - Production Vite build (`npm run build` completed cleanly in 3.20s).
+  - Rebuilt and restarted Docker containers (`docker compose up -d --build frontend`).
+- **Migration**: No
+- **Known risk/follow-up**: None
+
+## [2026-07-21] Multi-Role System-Wide Audit & UI/UX Backfill Pass
+- **Problem**:
+  - `seed_db.py`: System Admin user was seeded with `department_id` pointing to HR, causing Admin's dashboard to display "HR DEPARTMENT". System Admin is non-departmental.
+  - `Dashboard.tsx`: Hero banner identity badges showed generic tags and contained an un-backed "System Status / Cluster Nodes" stat card.
+  - `theme.css`: Select elements lacked global text-overflow truncation rules, causing long department/course names to overflow.
+  - `app/api/reporting.py`: Reporting endpoints enforced `"SYSTEM_ADMIN"` or `"COURSE_MANAGER"` checks and excluded `HR_ADMIN` and `EMPLOYEE`.
+- **Changed**:
+  - `seed_db.py`: Updated `admin_user` to set `department_id=None`. Re-seeded database.
+  - `frontend/src/pages/Dashboard/Dashboard.tsx`: Updated hero banner identity tags for all 4 roles (System Admin = "System Admin Workspace" with no dept badge; HR = "HR Workspace" + HR Dept; Manager = "Department Head Workspace" + assigned Dept; Employee = "Employee Workspace" + assigned Dept). Replaced "Cluster Nodes" card with "Active Personnel" / "Active Courses" across all roles.
+  - `frontend/src/styles/theme.css`: Added global `select` text-overflow ellipsis rules and standardized `.modal-overlay` (`z-index: 2000; padding: 80px 20px 20px 20px; overflow-y: auto;`) and `.modal-content` (`max-height: 85vh; overflow-y: auto;`).
+  - `app/api/reporting.py`: Allowed `HR_ADMIN` and `EMPLOYEE` access to reporting endpoints with appropriate department scoping.
+  - `frontend/src/pages/Creator/CreatorDashboard.tsx`: Scoped course catalog to department level for Course Managers while retaining global view for System Admin & HR Admin.
+- **Tests added**:
+  - Executed `scratch/test_all_roles_verification.py` verifying 20 endpoints across `SYSTEM_ADMIN`, `HR_ADMIN`, `COURSE_MANAGER`, and `EMPLOYEE`.
+  - Re-built frontend with `npm run build` (5.22s, 0 errors).
+  - Rebuilt and restarted Docker containers (`docker compose up -d --build`).
+- **Migration**: No
+- **Known risk/follow-up**: None
+
 ## [2026-07-20] UI Visual Fixes from Screenshots
 - **Problem**:
   - `ExamCreator.tsx`: Right sidebar header read "Syllabus Settings", question button read "+ Add Question to Exam Template", and `[Publish Exam]` button overflowed off the bottom of the card.

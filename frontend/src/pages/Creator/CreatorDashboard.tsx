@@ -497,10 +497,15 @@ export const CreatorDashboard: React.FC = () => {
 
   // Scoped views based on active profile
   const isDeptHead = role === 'Manager';
-  const isAdmin = role === 'Admin';
+  const isAdmin = role === 'Admin' || role === 'SYSTEM_ADMIN' || role === 'HR_ADMIN';
+  const isManager = role === 'Manager' || role === 'COURSE_MANAGER';
   
-  // Filter courses: Admin sees all courses across departments, creators see self-owned
+  // Filter courses: Admin/HR sees all courses across departments, Manager sees department/self-owned, Employee sees self-owned
   const myCreatedCourses = isAdmin ? courses : courses.filter(c => {
+    if (isManager && selectedDept) {
+      const isDeptMatch = c.departmentName === selectedDept || c.department_id === selectedDept;
+      if (isDeptMatch) return true;
+    }
     return (
       c.creatorName === profileName || 
       (profileName === 'John Doe' && c.creatorName === 'John Doe') ||
@@ -1337,10 +1342,10 @@ export const CreatorDashboard: React.FC = () => {
                     onChange={(e) => setTargetDeptInput(e.target.value)}
                   >
                     {departmentsList.map(d => (
-                      <option key={d.id} value={d.code}>{d.name} ({d.code})</option>
+                      <option key={d.id} value={d.code}>[{d.code}] {d.name}</option>
                     ))}
                     {departmentsList.length === 0 && (
-                      <option value="AI">AI</option>
+                      <option value="AI">[AI] Artificial Intelligence</option>
                     )}
                   </select>
                 </div>

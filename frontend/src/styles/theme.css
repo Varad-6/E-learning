@@ -141,3 +141,47 @@ textarea.form-input-styled {
 .animate-fade-in {
   animation: fadeIn 0.25s ease-out forwards;
 }
+
+/* Global Select & Dropdown Truncation Rules */
+select, select.form-input-styled, .form-select-styled {
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  max-width: 100% !important;
+}
+
+select option {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+/* Global Modal Standardized Rules */
+.modal-overlay {
+  position: fixed !important;
+  top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+  background: rgba(11, 12, 16, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  padding: 100px 20px 40px 20px !important;
+  overflow-y: auto !important;
+  z-index: 2000 !important;
+  box-sizing: border-box !important;
+}
+
+.modal-content {
+  background: var(--bg-card) !important;
+  padding: 32px !important;
+  border-radius: var(--border-radius-lg) !important;
+  width: 100% !important;
+  max-width: 600px !important;
+  max-height: calc(100vh - 140px) !important;
+  overflow-y: auto !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--shadow-premium) !important;
+  box-sizing: border-box !important;
+}

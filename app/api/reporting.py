@@ -25,12 +25,11 @@ def get_departments_summary(
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
-    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
-        raise HTTPException(status_code=403, detail="Only Admins and Managers can access reporting.")
+    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles
 
-    # Scoping: Admin sees all departments; Manager sees their own department
+    # Scoping: Admin/HR sees all departments; Manager/Employee sees their own assigned department
     query = db.query(Department)
-    if "SYSTEM_ADMIN" not in user_roles:
+    if not is_global_admin:
         if not current_user.department_id:
             return []
         query = query.filter(Department.id == current_user.department_id)
@@ -106,12 +105,11 @@ def get_department_employees(
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
-    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
-        raise HTTPException(status_code=403, detail="Unauthorized access to reporting.")
+    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles
 
-    # Scoping check: Manager can only view their own department
-    if "SYSTEM_ADMIN" not in user_roles and current_user.department_id != department_id:
-        raise HTTPException(status_code=403, detail="Managers can only view employee reporting for their assigned department.")
+    # Scoping check: Manager/Employee can only view their assigned department
+    if not is_global_admin and current_user.department_id != department_id:
+        raise HTTPException(status_code=403, detail="Personnel can only view reporting for their assigned department.")
 
     dept = db.query(Department).filter(Department.id == department_id).first()
     if not dept:
@@ -200,18 +198,16 @@ def get_employee_detail_profile(
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
-
-    # Scoping check
-    if current_user.id != user_id and "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
-        raise HTTPException(status_code=403, detail="Unauthorized access to user profile.")
+    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles
 
     emp = db.query(User).filter(User.id == user_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    if "SYSTEM_ADMIN" not in user_roles and current_user.id != user_id:
+    # Scoping check: users can view own profile; Admins/HR can view any; Managers/Employees can view within their department
+    if current_user.id != user_id and not is_global_admin:
         if current_user.department_id != emp.department_id:
-            raise HTTPException(status_code=403, detail="Managers can only view employee profiles in their department.")
+            raise HTTPException(status_code=403, detail="Personnel can only view profiles within their department.")
 
     # 1. Enrolled Courses
     enrollments = db.query(CourseEnrollment).filter(CourseEnrollment.user_id == emp.id).all()

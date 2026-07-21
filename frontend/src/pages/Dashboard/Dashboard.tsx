@@ -1021,8 +1021,18 @@ export const Dashboard: React.FC = () => {
           <div className="profile-details">
             <h2>Welcome Back, {profileName || email?.split('@')[0]}</h2>
             <div className="profile-badge-row">
-              <span className="badge role">{role === 'Manager' ? 'Department Head' : role} Workspace</span>
-              <span className="badge dept">{dept} Department</span>
+              <span className="badge role">
+                {role === 'Admin' || role === 'SYSTEM_ADMIN' 
+                  ? 'System Admin Workspace' 
+                  : role === 'HR' || role === 'HR_ADMIN' 
+                  ? 'HR Workspace' 
+                  : role === 'Manager' || role === 'COURSE_MANAGER' 
+                  ? 'Department Head Workspace' 
+                  : 'Employee Workspace'}
+              </span>
+              {(role !== 'Admin' && role !== 'SYSTEM_ADMIN') && dept && (
+                <span className="badge dept">{dept} Department</span>
+              )}
             </div>
           </div>
         </div>
@@ -1034,14 +1044,14 @@ export const Dashboard: React.FC = () => {
                 <Bookmark size={18} className="meta-icon icon-blue" />
                 <div>
                   <p className="meta-label">Active Courses</p>
-                  <p className="meta-val">{myProgress.length} Assigned</p>
+                  <p className="meta-val">{myProgress.filter(p => p.progressPercent < 100).length} Assigned</p>
                 </div>
               </div>
               <div className="banner-meta-box">
                 <Layers size={18} className="meta-icon icon-green" />
                 <div>
-                  <p className="meta-label">Total Courses</p>
-                  <p className="meta-val">{myProgress.length} Courses</p>
+                  <p className="meta-label">Completed Modules</p>
+                  <p className="meta-val">{myProgress.filter(p => p.progressPercent === 100).length} Completed</p>
                 </div>
               </div>
             </>
@@ -1050,15 +1060,15 @@ export const Dashboard: React.FC = () => {
               <div className="banner-meta-box">
                 <Bookmark size={18} className="meta-icon icon-blue" />
                 <div>
-                  <p className="meta-label">Total Departments</p>
-                  <p className="meta-val">{summaryData.total_departments || departmentsList.length || 4} Registered</p>
+                  <p className="meta-label">Department Courses</p>
+                  <p className="meta-val">{managedCourses.length} Courses</p>
                 </div>
               </div>
               <div className="banner-meta-box">
                 <Layers size={18} className="meta-icon icon-green" />
                 <div>
-                  <p className="meta-label">Total Courses</p>
-                  <p className="meta-val">{managedCourses.length} Courses</p>
+                  <p className="meta-label">Active Personnel</p>
+                  <p className="meta-val">{summaryData.total_users || 0} Learners</p>
                 </div>
               </div>
             </>
@@ -1074,8 +1084,8 @@ export const Dashboard: React.FC = () => {
               <div className="banner-meta-box">
                 <Layers size={18} className="meta-icon icon-green" />
                 <div>
-                  <p className="meta-label">System Status</p>
-                  <p className="meta-val">{summaryData.cluster_nodes || 'Healthy'}</p>
+                  <p className="meta-label">Active Personnel</p>
+                  <p className="meta-val">{summaryData.total_users || 0} Personnel</p>
                 </div>
               </div>
             </>

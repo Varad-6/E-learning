@@ -563,24 +563,30 @@
 }
 
 .sidebar-tab-btn {
-  flex: 1;
-  padding: 12px;
+  padding: 12px 24px;
   text-align: center;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.9rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  border-radius: var(--border-radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: var(--transition-smooth);
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar-tab-btn:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
 .sidebar-tab-btn.active {
   color: var(--accent-color);
-  border-bottom-color: transparent;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: var(--border-radius-sm);
+  background: var(--accent-glow);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
 }
 
 .creator-notes-textarea {

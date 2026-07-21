@@ -115,7 +115,7 @@ try:
         is_active=True,
         is_deleted=False,
         must_change_password=True,
-        department_id=db_depts['HR'].id
+        department_id=None
     )
     db.add(admin_user)
     db.commit()
