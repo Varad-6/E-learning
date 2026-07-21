@@ -525,7 +525,7 @@ export const UserAdminStudio: React.FC = () => {
                       value={employeeCode}
                       onChange={(e) => setEmployeeCode(e.target.value.toUpperCase())}
                     />
-                    {formErrors.employeeCode && <span className="error-text-span" style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.employeeCode}</span>}
+                    {formErrors.employeeCode && <span className="error-text-span" style={{ color: 'var(--neon-coral)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.employeeCode}</span>}
                   </div>
                   <div>
                     <label className="form-label-styled">Corporate Email Address<span className="required-star">*</span></label>
@@ -536,7 +536,7 @@ export const UserAdminStudio: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
-                    {formErrors.email && <span className="error-text-span" style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.email}</span>}
+                    {formErrors.email && <span className="error-text-span" style={{ color: 'var(--neon-coral)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.email}</span>}
                   </div>
                 </div>
 
@@ -551,7 +551,7 @@ export const UserAdminStudio: React.FC = () => {
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                     />
-                    {formErrors.firstName && <span className="error-text-span" style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.firstName}</span>}
+                    {formErrors.firstName && <span className="error-text-span" style={{ color: 'var(--neon-coral)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.firstName}</span>}
                   </div>
                   <div>
                     <label className="form-label-styled">Last Name<span className="required-star">*</span></label>
@@ -562,7 +562,7 @@ export const UserAdminStudio: React.FC = () => {
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                     />
-                    {formErrors.lastName && <span className="error-text-span" style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.lastName}</span>}
+                    {formErrors.lastName && <span className="error-text-span" style={{ color: 'var(--neon-coral)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.lastName}</span>}
                   </div>
                 </div>
 
@@ -596,7 +596,7 @@ export const UserAdminStudio: React.FC = () => {
                     </div>
                   </div>
                   {formErrors.password ? (
-                    <span className="error-text-span" style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.password}</span>
+                    <span className="error-text-span" style={{ color: 'var(--neon-coral)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.password}</span>
                   ) : (
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
                       Password resets will be required upon first successful login sequence.
@@ -653,7 +653,7 @@ export const UserAdminStudio: React.FC = () => {
                       <span>EMPLOYEE (Learner)</span>
                     </label>
                   </div>
-                  {formErrors.roles && <span className="error-text-span" style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.roles}</span>}
+                  {formErrors.roles && <span className="error-text-span" style={{ color: 'var(--neon-coral)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>{formErrors.roles}</span>}
                 </div>
 
                 {/* Form Buttons */}

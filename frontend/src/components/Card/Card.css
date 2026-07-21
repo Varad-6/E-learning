@@ -1,17 +1,20 @@
 .course-card {
-  border-radius: var(--border-radius-md);
+  border-radius: var(--border-radius-lg);
   padding: 24px;
   display: flex;
   flex-direction: column;
   height: 100%;
   justify-content: space-between;
+  background-color: var(--bg-card);
   border: 1px solid var(--border-color);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
   transition: var(--transition-smooth);
 }
 
 .course-card:hover {
-  transform: translateY(-6px);
+  transform: translateY(-4px);
   border-color: var(--accent-color);
+  box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(62, 163, 128, 0.15);
 }
 
 .card-header {
@@ -38,20 +41,22 @@
   letter-spacing: 0.02em;
 }
 
-/* Difficulty Tag Colors (translucent, rich contrast) */
 .tag-beginner {
-  background-color: rgba(16, 185, 129, 0.12);
-  color: var(--neon-teal);
+  background-color: #f0faf6;
+  color: #2f8a6a;
+  border: 1px solid #d5f0e5;
 }
 
 .tag-intermediate {
-  background-color: rgba(245, 158, 11, 0.12);
-  color: #f59e0b;
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
 }
 
 .tag-advanced {
-  background-color: rgba(244, 63, 94, 0.12);
-  color: var(--neon-coral);
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
 }
 
 .course-title {

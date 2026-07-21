@@ -30,7 +30,7 @@
 .section-pane-title h3 {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -41,8 +41,8 @@
 }
 
 .player-launch-row {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 20px;
   display: flex;
@@ -57,7 +57,7 @@
 }
 
 .launch-row-code {
-  background: rgba(0, 242, 254, 0.1);
+  background: var(--accent-glow);
   color: var(--accent-color);
   font-size: 0.72rem;
   font-weight: 700;
@@ -69,7 +69,7 @@
 .launch-row-header h4 {
   margin: 0;
   font-size: 0.95rem;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -90,7 +90,7 @@
 .launch-progress-bar-container {
   flex: 1;
   height: 6px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--border-color);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -102,14 +102,14 @@
 
 .launch-progress-label {
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   min-width: 90px;
 }
 
 /* Catalog rows */
 .catalog-course-row {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 20px;
   display: flex;
@@ -119,13 +119,13 @@
 
 .catalog-row-details h4 {
   margin: 6px 0;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 0.95rem;
 }
 
 .catalog-row-details p {
   font-size: 0.82rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   margin: 0 0 8px 0;
   line-height: 1.5;
 }
@@ -134,13 +134,13 @@
   display: flex;
   gap: 16px;
   font-size: 0.72rem;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 /* Completed rows */
 .completed-course-row {
-  background: rgba(16, 185, 129, 0.03);
-  border: 1px solid rgba(16, 185, 129, 0.1);
+  background: var(--neon-teal-glow);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px 20px;
   display: flex;
@@ -155,8 +155,8 @@
 }
 
 .completed-badge {
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
+  background: var(--neon-teal-glow);
+  color: var(--neon-teal);
   font-size: 0.72rem;
   font-weight: 700;
   padding: 3px 8px;
@@ -166,12 +166,12 @@
 .completed-row-details h4 {
   margin: 0;
   font-size: 0.95rem;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .completed-code {
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 /* Sidebar */
@@ -184,8 +184,8 @@
 .sidebar-stats-card {
   padding: 20px;
   border-radius: var(--border-radius-md);
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
 }
 
 .sidebar-stat-field {
@@ -193,22 +193,22 @@
   justify-content: space-between;
   padding-bottom: 12px;
   margin-bottom: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--border-color);
   font-size: 0.85rem;
 }
 
 .stat-label {
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .stat-value {
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .no-data-notice {
   text-align: center;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-style: italic;
   padding: 20px 0;
   font-size: 0.88rem;
@@ -216,13 +216,13 @@
 }
 
 .icon-blue {
-  color: #3b82f6;
+  color: var(--accent-color);
 }
 
 .icon-teal {
-  color: #0d9488;
+  color: var(--accent-color);
 }
 
 .icon-yellow {
-  color: #eab308;
+  color: var(--neon-teal);
 }
