@@ -42,7 +42,7 @@ export const UserAdminStudio: React.FC = () => {
   const navigate = useNavigate();
   const { triggerToast } = useToast();
   
-  const [activeTab, setActiveTab] = useState<'users' | 'departments' | 'create_user'>('departments');
+  const [activeTab, setActiveTab] = useState<'users' | 'departments' | 'create_user' | 'create_department'>('departments');
   const [users, setUsers] = useState<UserData[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +56,7 @@ export const UserAdminStudio: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [userProfileData, setUserProfileData] = useState<any | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   // Form states
   const [employeeCode, setEmployeeCode] = useState('');
@@ -108,15 +109,20 @@ export const UserAdminStudio: React.FC = () => {
   const handleOpenUserModal = async (user: UserData) => {
     setSelectedUser(user);
     setUserProfileData(null);
+    setModalError(null);
     setModalLoading(true);
     try {
       const res = await apiCall(`/api/reporting/employees/${user.id}/detail`);
       if (res.ok) {
         const data = await res.json();
         setUserProfileData(data);
+      } else {
+        const err = await res.json();
+        setModalError(err.detail || 'Failed to retrieve employee analytics profile.');
       }
     } catch (err) {
       console.error(err);
+      setModalError('A network error occurred while establishing contact with the reporting service.');
     } finally {
       setModalLoading(false);
     }
@@ -195,6 +201,7 @@ export const UserAdminStudio: React.FC = () => {
         setNewDeptCode('');
         setNewDeptDesc('');
         setShowCreateDeptModal(false);
+        setActiveTab('departments');
         window.dispatchEvent(new CustomEvent('kaizen_departments_changed'));
         loadData();
       } else {
@@ -257,10 +264,10 @@ export const UserAdminStudio: React.FC = () => {
           <Button variant={activeTab === 'departments' ? 'primary' : 'outline'} onClick={() => { setActiveTab('departments'); setSelectedDept(null); }}>
             Departments
           </Button>
-          <Button variant="outline" leftIcon={<Plus size={16} />} onClick={() => setShowCreateDeptModal(true)}>
+          <Button variant={activeTab === 'create_department' ? 'primary' : 'outline'} leftIcon={<Plus size={16} />} onClick={() => { setActiveTab('create_department'); setSelectedDept(null); }}>
             Create Department
           </Button>
-          <Button variant={activeTab === 'create_user' ? 'primary' : 'outline'} leftIcon={<Plus size={16} />} onClick={() => setActiveTab('create_user')}>
+          <Button variant={activeTab === 'create_user' ? 'primary' : 'outline'} leftIcon={<Plus size={16} />} onClick={() => { setActiveTab('create_user'); setSelectedDept(null); }}>
             Add User
           </Button>
         </div>
@@ -374,23 +381,33 @@ export const UserAdminStudio: React.FC = () => {
         </div>
       )}
 
-      {/* User Analytics Modal */}
       <Modal
         isOpen={!!selectedUser}
         onClose={() => setSelectedUser(null)}
         title={selectedUser ? `${selectedUser.first_name} ${selectedUser.last_name}` : ''}
         subtitle={selectedUser ? `${selectedUser.employee_code} | ${selectedUser.email}` : ''}
-        maxWidth="600px"
+        icon={selectedUser ? (
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-color), #3b82f6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem' }}>
+            {selectedUser.first_name[0]}{selectedUser.last_name[0]}
+          </div>
+        ) : null}
+        maxWidth="460px"
         footer={
-          <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-            <Button variant="outline" style={{ flex: 1 }} onClick={() => setSelectedUser(null)}>Close Analytics</Button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <Button 
               variant="outline" 
-              style={{ borderColor: '#ef4444', color: '#ef4444' }} 
-              leftIcon={<Trash2 size={16} />}
+              style={{ borderColor: '#ef4444', color: '#ef4444', height: '36px', padding: '0 12px', fontSize: '0.82rem' }} 
+              leftIcon={<Trash2 size={14} />}
               onClick={() => setShowDeleteConfirm(true)}
             >
               Delete User
+            </Button>
+            <Button 
+              variant="outline" 
+              style={{ height: '36px', padding: '0 16px', fontSize: '0.82rem' }} 
+              onClick={() => setSelectedUser(null)}
+            >
+              Close Analytics
             </Button>
           </div>
         }
@@ -399,41 +416,50 @@ export const UserAdminStudio: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
             <div className="animate-spin" style={{ width: '32px', height: '32px', border: '3px solid var(--accent-color)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
           </div>
+        ) : modalError ? (
+          <div className="glass-panel" style={{ padding: '24px', textAlign: 'center', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', margin: '12px' }}>
+            <AlertCircle size={32} style={{ color: '#ef4444', margin: '0 auto 12px' }} />
+            <p style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: '600', margin: '0 0 4px 0' }}>Error Loading Analytics</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>{modalError}</p>
+            <Button variant="outline" style={{ fontSize: '0.8rem' }} onClick={() => handleOpenUserModal(selectedUser!)}>Retry Fetch</Button>
+          </div>
         ) : (
-          <div className="analytics-grid">
-            <div className="analytics-card">
-              <span className="analytics-label">Courses Completed</span>
-              <span className="analytics-value huge">
-                {userProfileData ? userProfileData.courses_data?.filter((c: any) => c.status === 'completed').length : 0}
-              </span>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
-                Total Enrolled: {userProfileData ? userProfileData.courses_data?.length : 0}
-              </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '8px 0 16px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Courses Completed</span>
+              <strong style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                {userProfileData ? userProfileData.courses?.filter((c: any) => c.status === 'completed').length : 0}
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: '6px' }}>
+                  (of {userProfileData ? userProfileData.courses?.length : 0} enrolled)
+                </span>
+              </strong>
             </div>
-            <div className="analytics-card">
-              <span className="analytics-label">Average Exam Score</span>
-              <span className="analytics-value huge">
-                {userProfileData && userProfileData.exams_data?.length > 0
-                  ? (userProfileData.exams_data.reduce((acc: number, item: any) => acc + (item.overall_score || 0), 0) / userProfileData.exams_data.length).toFixed(1)
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Average Exam Score</span>
+              <strong style={{ fontSize: '0.88rem', color: 'var(--accent-color)' }}>
+                {userProfileData && userProfileData.exams?.length > 0
+                  ? (userProfileData.exams.reduce((acc: number, item: any) => acc + (item.overall_score || 0), 0) / userProfileData.exams.length).toFixed(1)
                   : 'N/A'}
-              </span>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
-                Exams Attempted: {userProfileData ? userProfileData.exams_data?.length : 0}
-              </span>
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: '6px' }}>
+                  ({userProfileData ? userProfileData.exams?.length : 0} attempts)
+                </span>
+              </strong>
             </div>
-            <div className="analytics-card" style={{ gridColumn: 'span 2' }}>
-              <span className="analytics-label">Earned Achievements</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Earned Achievements</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                 {(() => {
-                  const completedCount = userProfileData?.courses_data?.filter((c: any) => c.status === 'completed' || c.progress_percent === 100).length || 0;
+                  const completedCount = userProfileData?.courses?.filter((c: any) => c.status === 'completed' || c.progress_percent === 100).length || 0;
                   const badge = getBadgeForCompletions(completedCount);
                   if (!badge) {
-                    return <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No badges earned yet.</span>;
+                    return <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No badges earned yet.</span>;
                   }
                   return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '8px', background: badge.color, color: '#fff', fontSize: '0.85rem', fontWeight: '700' }}>
-                      <span style={{ fontSize: '1.2rem' }}>{badge.icon}</span>
-                      <span>{badge.name} (Level {badge.step}/10)</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '6px', background: badge.color, color: '#fff', fontSize: '0.78rem', fontWeight: '700' }}>
+                      <span style={{ fontSize: '1rem' }}>{badge.icon}</span>
+                      <span>{badge.name} (Level {badge.step})</span>
                     </div>
                   );
                 })()}
@@ -471,57 +497,62 @@ export const UserAdminStudio: React.FC = () => {
         </p>
       </Modal>
 
-      {/* Create Department Modal */}
-      <Modal
-        isOpen={showCreateDeptModal}
-        onClose={() => setShowCreateDeptModal(false)}
-        title="Create New Department"
-        subtitle="Add a department to the system"
-        maxWidth="500px"
-        footer={
-          <>
-            <Button type="button" variant="outline" onClick={() => setShowCreateDeptModal(false)}>Cancel</Button>
-            <Button type="button" variant="primary" disabled={deptSubmitting} onClick={(e) => handleCreateDeptSubmit(e as any)}>
-              {deptSubmitting ? 'Creating...' : 'Create Department'}
-            </Button>
-          </>
-        }
-      >
-        <form id="create-dept-form" onSubmit={handleCreateDeptSubmit}>
-          <div style={{ marginBottom: '16px' }}>
-            <label className="form-label-styled">Department Code <span className="required-star">*</span></label>
-            <input 
-              className="form-input-styled" 
-              value={newDeptCode} 
-              onChange={e => setNewDeptCode(e.target.value)} 
-              placeholder="e.g. DATA, QA, DEVOPS" 
-              required 
-            />
+      {/* Create Department Tab View */}
+      {activeTab === 'create_department' && (
+        <div className="glass-panel animate-fade-in" style={{ padding: 'var(--space-card-padding)', maxWidth: '800px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+            <Building2 size={28} style={{ color: 'var(--accent-color)' }} />
+            <div>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>Create New Department</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', margin: '4px 0 0 0' }}>Establish a new operational department entity for user grouping, course scoping, and analytics tracking.</p>
+            </div>
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <label className="form-label-styled">Department Name <span className="required-star">*</span></label>
-            <input 
-              className="form-input-styled" 
-              value={newDeptName} 
-              onChange={e => setNewDeptName(e.target.value)} 
-              placeholder="e.g. Data Engineering" 
-              required 
-            />
-          </div>
+          <form onSubmit={handleCreateDeptSubmit}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <label className="form-label-styled">Department Code <span className="required-star">*</span></label>
+                <input 
+                  className="form-input-styled" 
+                  value={newDeptCode} 
+                  onChange={e => setNewDeptCode(e.target.value)} 
+                  placeholder="e.g. DATA, QA, DEVOPS" 
+                  required 
+                />
+              </div>
 
-          <div style={{ marginBottom: '12px' }}>
-            <label className="form-label-styled">Description (Optional)</label>
-            <textarea 
-              className="form-input-styled" 
-              rows={3} 
-              value={newDeptDesc} 
-              onChange={e => setNewDeptDesc(e.target.value)} 
-              placeholder="Brief summary of department scope..." 
-            />
-          </div>
-        </form>
-      </Modal>
+              <div>
+                <label className="form-label-styled">Department Name <span className="required-star">*</span></label>
+                <input 
+                  className="form-input-styled" 
+                  value={newDeptName} 
+                  onChange={e => setNewDeptName(e.target.value)} 
+                  placeholder="e.g. Data Engineering" 
+                  required 
+                />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '32px' }}>
+              <label className="form-label-styled">Description (Optional)</label>
+              <textarea 
+                className="form-input-styled" 
+                rows={4} 
+                value={newDeptDesc} 
+                onChange={e => setNewDeptDesc(e.target.value)} 
+                placeholder="Brief summary of department scope..." 
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <Button type="button" variant="outline" onClick={() => setActiveTab('departments')}>Cancel</Button>
+              <Button type="submit" variant="primary" disabled={deptSubmitting} style={{ minWidth: '180px', padding: '12px' }}>
+                {deptSubmitting ? 'Creating...' : 'Create Department'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Create User Tab */}
       {activeTab === 'create_user' && (

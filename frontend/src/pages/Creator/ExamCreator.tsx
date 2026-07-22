@@ -225,7 +225,7 @@ export const ExamCreator: React.FC = () => {
             <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>⚙️ Exam Settings</h3>
             
             <div className="form-group-spaced" style={{ margin: 0 }}>
-              <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Exam Title</label>
+              <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Exam Title <span className="required-star">*</span></label>
               <input 
                 type="text" 
                 className="form-input-styled" 
@@ -237,7 +237,7 @@ export const ExamCreator: React.FC = () => {
             </div>
 
             <div className="form-group-spaced" style={{ margin: 0 }}>
-              <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Assigned Target Department</label>
+              <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Assigned Target Department <span className="required-star">*</span></label>
               <select 
                 className="form-input-styled" 
                 value={selectedDepartment} 
@@ -245,7 +245,7 @@ export const ExamCreator: React.FC = () => {
               >
                 <option value="all">🌟 All Departments (Company-wide)</option>
                 {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name} Team</option>
+                  <option key={d.id} value={d.id}>[{d.code}] {d.name}</option>
                 ))}
               </select>
             </div>

@@ -91,8 +91,29 @@
   flex: 1 1 auto !important;
   min-height: 0 !important; /* REQUIRED for flex child overflow scroll */
   overflow-y: auto !important;
-  padding: 24px !important;
+  overflow-x: hidden !important;
+  padding: 24px 20px 24px 24px !important;
   color: var(--text-primary) !important;
+  box-sizing: border-box !important;
+}
+
+/* Custom Scrollbar for Modal Body */
+.modal-body-scroll-zone::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.modal-body-scroll-zone::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-radius: 4px !important;
+}
+
+.modal-body-scroll-zone::-webkit-scrollbar-thumb {
+  background: var(--border-color) !important;
+  border-radius: 4px !important;
+}
+
+.modal-body-scroll-zone::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color) !important;
 }
 
 /* 3. Footer Zone (Sticky Pinned) */

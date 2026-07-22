@@ -1262,7 +1262,9 @@ export const CreatorDashboard: React.FC = () => {
         isOpen={isCreateModalOpen}
         onClose={handleCloseCreateModal}
         title="Create Course Option"
-        maxWidth="620px"
+        subtitle="Configure initial details for a new learning pathway"
+        icon={<BookOpen size={22} style={{ color: 'var(--accent-color)' }} />}
+        maxWidth="540px"
         footer={
           <>
             <Button variant="outline" type="button" onClick={handleCloseCreateModal}>

@@ -261,7 +261,9 @@
 }
 
 .form-input-styled, .form-textarea-styled, .form-select-styled {
-  width: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
   padding: 12px 14px;
   border-radius: var(--border-radius-sm);
   border: 1px solid var(--border-color);
@@ -278,8 +280,10 @@
 }
 
 .form-textarea-styled {
-  resize: vertical;
+  resize: vertical !important;
   min-height: 100px;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .modal-footer-actions {

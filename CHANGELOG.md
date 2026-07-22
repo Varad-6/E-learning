@@ -2,6 +2,94 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+## [2026-07-22] User Detail Modal Compact Row-Based Restyling Pass
+- **Problem**:
+  - User detail modals (Admin's User Analytics Modal and Manager's Roster Audit Modal) were oversized, featured excessive vertical padding, used heavy stat panels, and had full-width stretched footer buttons.
+- **Changed**:
+  - Consolidated user details modals to match a compact, high-density row-based layout (Image 2 reference).
+  - `frontend/src/pages/Admin/UserAdminStudio.tsx`:
+    - Reduced modal `maxWidth` from `600px` to `460px`.
+    - Added initials-based user avatar next to the name/email header via the `icon` prop.
+    - Replaced the large cards layout with a tight list of key-value row items.
+    - Converted footer actions to inline compact layout: left-aligned red-outlined delete button and right-aligned close button.
+  - `frontend/src/pages/Dashboard/Dashboard.tsx`:
+    - Migrated Manager's roster audit custom overlay to use the shared `<Modal>` component.
+    - Reduced `maxWidth` to `460px` and added initials avatar in header.
+    - Re-styled score marks to render as high-density list items and updated the footer button to match.
+- **Tests added**:
+  - Production Vite build (`npm run build` completed in 3.41s with 0 errors).
+  - Rebuilt Docker containers (`docker compose up -d --build frontend`).
+- **Migration**: No
+- **Known risk/follow-up**: None (Changes kept uncommitted locally per user instruction).
+
+## [2026-07-22] User Studio Detail Modal Loading & Error Handling Pass
+- **Problem**:
+  - The User Analytics Modal in `UserAdminStudio.tsx` flashed zero values and empty-state placeholders on fetch failure or during API loading transitions instead of displaying loading and error-banner states.
+- **Changed**:
+  - `frontend/src/pages/Admin/UserAdminStudio.tsx`:
+    - Added `modalError` state tracking to handle API errors and network timeouts.
+    - Updated `handleOpenUserModal` to catch and set detailed error messages on response failures.
+    - Added a premium retry-enabled warning banner conditional overlay in the modal body on fetch failure, eliminating silent zero-value fallbacks.
+- **Tests added**:
+  - Production Vite build (`npm run build` completed in 2.62s with 0 errors).
+  - Rebuilt Docker containers (`docker compose up -d --build frontend`).
+- **Migration**: No
+- **Known risk/follow-up**: None (Changes kept uncommitted locally per user instruction).
+
+## [2026-07-22] Candidate Analytics Dynamic Contracts & Department Reporting Card Cleanup
+- **Problem**:
+  - The User Studio Analytics modal displayed blank stats for completed courses and average score due to a contract mismatch (frontend requested `courses_data`/`exams_data` while backend returned `courses`/`exams`).
+  - Reporting department overview cards contained redundant metadata rows ("Courses Completed" and "In Progress").
+  - The Level 3 Individual Employee profile page in Reporting Dashboard lacked the rich, dynamic completion, average score, and badge achievements layout.
+- **Changed**:
+  - `frontend/src/pages/Admin/UserAdminStudio.tsx`: Remapped analytics modal variables to read `userProfileData.courses` and `userProfileData.exams` directly.
+  - `frontend/src/pages/Reporting/ReportingDashboard.tsx`:
+    - Removed `Courses Completed` and `In Progress` status rows from Level 1 department overview cards.
+    - Upgraded Level 3 profile view with three gorgeous analytics panels: Courses Completed (with Total Enrolled), Average Exam Score (with Exams Attempted), and Earned Achievements Badge.
+- **Tests added**:
+  - Production Vite build (`npm run build` completed in 5.40s with 0 errors).
+  - Rebuilt Docker containers (`docker compose up -d --build frontend`).
+- **Migration**: No
+- **Known risk/follow-up**: None (Changes kept uncommitted locally per user instruction).
+
+## [2026-07-21] Create Department Dedicated Tab View Pass
+- **Problem**:
+  - Creating a department was triggered via a popup modal, whereas creating a user opened a dedicated tab page (`activeTab === 'create_user'`) in `UserAdminStudio.tsx`.
+- **Changed**:
+  - `frontend/src/pages/Admin/UserAdminStudio.tsx`: Converted Create Department from a popup modal to a dedicated tab view (`activeTab === 'create_department'`) matching `create_user` layout, keeping all existing fields (Department Code, Department Name, Description Optional) and automatically navigating back to `Departments` tab on creation success.
+- **Tests added**:
+  - Production Vite build (`npm run build` completed in 2.61s with 0 errors).
+  - Rebuilt Docker containers (`docker compose up -d --build frontend`).
+- **Migration**: No
+- **Known risk/follow-up**: None (Changes kept uncommitted locally per user instruction).
+
+## [2026-07-21] Modal & Exam Creation Visual Polish & Subtitle Pass
+- **Problem**:
+  - `CreatorDashboard.tsx` Create Course modal lacked a subtitle ("Configure initial details for a new learning pathway") and title icon, causing visual disparity with `UserAdminStudio.tsx` Create Department modal.
+  - `ExamCreator.tsx` target department select options lacked `[{code}] {name}` formatting and required asterisks.
+- **Changed**:
+  - `frontend/src/pages/Creator/CreatorDashboard.tsx`: Added `subtitle="Configure initial details for a new learning pathway"` and `BookOpen` icon to Create Course Option modal.
+  - `frontend/src/pages/Admin/UserAdminStudio.tsx`: Added `Building2` icon to Create New Department modal.
+  - `frontend/src/pages/Creator/ExamCreator.tsx`: Added mandatory field asterisks and formatted department dropdown options as `[{d.code}] {d.name}`.
+- **Tests added**:
+  - Production Vite build (`npm run build` completed in 3.39s with 0 errors).
+  - Rebuilt Docker containers (`docker compose up -d --build frontend`).
+- **Migration**: No
+- **Known risk/follow-up**: None (Changes kept uncommitted locally per user instruction).
+
+## [2026-07-21] Create Course Modal Sizing, Proportions & Scrollbar Overflow Pass
+- **Problem**:
+  - The "Create Course Option" modal in `CreatorDashboard.tsx` had an oversized shell width (`maxWidth="620px"`) compared to the compact Department modal (`500px`), rendered an accidental horizontal scrollbar above the action footer, and had raw scrollbar track styling that visually collided with form input corners.
+- **Changed**:
+  - `frontend/src/components/Modal/Modal.css`: Added `overflow-x: hidden !important`, `box-sizing: border-box !important`, and custom 6px webkit-scrollbar styling (rounded thumb, subtle track padding) to `.modal-body-scroll-zone`.
+  - `frontend/src/pages/Creator/CreatorDashboard.tsx`: Set `Create Course Option` modal `maxWidth` to `540px` for matching proportions with the Department modal.
+  - `frontend/src/pages/Creator/Creator.css`: Enforced `box-sizing: border-box !important`, `max-width: 100% !important`, and `resize: vertical !important` on `.form-input-styled`, `.form-textarea-styled`, and `.form-select-styled`.
+- **Tests added**:
+  - Production Vite build (`npm run build` completed in 3.00s with 0 errors).
+  - Rebuilt Docker containers (`docker compose up -d --build frontend`).
+- **Migration**: No
+- **Known risk/follow-up**: None (Changes kept uncommitted locally per user instruction).
+
 ## [2026-07-21] Shared Reusable Modal Component (Sticky Header + Internal Scroll Body + Sticky Footer)
 - **Problem**:
   - Previous modal dialogs (Create Course, Create Department, Add User, Rejection Feedback, User Profile Detail, Module View) scrolled as a single un-contained block. Tall form inputs caused the modal title header and action buttons to scroll away out of view.

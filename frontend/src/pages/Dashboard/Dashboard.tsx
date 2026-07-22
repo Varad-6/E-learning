@@ -1719,74 +1719,75 @@ export const Dashboard: React.FC = () => {
           {managerSubView === 'audit_reporting' && (
             <div className="manager-main-content">
               {/* Employee Detail Assessment Modal (Scores) */}
-              {selectedAuditEmp && (
-                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div className="modal-content glass-panel" style={{ padding: '32px', maxWidth: '520px', width: '90%', borderRadius: 'var(--border-radius-md)', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-                    <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px', marginBottom: '16px' }}>
-                      <h3>Employee Training Assessment Details</h3>
-                      <button onClick={() => setSelectedAuditEmp(null)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
-                    </div>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <p style={{ fontSize: '0.9rem' }}>Employee Node: <strong>{selectedAuditEmp.name} ({selectedAuditEmp.code})</strong></p>
-                      <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>Registered Email: {selectedAuditEmp.email}</p>
-                      
-                      {/* Show current achievement badge in Audit Drawer */}
-                      {(() => {
-                        const badgeObj = getBadgeForCompletions(selectedAuditEmp.coursesTaken);
-                        if (!badgeObj) return null;
-                        return (
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            padding: '10px 14px',
-                            borderRadius: '8px',
-                            background: badgeObj.color,
-                            color: '#fff',
-                            marginBottom: '16px',
-                            boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-                          }}>
-                            <span style={{ fontSize: '1.4rem' }}>{badgeObj.icon}</span>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span style={{ fontWeight: '700', fontSize: '0.82rem' }}>{badgeObj.name}</span>
-                              <span style={{ fontSize: '0.65rem', opacity: 0.9 }}>Level {badgeObj.step} Achiever ({selectedAuditEmp.coursesTaken} Completed Courses)</span>
-                            </div>
+              <Modal
+                isOpen={!!selectedAuditEmp}
+                onClose={() => setSelectedAuditEmp(null)}
+                title={selectedAuditEmp ? selectedAuditEmp.name : ''}
+                subtitle={selectedAuditEmp ? `${selectedAuditEmp.code} | ${selectedAuditEmp.email}` : ''}
+                icon={selectedAuditEmp ? (
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-color), #3b82f6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem' }}>
+                    {selectedAuditEmp.name[0]}
+                  </div>
+                ) : null}
+                maxWidth="460px"
+                footer={
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                    <Button variant="outline" style={{ height: '36px', padding: '0 16px', fontSize: '0.82rem' }} onClick={() => setSelectedAuditEmp(null)}>
+                      Close Marks Registry
+                    </Button>
+                  </div>
+                }
+              >
+                {selectedAuditEmp && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '8px 0 16px 0' }}>
+                    {/* Show current achievement badge in Audit Drawer */}
+                    {(() => {
+                      const badgeObj = getBadgeForCompletions(selectedAuditEmp.coursesTaken);
+                      if (!badgeObj) return null;
+                      return (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          background: badgeObj.color,
+                          color: '#fff',
+                          boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                        }}>
+                          <span style={{ fontSize: '1.4rem' }}>{badgeObj.icon}</span>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontWeight: '700', fontSize: '0.82rem' }}>{badgeObj.name}</span>
+                            <span style={{ fontSize: '0.65rem', opacity: 0.9 }}>Level {badgeObj.step} Achiever ({selectedAuditEmp.coursesTaken} Completed Courses)</span>
                           </div>
-                        );
-                      })()}
+                        </div>
+                      );
+                    })()}
+                    
+                    <div className="scores-table-section" style={{ marginTop: '4px' }}>
+                      <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-color)', letterSpacing: '0.03em', marginBottom: '12px', fontWeight: '700' }}>Test Scores & Marks Report</h4>
                       
-                      <div className="scores-table-section" style={{ marginTop: '12px' }}>
-                        <h4 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--accent-color)', letterSpacing: '0.03em', marginBottom: '8px' }}>Test Scores & Marks Report</h4>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
-                          <thead>
-                            <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-                              <th style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Module Code</th>
-                              <th style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>Assessment Name</th>
-                              <th style={{ padding: '8px 0', color: 'var(--text-secondary)', textAlign: 'right' }}>Scored Marks</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedAuditEmp.testMarks.map((mark, i) => (
-                              <tr key={i} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                <td style={{ padding: '10px 0' }}><code>{mark.courseCode}</code></td>
-                                <td style={{ padding: '10px 0' }}>{mark.testName}</td>
-                                <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: '700', color: mark.score >= 85 ? 'var(--neon-teal)' : 'var(--text-primary)' }}>
-                                  {mark.score} / 100
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
-                      <Button variant="outline" onClick={() => setSelectedAuditEmp(null)}>Close Marks Registry</Button>
+                      {selectedAuditEmp.testMarks.length === 0 ? (
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No assessments submitted yet.</span>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {selectedAuditEmp.testMarks.map((mark, i) => (
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                              <div>
+                                <span style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-primary)', fontWeight: '600' }}>{mark.testName}</span>
+                                <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>Module: <code>{mark.courseCode}</code></span>
+                              </div>
+                              <strong style={{ fontSize: '0.88rem', color: mark.score >= 80 ? '#10b981' : 'var(--accent-color)' }}>
+                                {mark.score} / 100
+                              </strong>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </Modal>
 
               <div className="roster-card glass-panel" style={{ padding: '24px' }}>
                 <div className="roster-card-header" style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', padding: 0, marginBottom: '16px' }}>

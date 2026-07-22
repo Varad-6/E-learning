@@ -7,6 +7,7 @@ import {
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
+import { getBadgeForCompletions } from '../../services/badge';
 
 interface DepartmentSummary {
   id: string;
@@ -329,10 +330,6 @@ export const ReportingDashboard: React.FC = () => {
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '10px 0', borderTop: '1px solid var(--border-color)' }}>
-                          <span>Courses Completed: <strong style={{ color: '#10b981' }}>{dept.courses_completed_count}</strong></span>
-                          <span>In Progress: <strong style={{ color: 'var(--accent-color)' }}>{dept.courses_in_progress_count}</strong></span>
-                        </div>
                       </div>
 
                       <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px', color: 'var(--accent-color)', fontSize: '0.85rem', fontWeight: 700 }}>
@@ -470,30 +467,63 @@ export const ReportingDashboard: React.FC = () => {
           {level === 3 && selectedEmployee && (
             <div>
               {/* Employee Summary Card Header */}
-              <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', marginBottom: '28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-color), #3b82f6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.4rem' }}>
-                    {selectedEmployee.user.first_name[0]}{selectedEmployee.user.last_name[0]}
-                  </div>
-                  <div>
-                    <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                      {selectedEmployee.user.first_name} {selectedEmployee.user.last_name}
-                    </h2>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-                      {selectedEmployee.user.employee_code} • {selectedEmployee.user.email} • {selectedEmployee.user.department_name} Department
-                    </p>
+              <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', marginBottom: '28px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-color), #3b82f6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.4rem' }}>
+                      {selectedEmployee.user.first_name[0]}{selectedEmployee.user.last_name[0]}
+                    </div>
+                    <div>
+                      <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                        {selectedEmployee.user.first_name} {selectedEmployee.user.last_name}
+                      </h2>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+                        {selectedEmployee.user.employee_code} • {selectedEmployee.user.email} • {selectedEmployee.user.department_name} Department
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block' }}>Courses Enrolled</span>
-                    <strong style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>{selectedEmployee.courses.length}</strong>
+                <div className="analytics-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                  <div className="analytics-card" style={{ padding: '20px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)' }}>
+                    <span className="analytics-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Courses Completed</span>
+                    <strong style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', display: 'block', marginTop: '6px' }}>
+                      {selectedEmployee.courses.filter((c: any) => c.status === 'completed' || c.progress_percent === 100).length}
+                    </strong>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
+                      Total Enrolled: {selectedEmployee.courses.length}
+                    </span>
                   </div>
 
-                  <div style={{ padding: '10px 16px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block' }}>Exams Taken</span>
-                    <strong style={{ fontSize: '1.1rem', color: 'var(--accent-color)' }}>{selectedEmployee.exams.length}</strong>
+                  <div className="analytics-card" style={{ padding: '20px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)' }}>
+                    <span className="analytics-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Average Exam Score</span>
+                    <strong style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent-color)', display: 'block', marginTop: '6px' }}>
+                      {selectedEmployee.exams.length > 0
+                        ? (selectedEmployee.exams.reduce((acc: number, item: any) => acc + (item.overall_score || 0), 0) / selectedEmployee.exams.length).toFixed(1)
+                        : 'N/A'}
+                    </strong>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
+                      Exams Attempted: {selectedEmployee.exams.length}
+                    </span>
+                  </div>
+
+                  <div className="analytics-card" style={{ padding: '20px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <span className="analytics-label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Earned Achievements</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+                      {(() => {
+                        const completedCount = selectedEmployee.courses.filter((c: any) => c.status === 'completed' || c.progress_percent === 100).length || 0;
+                        const badge = getBadgeForCompletions(completedCount);
+                        if (!badge) {
+                          return <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No badges earned yet.</span>;
+                        }
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '8px', background: badge.color, color: '#fff', fontSize: '0.85rem', fontWeight: '700' }}>
+                            <span style={{ fontSize: '1.2rem' }}>{badge.icon}</span>
+                            <span>{badge.name}</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
               </div>
