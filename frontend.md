@@ -103,6 +103,13 @@ This file serves as our living documentation and changelog. As we implement part
 - [x] Integrated end-of-module interactive MCQ quiz with unlock flags.
 - [x] Rendered global theme toggle inside player header for full Light/Dark mode transitions.
 
+### Phase 11: Exams Redesign, Leaderboard Scoping & Redundancy Cleanup
+- [x] Redesigned Exams workspace on `/exams` into 3 categorized lanes (To Attempt, Awaiting Evaluation, Completed)
+- [x] Built detailed assessment grade breakdown modal viewer using shared Modal components
+- [x] Autoscoped Leaderboard queries to employee's department and rendered visual top 3 podium
+- [x] Highlighted current employee entry in ranked list with points-gap motivator banner
+- [x] Removed redundant "View Courses" link in global navbar for cleaner navigation
+
 ---
 
 
@@ -200,5 +207,11 @@ This file serves as our living documentation and changelog. As we implement part
 - Integrated a right-side Study Notes pad widget with save and download text file features.
 - Upgraded the media player to support YouTube video embed rendering alongside custom local file uploads.
 - Built interactive module quiz questions with score verification and next module unlocks.
-- Provided global theme toggling hooks support to support Light/Dark theme transitions inside the player.
+### [2026-07-22] - Exams Redesign, Leaderboard Scoping & Redundancy Cleanup
+- Redesigned `/exams` dashboard into an interactive tab-based view with clickable buttons (To Attempt, Awaiting Evaluation, Completed) to filter exam lists in a clean layout.
+- Built a detailed grade evaluation modal using the shared sticky `<Modal>` component, rendering question scores, responses, and reviewer feedback.
+- Autoscoped Employee leaderboards to their department server-side.
+- Added a visual gold/silver/bronze podium component and highlighted the logged-in employee's rank row with dynamic motivator text and search capability.
+- Removed the duplicate "View Courses" header navigation link to simplify the employee's portal workflow.
+- Updated the "My Courses" banner stats to display "Total Courses" and removed the redundant "Completed Modules" stat card.
 

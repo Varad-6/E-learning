@@ -14,9 +14,11 @@ from app.models.course import Course
 from app.models.department import Department
 from app.models.role import Role
 from app.services.notification_service import NotificationService
+from app.models.course_enrollment import CourseEnrollment
 from app.schemas.exam import (
     ExamCreate, ExamResponse, ExamQuestionResponse,
-    ExamSubmissionResponse, ExamGradeCreate, ExamGradeResponse, ExamReviewResponse
+    ExamSubmissionResponse, ExamGradeCreate, ExamGradeResponse, ExamReviewResponse,
+    EmployeeExamsResponse
 )
 
 router = APIRouter(prefix="/api/exams", tags=["Exams"])
@@ -743,3 +745,104 @@ def get_all_exams(
         )
 
     return query.all()
+
+
+employee_router = APIRouter(prefix="/api/employee", tags=["Employee Exams"])
+
+@employee_router.get(
+    "/exams",
+    response_model=EmployeeExamsResponse,
+    summary="Get Categorized Exams for Employee (3 lanes)"
+)
+def get_employee_exams(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Fetch all published exams associated with the courses in which the user is enrolled.
+    exams = db.query(Exam).join(
+        CourseEnrollment, CourseEnrollment.course_id == Exam.course_id
+    ).filter(
+        CourseEnrollment.user_id == current_user.id,
+        Exam.is_published == True
+    ).all()
+
+    toAttempt = []
+    awaitingEvaluation = []
+    evaluated = []
+
+    for exam in exams:
+        # Check if submission exists
+        sub = db.query(ExamSubmission).filter(
+            ExamSubmission.exam_id == exam.id,
+            ExamSubmission.user_id == current_user.id
+        ).first()
+
+        # If not, auto-create the assigned submission state
+        if not sub:
+            sub = ExamSubmission(
+                exam_id=exam.id,
+                user_id=current_user.id,
+                status="assigned",
+                answers={}
+            )
+            db.add(sub)
+            db.commit()
+            db.refresh(sub)
+
+        # Load grade information if graded
+        overall_score = None
+        overall_feedback = None
+        scores_dict = None
+        graded_at = None
+        if sub.status == "graded" and sub.grade:
+            overall_score = sub.grade.overall_score
+            overall_feedback = sub.grade.overall_feedback
+            scores_dict = sub.grade.scores
+            graded_at = sub.grade.graded_at
+
+        # Fetch enrollment info for course due date
+        enrollment = db.query(CourseEnrollment).filter(
+            CourseEnrollment.user_id == current_user.id,
+            CourseEnrollment.course_id == exam.course_id
+        ).first()
+        due_date = enrollment.expires_at if enrollment else None
+
+        # Build response item
+        item = ExamSubmissionResponse(
+            id=sub.id,
+            exam_id=sub.exam_id,
+            user_id=sub.user_id,
+            status=sub.status,
+            started_at=sub.started_at,
+            submitted_at=sub.submitted_at,
+            answers=sub.answers or {},
+            exam_title=exam.title,
+            course_title=exam.course.title if exam.course else "Standalone Exam",
+            course_code=exam.course.course_code if exam.course else None,
+            duration_minutes=exam.duration_minutes,
+            due_date=due_date,
+            graded_at=graded_at,
+            overall_score=overall_score,
+            overall_feedback=overall_feedback,
+            scores=scores_dict
+        )
+
+        # Sort into the 3 lanes
+        if sub.status in ["assigned", "in_progress"]:
+            toAttempt.append(item)
+        elif sub.status == "submitted":
+            awaitingEvaluation.append(item)
+        elif sub.status == "graded":
+            evaluated.append(item)
+
+    # Sort Row 1: "Upcoming / To Attempt" by soonest due date if available, otherwise by course assignment order
+    toAttempt.sort(key=lambda x: (x.due_date is None, x.due_date))
+
+    # Sort Row 3: "Evaluated / Completed" by most recently completed (graded_at or submitted_at) first
+    evaluated.sort(key=lambda x: (x.graded_at or x.submitted_at or datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)), reverse=True)
+
+    return EmployeeExamsResponse(
+        toAttempt=toAttempt,
+        awaitingEvaluation=awaitingEvaluation,
+        evaluated=evaluated
+    )

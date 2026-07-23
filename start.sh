@@ -33,4 +33,4 @@ echo "Seeding database..."
 python seed_db.py
 
 echo "Starting backend server..."
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8085 --reload

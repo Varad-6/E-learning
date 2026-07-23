@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User, Users, ShieldAlert, Award, FileText, PlusCircle, Bookmark, Layers, BookOpen } from 'lucide-react';
+import { User, Users, ShieldAlert, Award, FileText, PlusCircle, Bookmark, Layers, BookOpen, Clock, Hourglass, CheckCircle, Bell, Trophy, Calendar, ChevronRight, Target, Flag } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import type { Course } from '../../types/schema';
@@ -266,6 +266,11 @@ export const Dashboard: React.FC = () => {
   const [activeCatalogTab, setActiveCatalogTab] = useState<'mandatory' | 'available'>('available');
   const [activeMyCoursesTab, setActiveMyCoursesTab] = useState<'in_progress' | 'completed'>('in_progress');
 
+  // Redesigned Employee Dashboard states
+  const [empDashboardData, setEmpDashboardData] = useState<any | null>(null);
+  const [empDashboardLoading, setEmpDashboardLoading] = useState(true);
+  const [showCatalogOnly, setShowCatalogOnly] = useState(false);
+
   // React States for Employee View
   const [myProgress, setMyProgress] = useState<ProgressItem[]>([
     { id: '1', courseCode: 'AI-101', title: 'Artificial Intelligence Foundations', progressPercent: 60, difficulty: 'Beginner' },
@@ -302,6 +307,7 @@ export const Dashboard: React.FC = () => {
     total_pending: 0
   });
   const [topPerformersData, setTopPerformersData] = useState<any[]>([]);
+  const [difficultyData, setDifficultyData] = useState<any[]>([]);
   const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(false);
   const [analyticsError, setAnalyticsError] = useState<boolean>(false);
 
@@ -310,7 +316,7 @@ export const Dashboard: React.FC = () => {
     setAnalyticsError(false);
     try {
       const [
-        sumRes, compRes, trendRes, deptRes, actRes, topCRes, pfRes, pendRes, topPRes
+        sumRes, compRes, trendRes, deptRes, actRes, topCRes, pfRes, pendRes, topPRes, diffRes
       ] = await Promise.all([
         apiCall('/api/dashboard/summary'),
         apiCall('/api/dashboard/completion-rate'),
@@ -320,7 +326,8 @@ export const Dashboard: React.FC = () => {
         apiCall('/api/dashboard/top-courses'),
         apiCall('/api/dashboard/exam-pass-fail'),
         apiCall('/api/dashboard/pending-approvals'),
-        apiCall('/api/dashboard/top-performers')
+        apiCall('/api/dashboard/top-performers'),
+        apiCall('/api/dashboard/difficulty-distribution')
       ]);
 
       if (sumRes.ok) setSummaryData(await sumRes.json());
@@ -332,6 +339,7 @@ export const Dashboard: React.FC = () => {
       if (pfRes.ok) setPassFailRatioData(await pfRes.json());
       if (pendRes.ok) setPendingApprovalsData(await pendRes.json());
       if (topPRes.ok) setTopPerformersData(await topPRes.json());
+      if (diffRes.ok) setDifficultyData(await diffRes.json());
     } catch (err) {
       console.error('Error fetching dashboard analytics:', err);
       setAnalyticsError(true);
@@ -416,6 +424,244 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  const fetchEmpDashboard = async () => {
+    try {
+      setEmpDashboardLoading(true);
+      const res = await apiCall('/api/employee/dashboard');
+      if (res.ok) {
+        const data = await res.json();
+        setEmpDashboardData(data);
+      } else if (res.status === 404) {
+        localStorage.clear();
+        navigate('/login');
+      }
+    } catch (e) {
+      console.error('Failed to load employee dashboard:', e);
+    } finally {
+      setEmpDashboardLoading(false);
+    }
+  };
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'enrollment':
+        return <BookOpen size={14} />;
+      case 'completion':
+        return <CheckCircle size={14} />;
+      case 'exam_graded':
+        return <Award size={14} />;
+      case 'earn_badge':
+        return <Trophy size={14} />;
+      default:
+        return <Bell size={14} />;
+    }
+  };
+
+  const formatRelativeTime = (dateStr: string) => {
+    try {
+      const now = new Date();
+      const past = new Date(dateStr);
+      const ms = now.getTime() - past.getTime();
+      const seconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+
+      if (days > 0) return `${days}d ago`;
+      if (hours > 0) return `${hours}h ago`;
+      if (minutes > 0) return `${minutes}m ago`;
+      return 'Just now';
+    } catch {
+      return 'Recently';
+    }
+  };
+
+  const renderProgressRing = (percent: number, completed: number, total: number) => {
+    const radius = 50;
+    const stroke = 8;
+    const normalizedRadius = radius - stroke * 2;
+    const circumference = normalizedRadius * 2 * Math.PI;
+    const strokeDashoffset = circumference - (percent / 100) * circumference;
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '10px 0' }}>
+        <div style={{ position: 'relative', width: '130px', height: '130px' }}>
+          <svg height="130" width="130" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+            <circle
+              stroke="var(--border-color)"
+              fill="transparent"
+              strokeWidth={stroke}
+              r={normalizedRadius}
+              cx="65"
+              cy="65"
+            />
+            <circle
+              stroke="var(--accent-color)"
+              fill="transparent"
+              strokeWidth={stroke}
+              strokeDasharray={circumference + ' ' + circumference}
+              style={{ strokeDashoffset, transition: 'stroke-dashoffset 0.5s ease-in-out' }}
+              strokeLinecap="round"
+              r={normalizedRadius}
+              cx="65"
+              cy="65"
+            />
+          </svg>
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-primary)' }}>{percent}%</span>
+          </div>
+        </div>
+        <p style={{ marginTop: '16px', fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-primary)', textAlign: 'center' }}>
+          {completed} of {total} Courses Completed
+        </p>
+      </div>
+    );
+  };
+
+  const renderRankCircle = (rankPos: number | null, badgeTier: string | null, deptName: string = 'General') => {
+    const isFirst = rankPos === 1;
+    const isTopThree = rankPos && rankPos <= 3;
+    const rankColor = isFirst ? '#fbbf24' : isTopThree ? '#cbd5e1' : 'var(--accent-color)';
+    const glowColor = isFirst ? 'rgba(251, 191, 36, 0.15)' : isTopThree ? 'rgba(203, 213, 225, 0.1)' : 'rgba(20, 168, 0, 0.08)';
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0', width: '100%' }}>
+        {/* Glowing circular container */}
+        <div style={{
+          position: 'relative',
+          width: '140px',
+          height: '140px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: '50%',
+          boxShadow: `0 0 25px ${glowColor}`,
+          background: 'radial-gradient(circle, var(--accent-glow) 0%, transparent 75%)',
+          transition: 'all 0.3s ease'
+        }}>
+          {/* SVG Medal Ring */}
+          <svg height="140" width="140" style={{ position: 'absolute', transform: 'rotate(-90deg)' }}>
+            <defs>
+              <linearGradient id="rankGold" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#fbbf24" />
+                <stop offset="50%" stopColor="#f59e0b" />
+                <stop offset="100%" stopColor="#d97706" />
+              </linearGradient>
+              <linearGradient id="rankSilver" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#f1f5f9" />
+                <stop offset="100%" stopColor="#cbd5e1" />
+              </linearGradient>
+            </defs>
+            {/* Background ring */}
+            <circle
+              stroke="var(--border-color)"
+              fill="transparent"
+              strokeWidth="4"
+              r="52"
+              cx="70"
+              cy="70"
+            />
+            {/* Active standing dial */}
+            <circle
+              stroke={isFirst ? "url(#rankGold)" : isTopThree ? "url(#rankSilver)" : "var(--accent-color)"}
+              fill="transparent"
+              strokeWidth="6"
+              strokeDasharray="326.7"
+              strokeDashoffset={rankPos ? "80" : "326.7"}
+              strokeLinecap="round"
+              r="52"
+              cx="70"
+              cy="70"
+              style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.15))' }}
+            />
+          </svg>
+
+          {/* Central Rank Placement Badge */}
+          <div style={{
+            position: 'absolute',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            {rankPos ? (
+              <>
+                <span style={{
+                  fontSize: '2.8rem',
+                  fontWeight: '900',
+                  color: isFirst ? '#fbbf24' : isTopThree ? '#cbd5e1' : 'var(--text-primary)',
+                  lineHeight: '1',
+                  fontFamily: '"Outfit", sans-serif',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                  letterSpacing: '-2px'
+                }}>
+                  #{rankPos}
+                </span>
+                {isFirst && (
+                  <div style={{ display: 'flex', gap: '2px', marginTop: '2px', color: '#fbbf24', fontSize: '0.7rem' }}>
+                    ★ ★ ★
+                  </div>
+                )}
+              </>
+            ) : (
+              <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                Unranked
+              </span>
+            )}
+          </div>
+
+          {/* Floating Gold/Silver Crest Crown Icon at the top center */}
+          <div style={{
+            position: 'absolute',
+            top: '-10px',
+            background: isFirst ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'linear-gradient(135deg, #cbd5e1, #94a3b8)',
+            border: '1.5px solid var(--bg-card)',
+            borderRadius: '50%',
+            width: '32px',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.25)',
+            zIndex: 2
+          }}>
+            <Trophy size={16} color="#fff" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))' }} />
+          </div>
+        </div>
+
+        {/* Styled department standing description */}
+        <div style={{ marginTop: '20px', textAlign: 'center', width: '100%' }}>
+          <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            {deptName} Standing
+          </p>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            marginTop: '8px',
+            background: 'var(--bg-main)',
+            border: '1px solid var(--border-color)',
+            padding: '4px 12px',
+            borderRadius: '20px',
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
+          }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: '800', color: isFirst ? '#fbbf24' : 'var(--text-primary)' }}>
+              {badgeTier || 'No Badges Earned'}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSkeleton = (height: string = '120px') => (
+    <div className="animate-pulse" style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', padding: '10px 0' }}>
+      <div style={{ height: '24px', background: 'var(--border-color)', borderRadius: '4px', width: '60%' }}></div>
+      <div style={{ height, background: 'var(--border-color)', borderRadius: '8px', width: '100%' }}></div>
+    </div>
+  );
+
   useEffect(() => {
     const savedEmail = localStorage.getItem('isLoggedInEmail');
     const savedRole = localStorage.getItem('isLoggedInRole');
@@ -438,6 +684,10 @@ export const Dashboard: React.FC = () => {
       if (activeRole === 'Manager') {
         fetchDBRoster();
         fetchDashboardAnalytics();
+      }
+
+      if (activeRole === 'Employee') {
+        fetchEmpDashboard();
       }
 
       fetchDashboardAnalytics();
@@ -505,6 +755,9 @@ export const Dashboard: React.FC = () => {
               const detailData = await detailRes.json();
               setProfileExamScores(detailData.exams || []);
             }
+          } else if (profileRes.status === 404) {
+            localStorage.clear();
+            navigate('/login');
           }
         } catch (err) {
           console.error('Failed to fetch profile in dashboard:', err);
@@ -648,6 +901,9 @@ export const Dashboard: React.FC = () => {
       if (response.ok) {
         const enrollData = await response.json();
         await fetchDBCourses();
+        if (role === 'Employee') {
+          await fetchEmpDashboard();
+        }
         navigate(`/course-player/${enrollData.id}`);
       } else {
         const err = await response.json();
@@ -1040,22 +1296,13 @@ export const Dashboard: React.FC = () => {
 
         <div className="hero-banner-meta">
           {role === 'Employee' ? (
-            <>
-              <div className="banner-meta-box">
-                <Bookmark size={18} className="meta-icon icon-blue" />
-                <div>
-                  <p className="meta-label">Active Courses</p>
-                  <p className="meta-val">{myProgress.filter(p => p.progressPercent < 100).length} Assigned</p>
-                </div>
+            <div className="banner-meta-box">
+              <Bookmark size={18} className="meta-icon icon-blue" />
+              <div>
+                <p className="meta-label">Total Courses</p>
+                <p className="meta-val">{myProgress.length} Enrolled</p>
               </div>
-              <div className="banner-meta-box">
-                <Layers size={18} className="meta-icon icon-green" />
-                <div>
-                  <p className="meta-label">Completed Modules</p>
-                  <p className="meta-val">{myProgress.filter(p => p.progressPercent === 100).length} Completed</p>
-                </div>
-              </div>
-            </>
+            </div>
           ) : role === 'Manager' ? (
             <>
               <div className="banner-meta-box">
@@ -1097,141 +1344,410 @@ export const Dashboard: React.FC = () => {
 
       {/* Conditional Dashboard Views */}
       
-      {/* 1. EMPLOYEE (LEARNER) MAIN CATALOG VIEW */}
+      {/* 1. EMPLOYEE (LEARNER) MAIN CATALOG / REDESIGNED DASHBOARD VIEW */}
       {activeMainView === 'dashboard' && role === 'Employee' && (
-        <div className="dashboard-layout-employee animate-fade-in">
-          <div className="pane-header" style={{ marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Courses</h3>
-          </div>
-          <div className="employee-learning-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
-            <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
-              
-              {/* Sub-tabs for Mandatory & Available */}
-              <div className="catalog-tabs-container" style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => setActiveCatalogTab('mandatory')}
-                  style={{
-                    border: 'none',
-                    background: 'none',
-                    fontSize: '1.05rem',
-                    fontWeight: 700,
-                    color: activeCatalogTab === 'mandatory' ? 'var(--accent-color)' : 'var(--text-secondary)',
-                    borderBottom: activeCatalogTab === 'mandatory' ? '2px solid var(--accent-color)' : 'none',
-                    paddingBottom: '8px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Mandatory
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveCatalogTab('available')}
-                  style={{
-                    border: 'none',
-                    background: 'none',
-                    fontSize: '1.05rem',
-                    fontWeight: 700,
-                    color: activeCatalogTab === 'available' ? 'var(--accent-color)' : 'var(--text-secondary)',
-                    borderBottom: activeCatalogTab === 'available' ? '2px solid var(--accent-color)' : 'none',
-                    paddingBottom: '8px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Available
-                </button>
-              </div>
-
-              {/* Courses Grid */}
-              {(() => {
-                const filtered = managedCourses.filter((c: any) => {
-                  const isPublished = c.status === 'published' || c.status === 'approved' || c.is_published;
-                  if (!isPublished) return false;
-                  
-                  return activeCatalogTab === 'mandatory' ? c.is_mandatory : !c.is_mandatory;
-                });
-
-                if (filtered.length === 0) {
+        showCatalogOnly ? (
+          <div className="dashboard-layout-employee animate-fade-in">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Course Catalog Browser</h3>
+              <Button variant="outline" onClick={() => setShowCatalogOnly(false)}>← Back to Dashboard</Button>
+            </div>
+            {/* Original Catalog Tabs */}
+            <div className="employee-learning-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
+              <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+                <div className="catalog-tabs-container" style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveCatalogTab('mandatory')}
+                    style={{
+                      border: 'none',
+                      background: 'none',
+                      fontSize: '1.05rem',
+                      fontWeight: 700,
+                      color: activeCatalogTab === 'mandatory' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                      borderBottom: activeCatalogTab === 'mandatory' ? '2px solid var(--accent-color)' : 'none',
+                      paddingBottom: '8px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Mandatory
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveCatalogTab('available')}
+                    style={{
+                      border: 'none',
+                      background: 'none',
+                      fontSize: '1.05rem',
+                      fontWeight: 700,
+                      color: activeCatalogTab === 'available' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                      borderBottom: activeCatalogTab === 'available' ? '2px solid var(--accent-color)' : 'none',
+                      paddingBottom: '8px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Available
+                  </button>
+                </div>
+                {/* Courses Grid */}
+                {(() => {
+                  const filtered = managedCourses.filter((c: any) => {
+                    const isPublished = c.status === 'published' || c.status === 'approved' || c.is_published;
+                    if (!isPublished) return false;
+                    return activeCatalogTab === 'mandatory' ? c.is_mandatory : !c.is_mandatory;
+                  });
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)', width: '100%' }}>
+                        <BookOpen size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
+                        <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No courses match your active filters.</p>
+                      </div>
+                    );
+                  }
                   return (
-                    <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)', width: '100%' }}>
-                      <BookOpen size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
-                      <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No courses match your active filters.</p>
+                    <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
+                      {filtered.map((course) => {
+                        const enrollmentItem = myProgress.find((p: any) => p.courseId === course.id);
+                        const isEnrolled = !!enrollmentItem;
+                        return (
+                          <div 
+                            key={course.id} 
+                            className="course-lobby-card glass-panel glow-hover" 
+                            style={{ 
+                              display: 'flex', 
+                              flexDirection: 'column', 
+                              borderRadius: 'var(--border-radius-lg)', 
+                              overflow: 'hidden', 
+                              background: 'var(--bg-card)', 
+                              border: '1px solid var(--border-color)',
+                              transition: 'all 0.3s ease',
+                              padding: '20px',
+                              justifyContent: 'space-between',
+                              minHeight: '180px'
+                            }}
+                          >
+                            <div>
+                              <span 
+                                className="course-code-tag" 
+                                style={{ 
+                                  padding: '2px 8px', 
+                                  borderRadius: '12px', 
+                                  background: 'var(--accent-glow)', 
+                                  color: 'var(--accent-color)', 
+                                  fontSize: '0.7rem', 
+                                  fontWeight: '800',
+                                  textTransform: 'uppercase'
+                                }}
+                              >
+                                {course.course_code}
+                              </span>
+                              <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
+                                {course.title}
+                              </h4>
+                            </div>
+                            <div style={{ marginTop: '16px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                <span>Duration:</span>
+                                <strong>{course.duration || '10 hours'}</strong>
+                              </div>
+                              <Button
+                                variant={isEnrolled ? "outline" : "primary"}
+                                disabled={isEnrolled}
+                                onClick={() => {
+                                  if (!isEnrolled) {
+                                    handleEnrollCourse(course.id);
+                                  }
+                                }}
+                                style={{ width: '100%', height: '40px', fontWeight: '700' }}
+                              >
+                                {isEnrolled ? 'Already Enrolled' : 'Start Course'}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
-                }
-
-                return (
-                  <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
-                    {filtered.map((course) => {
-                      const enrollmentItem = myProgress.find((p: any) => p.courseId === course.id);
-                      const isEnrolled = !!enrollmentItem;
-
-                      return (
-                        <div 
-                          key={course.id} 
-                          className="course-lobby-card glass-panel glow-hover" 
-                          style={{ 
-                            display: 'flex', 
-                            flexDirection: 'column', 
-                            borderRadius: 'var(--border-radius-lg)', 
-                            overflow: 'hidden', 
-                            background: 'var(--bg-card)', 
-                            border: '1px solid var(--border-color)',
-                            transition: 'all 0.3s ease',
-                            padding: '20px',
-                            justifyContent: 'space-between',
-                            minHeight: '180px'
-                          }}
-                        >
-                          <div>
-                            <span 
-                              className="course-code-tag" 
-                              style={{ 
-                                padding: '2px 8px', 
-                                borderRadius: '12px', 
-                                background: 'var(--accent-glow)', 
-                                color: 'var(--accent-color)', 
-                                fontSize: '0.7rem', 
-                                fontWeight: '800',
-                                textTransform: 'uppercase'
-                              }}
-                            >
-                              {course.course_code}
-                            </span>
-                            <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
-                              {course.title}
-                            </h4>
-                          </div>
-
-                          <div style={{ marginTop: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                              <span>Duration:</span>
-                              <strong>{course.duration || '10 hours'}</strong>
-                            </div>
-
-                            <Button
-                              variant={isEnrolled ? "outline" : "primary"}
-                              disabled={isEnrolled}
-                              onClick={() => {
-                                if (!isEnrolled) {
-                                  handleEnrollCourse(course.id);
-                                }
-                              }}
-                              style={{ width: '100%', height: '40px', fontWeight: '700' }}
-                            >
-                              {isEnrolled ? 'Already Enrolled' : 'Start Course'}
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-
+                })()}
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          /* Redesigned Premium Dashboard widgets view! */
+          <div className="employee-dashboard-container animate-fade-in" style={{ paddingBottom: '40px' }}>
+            <style>{`
+              .employee-dashboard-grid-root {
+                display: grid;
+                grid-template-columns: repeat(12, 1fr);
+                gap: 24px;
+                width: 100%;
+                align-items: stretch;
+              }
+              .widget-card {
+                border-radius: var(--border-radius-lg);
+                padding: 20px;
+                background: var(--bg-card);
+                border: 1px solid #14a800;
+                box-shadow: var(--shadow-sm);
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+                box-sizing: border-box;
+              }
+              .widget-card h4 {
+                margin: 0 0 14px 0;
+                font-size: 1.05rem;
+                font-weight: 800;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--text-primary);
+                border-bottom: 1px solid var(--border-color);
+                padding-bottom: 10px;
+              }
+              .widget-upcoming-exams {
+                grid-column: span 8;
+              }
+              .widget-available {
+                grid-column: span 8;
+              }
+              .widget-progress-ring {
+                grid-column: span 4;
+              }
+              .widget-my-rank {
+                grid-column: span 4;
+              }
+              .widget-exam-trend {
+                grid-column: span 8;
+              }
+              .widget-enrollment-breakdown {
+                grid-column: span 4;
+              }
+              @media (max-width: 992px) {
+                .widget-upcoming-exams, .widget-available, .widget-exam-trend {
+                  grid-column: span 7;
+                }
+                .widget-progress-ring, .widget-my-rank, .widget-enrollment-breakdown {
+                  grid-column: span 5;
+                }
+              }
+              @media (max-width: 768px) {
+                .employee-dashboard-grid-root {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 20px;
+                }
+                .widget-progress-ring {
+                  order: 1;
+                }
+                .widget-upcoming-exams {
+                  order: 2;
+                }
+                .widget-my-rank {
+                  order: 3;
+                }
+                .widget-available {
+                  order: 4;
+                }
+                .widget-exam-trend {
+                  order: 5;
+                }
+                .widget-enrollment-breakdown {
+                  order: 6;
+                }
+              }
+            `}</style>
+
+            {empDashboardLoading ? (
+              <div className="employee-dashboard-grid-root">
+                <div className="widget-card widget-progress-ring">{renderSkeleton('140px')}</div>
+                <div className="widget-card widget-upcoming-exams">{renderSkeleton('80px')}</div>
+                <div className="widget-card widget-my-rank">{renderSkeleton('140px')}</div>
+                <div className="widget-card widget-available">{renderSkeleton('180px')}</div>
+                <div className="widget-card widget-exam-trend">{renderSkeleton('140px')}</div>
+                <div className="widget-card widget-enrollment-breakdown">{renderSkeleton('140px')}</div>
+              </div>
+            ) : !empDashboardData ? (
+              <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', border: '1px solid #14a800' }}>
+                <p>Failed to load dashboard data. Please try again.</p>
+                <Button onClick={fetchEmpDashboard} style={{ marginTop: '12px' }}>Retry</Button>
+              </div>
+            ) : (
+              <div className="employee-dashboard-grid-root">
+                
+                {/* 1. UPCOMING EXAMS (Compact Widget) */}
+                <div className="widget-card widget-upcoming-exams">
+                  <h4>
+                    <Clock size={16} style={{ color: '#e53e3e' }} />
+                    Upcoming Exams
+                  </h4>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    {empDashboardData.upcoming_exams.length === 0 ? (
+                      <div className="empty-state-container" style={{ padding: '16px 0', textAlign: 'center' }}>
+                        <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>No upcoming exams to attempt! 🎉</p>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {empDashboardData.upcoming_exams.map((exam: any) => (
+                          <div key={exam.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '10px 14px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)' }}>
+                            <div style={{ minWidth: 0, flex: 1, marginRight: '16px' }}>
+                              <span className="course-code-tag" style={{ padding: '1px 6px', borderRadius: '4px', background: 'var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.62rem', fontWeight: '800' }}>
+                                {exam.course_code || 'EXAM'}
+                              </span>
+                              <h5 style={{ margin: '2px 0 0 0', fontSize: '0.85rem', fontWeight: '700', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{exam.exam_title}</h5>
+                              <p style={{ margin: '1px 0 0 0', fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                                Duration: {exam.duration_minutes} mins | Course: {exam.course_title}
+                              </p>
+                            </div>
+                            <Button 
+                              variant="primary" 
+                              size="sm" 
+                              onClick={() => navigate('/exams')}
+                              style={{ height: '28px', fontWeight: '700', padding: '0 12px', fontSize: '0.8rem' }}
+                            >
+                              Start
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate('/exams')} 
+                    style={{ marginTop: '12px', width: '100%', height: '32px', fontSize: '0.8rem', fontWeight: '700' }}
+                  >
+                    View All Exams
+                  </Button>
+                </div>
+
+                {/* 2. LEARNING PROGRESS RING */}
+                <div className="widget-card widget-progress-ring">
+                  <h4>
+                    <Target size={16} style={{ color: 'var(--accent-color)' }} />
+                    Learning Progress
+                  </h4>
+                  {renderProgressRing(
+                    empDashboardData.overall_progress.percent,
+                    empDashboardData.overall_progress.completed,
+                    empDashboardData.overall_progress.total
+                  )}
+                  {empDashboardData.next_badge_milestone.tier_name ? (
+                    <div style={{ marginTop: '12px', background: 'var(--accent-glow)', padding: '10px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--accent-glow)', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)', fontWeight: '700' }}>
+                        🎯 Next Milestone: <strong>{empDashboardData.next_badge_milestone.tier_name}</strong> in {empDashboardData.next_badge_milestone.courses_remaining} course!
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: '12px', background: 'var(--accent-glow)', padding: '10px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--accent-glow)', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-primary)', fontWeight: '700' }}>
+                        👑 Ultimate badge tier unlocked!
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. AVAILABLE COURSES */}
+                <div className="widget-card widget-available">
+                  <h4>
+                    <BookOpen size={16} style={{ color: 'var(--accent-color)' }} />
+                    Available in Department
+                  </h4>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    {empDashboardData.available_courses.length === 0 ? (
+                      <div className="empty-state-container" style={{ padding: '24px 0', textAlign: 'center' }}>
+                        <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>You have explored all available courses in your department! 🎉</p>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {empDashboardData.available_courses.map((course: any) => (
+                          <div key={course.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '10px 14px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)' }}>
+                            <div style={{ flex: 1, marginRight: '16px', minWidth: 0 }}>
+                              <span className="course-code-tag" style={{ padding: '1px 6px', borderRadius: '4px', background: 'var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.62rem', fontWeight: '800' }}>
+                                {course.course_code}
+                              </span>
+                              <h5 style={{ margin: '2px 0 0 0', fontSize: '0.85rem', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.title}</h5>
+                              <p style={{ margin: '1px 0 0 0', fontSize: '0.74rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {course.description || 'Professional training modules.'}
+                              </p>
+                            </div>
+                            <Button 
+                              variant="primary" 
+                              size="sm" 
+                              onClick={() => handleEnrollCourse(course.id)}
+                              style={{ height: '30px', fontWeight: '700', padding: '0 12px', flexShrink: 0, fontSize: '0.8rem' }}
+                            >
+                              Enroll
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setActiveMainView('my-courses');
+                      navigate('/dashboard?tab=my-courses');
+                    }} 
+                    style={{ marginTop: '12px', width: '100%', height: '34px', fontWeight: '700', fontSize: '0.8rem' }}
+                  >
+                    Browse Full Course Catalog
+                  </Button>
+                </div>
+
+                {/* 4. MY RANK (Circle Badge Chart with Trophy Icon) */}
+                <div className="widget-card widget-my-rank">
+                  <h4>
+                    <Trophy size={16} style={{ color: '#d97706' }} />
+                    My Rank
+                  </h4>
+                  <div 
+                    onClick={() => navigate('/leaderboard')} 
+                    style={{ cursor: 'pointer', width: '100%', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+                  >
+                    {renderRankCircle(empDashboardData.my_rank.position, empDashboardData.my_rank.badge_tier, empDashboardData.my_rank.department)}
+                  </div>
+                </div>
+
+                {/* 5. MY EXAM SCORE TREND (Line Chart) */}
+                <div className="widget-card widget-exam-trend">
+                  <h4>
+                    <Target size={16} style={{ color: '#00f2fe' }} />
+                    My Exam Score Trend
+                  </h4>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '160px' }}>
+                    {empDashboardData.exam_score_trend && empDashboardData.exam_score_trend.length > 0 && empDashboardData.exam_score_trend[0].label !== 'Baseline' ? (
+                      <SVGLineChart data={empDashboardData.exam_score_trend} />
+                    ) : (
+                      <div className="empty-state-container" style={{ padding: '24px 0', textAlign: 'center' }}>
+                        <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>No graded exam score history available yet. Complete exams to view trends!</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 6. MY COURSE STATUS BREAKDOWN (Donut Chart) */}
+                <div className="widget-card widget-enrollment-breakdown">
+                  <h4>
+                    <BookOpen size={16} style={{ color: 'var(--accent-color)' }} />
+                    Course Status Breakdown
+                  </h4>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '160px' }}>
+                    {empDashboardData.category_progress && empDashboardData.category_progress.some(i => i.value > 0) ? (
+                      <SVGDonutChart items={empDashboardData.category_progress} />
+                    ) : (
+                      <div className="empty-state-container" style={{ padding: '24px 0', textAlign: 'center' }}>
+                        <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>Enroll in courses to see progress status breakdown.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </div>
+        )
       )}
 
       {/* 1B. EMPLOYEE (LEARNER) MY ENROLLED COURSES VIEW */}
@@ -1963,6 +2479,43 @@ export const Dashboard: React.FC = () => {
             <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Exam Pass / Fail Ratio</h3>
               <SVGDonutChart items={passFailRatioData.length > 0 ? passFailRatioData : [{ label: 'Passed (>= 8.0)', value: 100, color: '#10b981' }]} />
+            </div>
+
+            {/* Widget 7: Course Difficulty Distribution */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Course Difficulty Distribution</h3>
+              <SVGDonutChart items={difficultyData.length > 0 ? difficultyData : [
+                { label: 'Beginner', value: 100, color: '#10b981' }
+              ]} />
+            </div>
+
+            {/* Widget 8: Top Performing Learners */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Top Performing Learners</h3>
+              <SVGBarChart data={topPerformersData.length > 0 ? topPerformersData.map((p, idx) => ({
+                label: p.name.split(' ')[0],
+                value: p.score,
+                color: idx === 0 ? '#10b981' : idx === 1 ? '#00f2fe' : idx === 2 ? '#8b5cf6' : idx === 3 ? '#ec4899' : '#f59e0b'
+              })) : [
+                { label: 'None', value: 0, color: '#10b981' }
+              ]} />
+            </div>
+
+            {/* Widget 9: Pending Approvals & Reviews */}
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Pending Approvals & Reviews</h3>
+              <SVGDonutChart items={
+                (pendingApprovalsData.pending_courses_count > 0 || pendingApprovalsData.pending_exam_reviews_count > 0)
+                  ? [
+                      { label: 'Course Drafts', value: pendingApprovalsData.pending_courses_count, color: '#f59e0b' },
+                      { label: 'Exam Reviews', value: pendingApprovalsData.pending_exam_reviews_count, color: '#ec4899' }
+                    ]
+                  : [
+                      { label: 'Course Drafts', value: 0, color: '#f59e0b' },
+                      { label: 'Exam Reviews', value: 0, color: '#ec4899' },
+                      { label: 'All Clean', value: 100, color: '#10b981' }
+                    ]
+              } />
             </div>
 
           </div>

@@ -261,3 +261,31 @@ class DashboardService:
             }
             for row in results
         ]
+
+    @staticmethod
+    def get_difficulty_distribution(db: Session) -> List[Dict[str, Any]]:
+        results = db.query(
+            Course.difficulty_level,
+            func.count(Course.id)
+        ).filter(
+            Course.is_published == True
+        ).group_by(
+            Course.difficulty_level
+        ).all()
+        
+        colors = {"beginner": "#10b981", "intermediate": "#8b5cf6", "advanced": "#ef4444"}
+        output = []
+        for row in results:
+            diff = row[0].lower() if row[0] else "beginner"
+            output.append({
+                "label": diff.capitalize(),
+                "value": int(row[1]),
+                "color": colors.get(diff, "#64748b")
+            })
+        if not output:
+            return [
+                {"label": "Beginner", "value": 0, "color": "#10b981"},
+                {"label": "Intermediate", "value": 0, "color": "#8b5cf6"},
+                {"label": "Advanced", "value": 0, "color": "#ef4444"}
+            ]
+        return output

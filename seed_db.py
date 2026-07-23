@@ -138,6 +138,24 @@ try:
     db.add(UserRole(user_id=hr_admin_user.id, role_id=db_roles['HR_ADMIN'].id))
     db.commit()
 
+    # Seed default EMP001 Employee in AI department
+    emp_user = User(
+        id=uuid.UUID('11111111-1111-1111-1111-111111111111'),
+        employee_code='EMP001',
+        first_name='John',
+        last_name='Doe',
+        email='john.doe@lms.com',
+        password_hash=get_password_hash('Employee@1234'),
+        is_active=True,
+        is_deleted=False,
+        must_change_password=True,
+        department_id=db_depts['AI'].id
+    )
+    db.add(emp_user)
+    db.commit()
+    db.add(UserRole(user_id=emp_user.id, role_id=db_roles['EMPLOYEE'].id))
+    db.commit()
+
     # Seed 4 Employees & 2 Managers per department
     print("Seeding department users...")
     password_hash = get_password_hash("Kiezen@123")
@@ -190,26 +208,21 @@ try:
             db.add(UserRole(user_id=emp.id, role_id=db_roles['EMPLOYEE'].id))
             db.commit()
 
-    # Seed 2 Detailed Courses per department with 20-day duration
-    print("Seeding courses, modules, contents and quizzes...")
+    # Seed 5 Detailed Courses & 5 Exams per department with 20-day duration
+    print("Seeding courses, modules, contents, quizzes, and exams...")
     courses_seed_data = {
         'AI': [
             {
                 'course_code': 'AI-101',
                 'title': 'Artificial Intelligence Foundations',
                 'description': 'Core principles of machine learning models, search algorithms, logic programming, and AI ethics.',
+                'difficulty_level': 'Beginner',
                 'modules': [
                     {
                         'title': 'Introduction to AI & Search Algorithms',
                         'contents': [
                             {'title': 'Overview of Machine Learning Systems', 'type': 'article', 'val': 'This article covers baseline concepts of artificial intelligence.'},
                             {'title': 'Visualizing BFS & DFS in Pathfinding', 'type': 'video', 'val': 'https://www.youtube.com/embed/dQw4w9WgXcQ'}
-                        ]
-                    },
-                    {
-                        'title': 'Introduction to Machine Learning Models',
-                        'contents': [
-                            {'title': 'Supervised vs Unsupervised Learning Guide', 'type': 'document', 'val': 'Detailed PDF handbook regarding linear regression.'}
                         ]
                     }
                 ]
@@ -218,11 +231,54 @@ try:
                 'course_code': 'AI-201',
                 'title': 'Neural Networks and Deep Learning',
                 'description': 'A practical deep-dive guide to constructing CNNs, RNNs, and Transformers using PyTorch framework.',
+                'difficulty_level': 'Intermediate',
                 'modules': [
                     {
                         'title': 'Deep Neural Networks Foundations',
                         'contents': [
                             {'title': 'Forward & Backward Propagation Calculus', 'type': 'article', 'val': 'Mathematical walkthrough of derivative weights updating.'}
+                        ]
+                    }
+                ]
+            },
+            {
+                'course_code': 'AI-301',
+                'title': 'Natural Language Processing & LLMs',
+                'description': 'Master natural language processing techniques, self-attention layers, and fine-tuning pre-trained LLM architectures.',
+                'difficulty_level': 'Advanced',
+                'modules': [
+                    {
+                        'title': 'Attention Mechanism & Transformers',
+                        'contents': [
+                            {'title': 'Understanding Self-Attention Mechanics', 'type': 'article', 'val': 'Guide to Q, K, V matrix multiplications.'}
+                        ]
+                    }
+                ]
+            },
+            {
+                'course_code': 'AI-401',
+                'title': 'Computer Vision & Image Recognition',
+                'description': 'Construct modern vision networks, object recognition pipelines, segmentation matrices, and GAN architectures.',
+                'difficulty_level': 'Intermediate',
+                'modules': [
+                    {
+                        'title': 'CNNs & Object Detection',
+                        'contents': [
+                            {'title': 'Convolutional Layers and Feature Mapping', 'type': 'article', 'val': 'Guide on pooling, stride, and convolution operations.'}
+                        ]
+                    }
+                ]
+            },
+            {
+                'course_code': 'AI-501',
+                'title': 'Reinforcement Learning & Robotics',
+                'description': 'Understand Markov decision processes, Q-learning, policy gradients, and algorithmic controls for physical robotics.',
+                'difficulty_level': 'Advanced',
+                'modules': [
+                    {
+                        'title': 'Markov Decision Processes & Q-learning',
+                        'contents': [
+                            {'title': 'Q-table Optimization Guide', 'type': 'article', 'val': 'Theoretical guide to reward multipliers and policy bounds.'}
                         ]
                     }
                 ]
@@ -233,6 +289,7 @@ try:
                 'course_code': 'FICO-101',
                 'title': 'Financial Accounting Principles',
                 'description': 'Introduction to ledger balances, trial logs, financial statements, and balance sheet orchestration.',
+                'difficulty_level': 'Beginner',
                 'modules': [
                     {
                         'title': 'General Ledger Accounting Basics',
@@ -246,11 +303,54 @@ try:
                 'course_code': 'FICO-202',
                 'title': 'SAP FICO Ledger & Cost Control',
                 'description': 'Configuring profit-centers, asset ledgers, internal codes, and ledger cost calculations in SAP NetWeaver.',
+                'difficulty_level': 'Intermediate',
                 'modules': [
                     {
                         'title': 'Cost Centers & Internal Orders',
                         'contents': [
                             {'title': 'SAP Cost Allocations Tutorial', 'type': 'video', 'val': 'https://www.youtube.com/embed/dQw4w9WgXcQ'}
+                        ]
+                    }
+                ]
+            },
+            {
+                'course_code': 'FICO-303',
+                'title': 'Financial Asset & Depreciation Accounting',
+                'description': 'Manage corporate asset depreciation rules, tax books, asset acquisitions, and depreciation calculations.',
+                'difficulty_level': 'Intermediate',
+                'modules': [
+                    {
+                        'title': 'Asset Classes and Depreciation Keys',
+                        'contents': [
+                            {'title': 'Depreciation Calculations and Asset Transfers', 'type': 'article', 'val': 'Explanation of straight-line vs reducing-balance depreciation.'}
+                        ]
+                    }
+                ]
+            },
+            {
+                'course_code': 'FICO-404',
+                'title': 'Cost Center Allocations & Profitability Analysis',
+                'description': 'Master overhead cost allocations, assessment cycles, activity types, and profitability analysis (CO-PA).',
+                'difficulty_level': 'Advanced',
+                'modules': [
+                    {
+                        'title': 'Activity-Based Costing & Profitability',
+                        'contents': [
+                            {'title': 'Configuring CO-PA Valuation Strategies', 'type': 'article', 'val': 'Technical guide to value fields and cost elements.'}
+                        ]
+                    }
+                ]
+            },
+            {
+                'course_code': 'FICO-505',
+                'title': 'Accounts Payable & Receivable Operations',
+                'description': 'Administer vendor invoices, payment runs, customer billing lists, credit locks, and dunning workflows.',
+                'difficulty_level': 'Beginner',
+                'modules': [
+                    {
+                        'title': 'AP & AR Ledger Reconciliation',
+                        'contents': [
+                            {'title': 'Dunning and Automated Payment Run Config', 'type': 'article', 'val': 'Configuration steps for SAP payment program.'}
                         ]
                     }
                 ]
@@ -261,6 +361,7 @@ try:
                 'course_code': 'ABAP-101',
                 'title': 'SAP ABAP Programming Basics',
                 'description': 'Learn syntax parameters, logic control flows, internal dictionary variables, and tables in SAP environments.',
+                'difficulty_level': 'Beginner',
                 'modules': [
                     {
                         'title': 'ABAP Syntax & Data Dictionary',
@@ -271,14 +372,57 @@ try:
                 ]
             },
             {
+                'course_code': 'ABAP-202',
+                'title': 'ABAP Object-Oriented Programming (OOPS)',
+                'description': 'Learn classes, inheritance structures, interface declarations, events, and design pattern execution in ABAP OO.',
+                'difficulty_level': 'Intermediate',
+                'modules': [
+                    {
+                        'title': 'Global Classes and Event Handling',
+                        'contents': [
+                            {'title': 'Polymorphism & Constructor Syntax in OO ABAP', 'type': 'article', 'val': 'Coding custom classes and triggers.'}
+                        ]
+                    }
+                ]
+            },
+            {
                 'course_code': 'ABAP-301',
                 'title': 'Advanced ABAP & Database Orchestration',
                 'description': 'Orchestrating custom SAP database views, remote function calls, BAPIs, and Web Dynpro custom dashboards.',
+                'difficulty_level': 'Advanced',
                 'modules': [
                     {
                         'title': 'BAPIs & RFC Database Integrations',
                         'contents': [
                             {'title': 'Building Remote Function Calls Walkthrough', 'type': 'document', 'val': 'Configuring RFC protocols.'}
+                        ]
+                    }
+                ]
+            },
+            {
+                'course_code': 'ABAP-402',
+                'title': 'SAP Enhancement Framework & User Exits',
+                'description': 'Configure standard SAP software modifications using BAdIs, implicit enhancement spots, and user exits.',
+                'difficulty_level': 'Intermediate',
+                'modules': [
+                    {
+                        'title': 'BAdI Enhancements & Customer Exits',
+                        'contents': [
+                            {'title': 'Finding and Implementing BAdIs Guide', 'type': 'article', 'val': 'How to hook custom logic into standard SAP transactions.'}
+                        ]
+                    }
+                ]
+            },
+            {
+                'course_code': 'ABAP-501',
+                'title': 'ABAP on SAP HANA Development',
+                'description': 'Develop code optimized for memory bounds, AMDPs, core data services (CDS) views, and open SQL parameters.',
+                'difficulty_level': 'Advanced',
+                'modules': [
+                    {
+                        'title': 'CDS Views & AMDP Procedures',
+                        'contents': [
+                            {'title': 'HANA Database Code Pushdown Techniques', 'type': 'article', 'val': 'Best practices for database-level optimizations.'}
                         ]
                     }
                 ]
@@ -289,6 +433,7 @@ try:
                 'course_code': 'HR-101',
                 'title': 'Corporate HR & Recruitment Strategies',
                 'description': 'Sourcing strategies, payroll structures, hiring funnels, onboarding checklists, and labor law regulations.',
+                'difficulty_level': 'Beginner',
                 'modules': [
                     {
                         'title': 'Talent Acquisition & Employee Funnels',
@@ -302,11 +447,54 @@ try:
                 'course_code': 'HR-202',
                 'title': 'Employee Relations and Labor Laws',
                 'description': 'Workplace arbitration, state compliance guides, payroll taxes, benefit rules, and employee feedback loops.',
+                'difficulty_level': 'Intermediate',
                 'modules': [
                     {
                         'title': 'Arbitration & State Legal Compliance',
                         'contents': [
                             {'title': 'Workplace Dispute Resolution Rules', 'type': 'document', 'val': 'Legal practices handbook.'}
+                        ]
+                    }
+                ]
+            },
+            {
+                'course_code': 'HR-303',
+                'title': 'Strategic Talent Management & Appraisals',
+                'description': 'Formulate corporate feedback models, key performance indicator trees, goal targets, and growth metrics.',
+                'difficulty_level': 'Intermediate',
+                'modules': [
+                    {
+                        'title': 'Performance Appraisals and Feedback Loops',
+                        'contents': [
+                            {'title': 'Designing 360-Degree Feedback Surveys', 'type': 'article', 'val': 'Step-by-step layout for comprehensive corporate feedback.'}
+                        ]
+                    }
+                ]
+            },
+            {
+                'course_code': 'HR-404',
+                'title': 'Compensation, Benefits, and Payroll Admin',
+                'description': 'Learn wage structure models, tax brackets, benefit calculations, health plan rules, and equity distributions.',
+                'difficulty_level': 'Advanced',
+                'modules': [
+                    {
+                        'title': 'Payroll Accounting & Benefit Schemes',
+                        'contents': [
+                            {'title': 'Structuring Executive Equity Plans', 'type': 'article', 'val': 'Overview of vesting cycles and bonus payouts.'}
+                        ]
+                    }
+                ]
+            },
+            {
+                'course_code': 'HR-505',
+                'title': 'Workplace Safety, Diversity, & Compliance',
+                'description': 'Implement corporate compliance guides, OSHA standards, dispute logs, diversity benchmarks, and safety guidelines.',
+                'difficulty_level': 'Beginner',
+                'modules': [
+                    {
+                        'title': 'Compliance Audits & Dispute Resolutions',
+                        'contents': [
+                            {'title': 'OSHA Workplace Safety Protocols Handbook', 'type': 'article', 'val': 'Federal standards for corporate workplace compliance.'}
                         ]
                     }
                 ]
@@ -324,7 +512,7 @@ try:
                 course_code=c_data['course_code'],
                 title=c_data['title'],
                 description=c_data['description'],
-                difficulty_level='Beginner',
+                difficulty_level=c_data.get('difficulty_level', 'Beginner'),
                 is_published=True,
                 created_by=mgr.id,
                 department_id=dept.id,
@@ -393,7 +581,105 @@ try:
                 db.add(q1)
                 db.commit()
 
-    print("Successfully seeded/updated database with departments, roles, test users, courses, modules, contents and quizzes!")
+            # Create Exam for the course
+            exam = Exam(
+                id=uuid.uuid4(),
+                course_id=c.id,
+                department_id=dept.id,
+                title=f"{c.title} Certification Exam",
+                duration_minutes=60,
+                is_published=True,
+                status="approved",
+                created_by=mgr.id
+            )
+            db.add(exam)
+            db.commit()
+            db.refresh(exam)
+            
+            # Create Exam Assignment for the department
+            assignment = ExamAssignment(
+                id=uuid.uuid4(),
+                exam_id=exam.id,
+                department_id=dept.id
+            )
+            db.add(assignment)
+            
+            # Create Exam Questions
+            eq1 = ExamQuestion(
+                id=uuid.uuid4(),
+                exam_id=exam.id,
+                question_text=f"Descriptive answer explaining the key concepts of {c.title}:",
+                question_type="descriptive"
+            )
+            eq2 = ExamQuestion(
+                id=uuid.uuid4(),
+                exam_id=exam.id,
+                question_text=f"Short answer question about real-world applications of {c.title}:",
+                question_type="short_answer"
+            )
+            db.add_all([eq1, eq2])
+            db.commit()
+
+    # Pre-enroll employees in department-specific courses and seed exam submissions/grades
+    import datetime
+    print("Pre-enrolling employees and seeding exam attempts...")
+    all_employees = db.query(User).join(UserRole).filter(UserRole.role_id == db_roles['EMPLOYEE'].id).all()
+    for employee in all_employees:
+        if not employee.department_id:
+            continue
+        
+        # Get courses for this employee's department
+        dept_courses = db.query(Course).filter(Course.department_id == employee.department_id).all()
+        # Enroll in the first 3 courses
+        for idx, course in enumerate(dept_courses[:3]):
+            status = "completed" if idx == 0 else "in_progress"
+            progress = 100 if idx == 0 else (60 if idx == 1 else 30)
+            
+            enrollment = CourseEnrollment(
+                id=uuid.uuid4(),
+                user_id=employee.id,
+                course_id=course.id,
+                status=status,
+                progress_percent=progress,
+                enrolled_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=5),
+                completed_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=4) if idx == 0 else None,
+                expires_at=datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=15)
+            )
+            db.add(enrollment)
+            db.flush()
+            
+            # If completed, also seed a graded exam submission to show on the dashboard trend
+            if idx == 0:
+                exam = db.query(Exam).filter(Exam.course_id == course.id).first()
+                if exam:
+                    submission = ExamSubmission(
+                        id=uuid.uuid4(),
+                        exam_id=exam.id,
+                        user_id=employee.id,
+                        status="graded",
+                        started_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=4, hours=1),
+                        submitted_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=4),
+                        answers={
+                            "q1": "This is a completed descriptive answer.",
+                            "q2": "Completed short answer."
+                        }
+                    )
+                    db.add(submission)
+                    db.flush()
+                    
+                    # Create exam grade
+                    grade = ExamGrade(
+                        id=uuid.uuid4(),
+                        submission_id=submission.id,
+                        scores={"q1": 9, "q2": 8},
+                        overall_score=8.5,
+                        overall_feedback="Excellent work!",
+                        graded_by=admin_user.id
+                    )
+                    db.add(grade)
+    db.commit()
+
+    print("Successfully seeded/updated database with departments, roles, test users, courses, modules, contents, quizzes, and exams!")
 except Exception as e:
     db.rollback()
     print(f"Error seeding: {e}")

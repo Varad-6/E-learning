@@ -137,14 +137,14 @@ export const Navbar: React.FC = () => {
         return <FileText size={16} style={{ color: 'var(--accent-color)' }} />;
       case 'exam_graded':
       case 'exam_approved':
+      case 'course_approved':
         return <CheckCircle size={16} style={{ color: 'var(--accent-color)' }} />;
       case 'course_submitted':
       case 'course_pending':
         return <FileText size={16} style={{ color: 'var(--accent-color)' }} />;
-      case 'course_approved':
-        return <CheckCircle size={16} style={{ color: 'var(--accent-color)' }} />;
       case 'course_rejected':
       case 'exam_rejected':
+      case 'overdue_escalation':
         return <AlertTriangle size={16} style={{ color: 'var(--neon-coral)' }} />;
       case 'role_update':
         return <Settings size={16} style={{ color: 'var(--accent-color)' }} />;
@@ -330,16 +330,6 @@ export const Navbar: React.FC = () => {
               role="button"
             >
               Leaderboard
-            </div>
-          )}
-          {userEmail && userRole !== 'Admin' && (
-            <div 
-              onClick={() => navigate('/view-courses')} 
-              className={`nav-link ${location.pathname === '/view-courses' ? 'active' : ''}`} 
-              style={{ cursor: 'pointer' }}
-              role="button"
-            >
-              View Courses
             </div>
           )}
         </nav>

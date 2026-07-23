@@ -12,13 +12,14 @@ from app.api.quiz import router as quiz_router
 from app.api.department import router as department_router
 from app.api.admin import router as admin_router
 from app.api.module import router as module_router
-from app.api.exam import router as exam_router
+from app.api.exam import router as exam_router, employee_router as employee_exam_router
 from app.api.audit import router as audit_router
 from app.api.badge import router as badge_router
 from app.api.notification import router as notification_router
 from app.api.reporting import router as reporting_router
 from app.api.leaderboard import router as leaderboard_router
 from app.api.dashboard import router as dashboard_router
+from app.api.employee_dashboard import router as employee_dashboard_router
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -42,12 +43,12 @@ app = FastAPI(
 
 # Enable CORS for frontend flexibility across origins and dev servers
 origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    "http://localhost:5180",
+    "http://127.0.0.1:5180",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
+    "http://localhost:8085",
+    "http://127.0.0.1:8085",
 ]
 
 app.add_middleware(
@@ -68,12 +69,14 @@ app.include_router(department_router)
 app.include_router(admin_router)
 app.include_router(module_router)
 app.include_router(exam_router)
+app.include_router(employee_exam_router)
 app.include_router(audit_router)
 app.include_router(badge_router)
 app.include_router(notification_router)
 app.include_router(reporting_router)
 app.include_router(leaderboard_router)
 app.include_router(dashboard_router)
+app.include_router(employee_dashboard_router)
 
 # Mount static uploads folder for descriptive exam file submissions
 os.makedirs("uploads", exist_ok=True)

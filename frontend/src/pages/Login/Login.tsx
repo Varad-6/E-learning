@@ -40,7 +40,7 @@ export const Login: React.FC = () => {
   React.useEffect(() => {
     const fetchDepts = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8080/api/departments');
+        const response = await fetch('http://127.0.0.1:8085/api/departments');
         if (response.ok) {
           const data = await response.json();
           setDepartmentsList(data);

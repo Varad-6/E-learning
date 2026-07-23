@@ -19,8 +19,8 @@ This single command will:
 * Wait for the database to become ready.
 * Run all database migrations (`alembic upgrade head`).
 * Seed the database with the default users (`python seed_db.py`).
-* Start the Backend API on [http://localhost:8000](http://localhost:8000).
-* Build and start the Frontend Dev Server on [http://localhost:5173](http://localhost:5173).
+* Start the Backend API on [http://localhost:8085](http://localhost:8085).
+* Build and start the Frontend Dev Server on [http://localhost:5180](http://localhost:5180).
 
 ---
 
@@ -36,7 +36,7 @@ Create and start the PostgreSQL container defined in `docker-compose.yml`:
 ```bash
 docker compose up -d
 ```
-This starts the `elearning-postgres` container, mapping port `5433` on the host to port `5432` in the container to avoid port conflicts with any host-level PostgreSQL service running on port `5432`.
+This starts the `elearning-postgres` container, mapping port `5435` on the host to port `5432` in the container to avoid port conflicts with any host-level PostgreSQL service running on port `5432`.
 
 ---
 
@@ -44,7 +44,7 @@ This starts the `elearning-postgres` container, mapping port `5433` on the host 
 
 The backend is configured to use the `.env` file in the project root containing:
 ```env
-DATABASE_URL=postgresql://elearning_user:postgres@localhost:5433/elearning
+DATABASE_URL=postgresql://elearning_user:postgres@localhost:5435/elearning
 ```
 
 ### A. Activate Python Virtual Environment
@@ -147,10 +147,10 @@ finally:
 
 In the terminal tab with the virtual environment active:
 ```bash
-python -m uvicorn app.main:app --port 8000 --reload
+python -m uvicorn app.main:app --port 8085 --reload
 ```
 
-The backend server will run at [http://127.0.0.1:8000](http://127.0.0.1:8000).
+The backend server will run at [http://127.0.0.1:8085](http://127.0.0.1:8085).
 
 ---
 
@@ -163,4 +163,4 @@ npm install
 npm run dev
 ```
 
-The frontend application will start (usually on [http://localhost:5173](http://localhost:5173) or [http://localhost:5174](http://localhost:5174)).
+The frontend application will start on [http://localhost:5180](http://localhost:5180).

@@ -2,6 +2,41 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+## [2026-07-22] Employee Dashboard Full Visual Redesign & Progressive Skeletons
+- **Problem**:
+  - The Employee Dashboard was a simple, flat course catalog list lacking visual density, learning progress stats, upcoming exam countdowns, personal ranking highlights, and live activity notifications.
+- **Added**:
+  - **Aggregated Backend Endpoint**:
+    - Created `GET /api/employee/dashboard` in `app/api/employee_dashboard.py` returning aggregated details for enrolled mandatory/assigned courses, available courses in department, overall completion rates, upcoming attempts, rank within department, activity feed notifications, and subject categories.
+  - **Redesigned Widgets Grid**:
+    - Replaced the dashboard view in `Dashboard.tsx` with a premium 3-column CSS Grid root that collapses into a custom prioritized layout order on mobile (surfacing progress rings and exam indicators first).
+    - Added **Mandatory Learning Pathways** and **Assigned Courses** widget cards with color-coded urgency countdown alerts.
+    - Added **Overall Progress Ring** (SVG radial donut) with dynamic milestone text.
+    - Added **Department Rank Snippet** detailing rank index and badge tiers.
+    - Added **Upcoming Exams** attempting lane.
+    - Added **Course Subject Groups** department category tiles.
+    - Added **Inbox/Notifications** relative-time feeds.
+    - Implemented progressive skeleton loading animations (`animate-pulse`) for all cards.
+
+## [2026-07-22] Employee Exams Section Redesign, Leaderboard Scoping & Navigation Cleanup
+- **Problem**:
+  - The Employee's exams list was flat and lacked status differentiation.
+  - The Leaderboard component showed global data and allowed employees to query other departments, lacking personalization.
+  - The navbar menu had a redundant "View Courses" tab that duplicated the employee's main dashboard functionality.
+- **Changed**:
+  - **Exams Redesign**:
+    - Backend: Added the `GET /api/employee/exams` endpoint returning categorized arrays (`toAttempt`, `awaitingEvaluation`, `evaluated`).
+    - Frontend (`ExamsCenter.tsx`): Redesigned the employee exams center into a responsive tab-based switcher with clickable buttons (To Attempt, Awaiting Evaluation, and Completed), only displaying the active section's list in a clean grid. Replaced the "📋 Assigned Descriptive Exams" heading with "Assigned Exams". Built a "View Details" modal showing a question-by-question breakdown of completed exams, using the shared `<Modal>` component.
+  - **Leaderboard Scoping**:
+    - Backend (`leaderboard.py`): Restricted the `GET /api/leaderboard` rankings queries for strict `EMPLOYEE` role checks, forcing the scope to `'department'` and `department_id` to the user's department. Scoped available exams list, departments list, and exam-level sub-leaderboards contextually to the employee's department. Added `courses_completed` attribute to user ranks to dynamically render badge tier icons.
+    - Frontend (`Leaderboard.tsx`): Restricted navigation for employees to automatically fetch and load their own department. Implemented a beautiful visual podium for top 3 positions, highlighted the current user's row, added a motivatorial sub-banner ("points behind prev rank"), and implemented search text query filtering.
+  - **View Courses Removal & Header Stats Update**:
+    - Frontend (`Navbar.tsx`): Removed the "View Courses" navigation tab, routing employees exclusively to their main `/dashboard` (Mandatory/Available course enrollment) and `/dashboard?tab=my-courses` (In-progress/Completed study tracks).
+    - Frontend (`Dashboard.tsx`): Updated the employee's banner stats in the "My Courses" tab to display "Total Courses" (all enrolled) and removed the "Completed Modules" stat box.
+- **Tests added**:
+    - Production Vite compilation build verified (`built cleanly in 2.81s` with 0 typescript errors).
+
+
 ## [2026-07-22] User Detail Modal Compact Row-Based Restyling Pass
 - **Problem**:
   - User detail modals (Admin's User Analytics Modal and Manager's Roster Audit Modal) were oversized, featured excessive vertical padding, used heavy stat panels, and had full-width stretched footer buttons.

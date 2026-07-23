@@ -101,6 +101,10 @@ export const CreatorDashboard: React.FC = () => {
   const [targetDeptInput, setTargetDeptInput] = useState('AI');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
+  // Exam Approvals and submissions states
+  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
+  const [pendingExamTemplates, setPendingExamTemplates] = useState<any[]>([]);
+
   const fetchDBCourses = async () => {
     try {
       const response = await apiCall('/api/courses');
@@ -135,7 +139,29 @@ export const CreatorDashboard: React.FC = () => {
         localStorage.setItem('creator_courses', JSON.stringify(mapped));
       }
 
-      // Done fetching courses
+      // Fetch pending exam submissions
+      try {
+        const subResponse = await apiCall('/api/exams/submissions');
+        if (subResponse.ok) {
+          const subs = await subResponse.json();
+          const pendingSubs = subs.filter((s: any) => s.status === 'submitted');
+          setPendingSubmissions(pendingSubs);
+        }
+      } catch (subErr) {
+        console.error('Failed to load exam submissions for approvals tab:', subErr);
+      }
+
+      // Fetch pending exam template approvals
+      try {
+        const revResponse = await apiCall('/api/exams/reviews/pending');
+        if (revResponse.ok) {
+          const revs = await revResponse.json();
+          setPendingExamTemplates(revs);
+        }
+      } catch (revErr) {
+        console.error('Failed to load exam templates for approvals tab:', revErr);
+      }
+
     } catch (err) {
       console.error('Failed to load courses from DB:', err);
     }
@@ -596,13 +622,33 @@ export const CreatorDashboard: React.FC = () => {
 
       {/* Tabs Layout (If Dept Head or Admin) */}
       {(isDeptHead || isAdmin) && (
-        <div className="sidebar-tabs-header" style={{ marginBottom: '30px' }}>
+        <div className="sidebar-tabs-header" style={{ marginBottom: '30px', display: 'flex', gap: '12px' }}>
           <button 
             className={`sidebar-tab-btn ${activeTab === 'my_courses' ? 'active' : ''}`}
             onClick={() => { setActiveTab('my_courses'); setSelectedCreatorDept(null); }}
           >
             {isAdmin ? 'All Courses' : 'My Created Courses'}
           </button>
+          <button 
+            className={`sidebar-tab-btn ${activeTab === 'approvals' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('approvals'); }}
+          >
+            Approvals
+          </button>
+          <button 
+            className={`sidebar-tab-btn ${activeTab === 'auditing' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('auditing'); }}
+          >
+            Auditing & Analytics
+          </button>
+          {isAdmin && (
+            <button 
+              className={`sidebar-tab-btn ${activeTab === 'departments' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('departments'); }}
+            >
+              Departments
+            </button>
+          )}
         </div>
       )}
 
@@ -986,6 +1032,153 @@ export const CreatorDashboard: React.FC = () => {
                   </table>
                 </div>
               )}
+
+              {/* Part B: Student Exam Submissions */}
+              <div style={{ marginTop: '48px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>🧑‍🎓 Pending Student Exam Submissions</h3>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginTop: '4px' }}>
+                      Grade and evaluate exam attempts submitted by department employees.
+                    </p>
+                  </div>
+                  <div className="approvals-count-pill" style={{ background: 'rgba(0, 242, 254, 0.1)', color: 'var(--accent-color)' }}>
+                    {pendingSubmissions.length} Awaiting Grade
+                  </div>
+                </div>
+
+                {pendingSubmissions.length === 0 ? (
+                  <div className="empty-state-banner" style={{ padding: '40px 20px', textAlign: 'center', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
+                    <CheckCircle2 size={36} style={{ color: 'var(--neon-teal)', margin: '0 auto 12px' }} />
+                    <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 700 }}>No Submissions Awaiting Evaluation</h4>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', margin: 0 }}>All completed student exams are graded!</p>
+                  </div>
+                ) : (
+                  <div className="approvals-table-wrapper glass-panel">
+                    <table className="approvals-table">
+                      <thead>
+                        <tr>
+                          <th>Exam Details</th>
+                          <th>Submitted By</th>
+                          <th>Submission Date</th>
+                          <th style={{ textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingSubmissions.map((sub: any) => (
+                          <tr key={sub.id} className="approval-row-hover">
+                            <td>
+                              <div className="table-course-info">
+                                <span className="code-tag" style={{ background: 'rgba(0, 242, 254, 0.1)', color: 'var(--accent-color)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: '800' }}>
+                                  {sub.course_code || 'EXAM'}
+                                </span>
+                                <div style={{ marginLeft: '12px' }}>
+                                  <span className="title-text" style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{sub.exam_title}</span>
+                                  <span className="duration-text" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>{sub.course_title || 'Course Exam'}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="table-creator-info">
+                                <span className="name" style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{sub.user_name || 'Student'}</span>
+                                <span className="role" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>{sub.user_email || ''} ({sub.department_name || ''})</span>
+                              </div>
+                            </td>
+                            <td style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+                              {sub.submitted_at ? new Date(sub.submitted_at).toLocaleDateString() : 'N/A'}
+                            </td>
+                            <td>
+                              <div className="approvals-table-actions" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <Button 
+                                  variant="primary" 
+                                  size="sm"
+                                  onClick={() => navigate('/creator/exams/review')}
+                                >
+                                  Evaluate & Grade
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Part C: Exam Template Design Approvals */}
+              <div style={{ marginTop: '48px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>📋 Pending Exam Template Approvals</h3>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginTop: '4px' }}>
+                      Approve newly designed exam templates before active deployment.
+                    </p>
+                  </div>
+                  <div className="approvals-count-pill" style={{ background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899' }}>
+                    {pendingExamTemplates.length} Awaiting Approval
+                  </div>
+                </div>
+
+                {pendingExamTemplates.length === 0 ? (
+                  <div className="empty-state-banner" style={{ padding: '40px 20px', textAlign: 'center', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
+                    <CheckCircle2 size={36} style={{ color: 'var(--neon-teal)', margin: '0 auto 12px' }} />
+                    <h4 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 700 }}>No Templates Awaiting Approval</h4>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', margin: 0 }}>All newly designed exam templates are reviewed!</p>
+                  </div>
+                ) : (
+                  <div className="approvals-table-wrapper glass-panel">
+                    <table className="approvals-table">
+                      <thead>
+                        <tr>
+                          <th>Exam Title</th>
+                          <th>Created By</th>
+                          <th>Duration</th>
+                          <th style={{ textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingExamTemplates.map((rev: any) => (
+                          <tr key={rev.id} className="approval-row-hover">
+                            <td>
+                              <div className="table-course-info">
+                                <span className="code-tag" style={{ background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', padding: '2px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: '800' }}>
+                                  TEMPLATE
+                                </span>
+                                <div style={{ marginLeft: '12px' }}>
+                                  <span className="title-text" style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{rev.exam_title || 'Exam Template'}</span>
+                                  <span className="duration-text" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Pending approval review</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="table-creator-info">
+                                <span className="name" style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{rev.creator_name || 'Manager'}</span>
+                                <span className="role" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>{rev.creator_email || ''}</span>
+                              </div>
+                            </td>
+                            <td style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+                              {rev.duration_minutes || 60} mins
+                            </td>
+                            <td>
+                              <div className="approvals-table-actions" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <Button 
+                                  variant="primary" 
+                                  size="sm"
+                                  onClick={() => navigate('/creator/exams/review')}
+                                >
+                                  Review Design
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
         </div>

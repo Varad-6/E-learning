@@ -277,6 +277,35 @@ Refactor Department architecture to a single database source of truth (`departme
 
 ---
 
+### Phase 7: Employee Exams Redesign, Leaderboard Scoping & Navigation Cleanup
+
+#### Objective
+Redesign the employee exams view into three status-categorized lanes, secure and personalize the leaderboards for employee roles, and remove duplicate navigation links.
+
+#### Key Updates
+- **Exams Redesign**: Implemented a responsive tabbed view on `/exams` with clickable switcher buttons for (1) To Attempt, (2) Awaiting Evaluation, and (3) Completed, displaying only the selected tab's list of exams in a clean grid. Added a "View Details" action displaying question-level grading feedback and scored items in a modal. Created the new backend endpoint `GET /api/employee/exams` to compute and return these categorized arrays.
+- **Leaderboard Scoping**: Bound the `GET /api/leaderboard` rankings queries for strict non-admin/manager roles to auto-scope ranking queries to their own `department_id`. Implemented a visual 1st/2nd/3rd place podium in `Leaderboard.tsx`, highlighted the current user's entry, added dynamic motivator sub-texts based on rankings gaps, and added search query filters.
+- **Navigation & Banner Cleanup**: Removed the redundant "View Courses" link in the global navigation header for learners, routing them contextually to their main `/dashboard` and `/dashboard?tab=my-courses`. Updated the banner on `/dashboard?tab=my-courses` to show "Total Courses" and removed the redundant "Completed Modules" stats box.
+
+#### Status
+### Phase 8: Employee Dashboard Redesign & Progressive Skeletons
+
+#### Objective
+Redesign the Employee Dashboard into a beautiful widget-based portal showing progress metrics, mandatory courses, assigned tasks, category folders, department rankings, upcoming attempts, and relative-time notifications.
+
+#### Key Updates
+- **Aggregated Backend Endpoint**: Added a new FastAPI router endpoint `GET /api/employee/dashboard` in `app/api/employee_dashboard.py`. Returns all dashboard counts, progress percentages, next badge milestones, upcoming attempts, user rank, notifications feed, and course categories in a single non-blocking query.
+- **Redesigned Widgets Grid**: Formed a 3-column CSS Grid responsive root in `Dashboard.tsx` that rearranges itself to prioritize progress stats and exams first on mobile.
+- **Urgency Tags**: Added red/amber urgency banners to Mandatory courses approaching their due dates.
+- **Overall Progress Circle**: Integrated a pure SVG radial progress donut with dynamic motivational threshold headers.
+- **Department Rank & Inbox feeds**: Unified rankings, badge icons, and notification feeds into clickable cards linking across dashboard tabs.
+- **Progressive Skeletons**: Handled async dashboard queries using custom pulsate skeleton panels for all widgets.
+
+#### Status
+**Completed**
+
+---
+
 ## Change Log
 
 Below is the change history showing git branches and commit IDs:

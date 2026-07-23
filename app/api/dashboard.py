@@ -100,3 +100,13 @@ def get_top_performers(
     db: Session = Depends(get_db)
 ):
     return DashboardService.get_top_performers(db, limit=limit)
+
+@router.get(
+    "/difficulty-distribution",
+    summary="Get Course Difficulty Distribution"
+)
+def get_difficulty_distribution(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return DashboardService.get_difficulty_distribution(db)

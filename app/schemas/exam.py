@@ -68,12 +68,22 @@ class ExamSubmissionResponse(BaseModel):
     user_email: Optional[str] = None
     department_name: Optional[str] = None
     exam_title: Optional[str] = None
+    course_title: Optional[str] = None
+    course_code: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    due_date: Optional[datetime] = None
+    graded_at: Optional[datetime] = None
     overall_score: Optional[float] = None
     overall_feedback: Optional[str] = None
     scores: Optional[Dict[str, int]] = None
 
     class Config:
         from_attributes = True
+
+class EmployeeExamsResponse(BaseModel):
+    toAttempt: List[ExamSubmissionResponse]
+    awaitingEvaluation: List[ExamSubmissionResponse]
+    evaluated: List[ExamSubmissionResponse]
 
 class ExamReviewResponse(BaseModel):
     id: UUID
