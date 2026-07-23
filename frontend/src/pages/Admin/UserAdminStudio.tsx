@@ -80,7 +80,7 @@ export const UserAdminStudio: React.FC = () => {
 
   useEffect(() => {
     const savedRole = localStorage.getItem('isLoggedInRole');
-    if (savedRole !== 'Admin' && savedRole !== 'HR Admin' && savedRole !== 'HR') {
+    if (savedRole !== 'Admin' && savedRole !== 'HR Admin' && savedRole !== 'HR Manager' && savedRole !== 'HR') {
       navigate('/dashboard');
     } else {
       loadData();

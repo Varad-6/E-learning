@@ -29,7 +29,8 @@ def get_leaderboard(
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
-    is_manager = "COURSE_MANAGER" in user_roles and not ("SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles)
+    is_hr_dept = bool(current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
+    is_manager = "COURSE_MANAGER" in user_roles and not ("SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles or is_hr_dept)
     
     if is_manager:
         scope = "department"

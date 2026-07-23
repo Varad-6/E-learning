@@ -2,6 +2,22 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+## [2026-07-23] Kiezen LMS - HR Manager Unscoped All-Department Access Pass
+- Problem: HR Managers (`hr.mgr1@lms.com`, role `COURSE_MANAGER` in `HR` department) needed to see ALL departments identically to Admin, unlocking all-department views, User Studio, Creator Studio, and global analytics.
+- Changed:
+  - `app/api/dashboard.py`: Updated `get_manager_dept_id()` to return `None` (unscoped, all-departments view) if `current_user` belongs to the `HR` department.
+  - `app/api/reporting.py`: Updated `is_global_admin` check to treat HR department managers as global admins, granting full visibility across all departments.
+  - `app/api/leaderboard.py`: Updated `is_manager` check to treat HR department managers as global admins (unscoped view of global leaderboard and all departments).
+  - `app/core/dependencies.py`: Updated `RequireRoles` dependency to automatically grant HR department managers access to any endpoint permitting Admin/HR roles.
+  - `frontend/src/pages/Login/Login.tsx`: Mapped HR department managers to `'HR Manager'`, giving them identical workspace access to Admin.
+  - `frontend/src/components/Navbar/Navbar.tsx`: Enabled User Studio, Creator Studio, and Reporting navigation links for `'HR Manager'`.
+  - `frontend/src/pages/Dashboard/Dashboard.tsx`: Enabled full Admin Analytics View, audit logs, and all-department metrics for `'HR Manager'`.
+  - `frontend/src/pages/Creator/CreatorDashboard.tsx`: Included `'HR Manager'` in `isAdmin` check for all-department course management, approvals, and publishing controls.
+  - `frontend/src/pages/Admin/UserAdminStudio.tsx`: Allowed `'HR Manager'` access to User & Department Administration studio.
+- Tests added: Updated `scratch/tmp_verify_final.py` (51 automated test cases, 100% green).
+- Migration: No.
+- Known risk/follow-up: None. HR Managers have full cross-department access with distinct role identity.
+
 ## [2026-07-23] Kiezen LMS - HR Role Full Equivalence to Admin Pass
 - Problem: The HR role (`HR_ADMIN`) required full capability equivalence to System Admin (`SYSTEM_ADMIN`) across all system views, navigation links, CRUD actions, and cross-department analytics, while preserving distinct role identity for display and audit log attribution.
 - Changed:

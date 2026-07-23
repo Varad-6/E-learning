@@ -103,17 +103,23 @@ export const Login: React.FC = () => {
       // Save session credentials
       localStorage.setItem('isLoggedInEmail', data.user.email);
       
+      const selectedDept = departmentsList.find(d => d.id === data.user.department_id);
+      const isHRDept = Boolean(selectedDept && (selectedDept.code === 'HR' || selectedDept.name.toLowerCase().includes('hr')));
+
       const backendRole = data.roles[0] || 'EMPLOYEE';
       let mappedRole = 'Employee';
-      if (backendRole === 'COURSE_MANAGER') mappedRole = 'Manager';
-      else if (backendRole === 'HR_ADMIN') mappedRole = 'HR Admin';
-      else if (backendRole === 'SYSTEM_ADMIN') mappedRole = 'Admin';
+      if (backendRole === 'HR_ADMIN') {
+        mappedRole = 'HR Admin';
+      } else if (backendRole === 'SYSTEM_ADMIN') {
+        mappedRole = 'Admin';
+      } else if (backendRole === 'COURSE_MANAGER') {
+        mappedRole = isHRDept ? 'HR Manager' : 'Manager';
+      }
       
       localStorage.setItem('isLoggedInRole', mappedRole);
       localStorage.setItem('rawRoles', JSON.stringify(data.roles || [backendRole]));
       
       // Sync department info
-      const selectedDept = departmentsList.find(d => d.id === data.user.department_id);
       if (selectedDept) {
         localStorage.setItem('isLoggedInDept', selectedDept.code);
         localStorage.setItem('profileDeptId', selectedDept.id);

@@ -513,7 +513,7 @@ export const Dashboard: React.FC = () => {
       if (savedRole) setRole(savedRole);
       if (savedDept) setDept(savedDept);
 
-      if (activeRole === 'Admin' || activeRole === 'HR Admin' || activeRole === 'HR') {
+      if (activeRole === 'Admin' || activeRole === 'HR Admin' || activeRole === 'HR Manager' || activeRole === 'HR') {
         fetchDBAuditLogs();
         fetchDashboardAnalytics();
       }
@@ -1114,7 +1114,7 @@ export const Dashboard: React.FC = () => {
                   ? 'Department Head Workspace' 
                   : 'Employee Workspace'}
               </span>
-              {(role !== 'Admin' && role !== 'SYSTEM_ADMIN' && role !== 'HR' && role !== 'HR Admin' && role !== 'HR_ADMIN') && dept && (
+              {(role !== 'Admin' && role !== 'SYSTEM_ADMIN' && role !== 'HR' && role !== 'HR Admin' && role !== 'HR Manager' && role !== 'HR_ADMIN') && dept && (
                 <span className="badge dept">{dept} Department</span>
               )}
             </div>
@@ -1731,7 +1731,7 @@ export const Dashboard: React.FC = () => {
       )}
 
       {/* 3. ADMINISTRATOR VIEW (BI & ANALYTICS DASHBOARD) */}
-      {activeMainView === 'dashboard' && (role === 'Admin' || role === 'HR Admin' || role === 'HR') && (
+      {activeMainView === 'dashboard' && (role === 'Admin' || role === 'HR Admin' || role === 'HR Manager' || role === 'HR') && (
         <div className="dashboard-layout-admin animate-fade-in">
           <div className="pane-header" style={{ marginBottom: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>

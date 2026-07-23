@@ -10,7 +10,11 @@ router = APIRouter(prefix="/api/dashboard", tags=["Dashboard Analytics"])
 
 def get_manager_dept_id(current_user: User) -> Optional[Any]:
     user_roles = [r.name for r in current_user.roles]
-    if "COURSE_MANAGER" in user_roles and not ("SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles):
+    if "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles:
+        return None
+    if current_user.department and current_user.department.code in ["HR", "HR_ADMIN"]:
+        return None
+    if "COURSE_MANAGER" in user_roles:
         return current_user.department_id
     return None
 

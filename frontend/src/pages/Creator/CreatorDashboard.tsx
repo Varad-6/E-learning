@@ -501,7 +501,7 @@ export const CreatorDashboard: React.FC = () => {
 
   // Scoped views based on active profile
   const isDeptHead = role === 'Manager';
-  const isAdmin = role === 'Admin' || role === 'HR Admin' || role === 'HR' || role === 'SYSTEM_ADMIN' || role === 'HR_ADMIN';
+  const isAdmin = role === 'Admin' || role === 'HR Admin' || role === 'HR Manager' || role === 'HR' || role === 'SYSTEM_ADMIN' || role === 'HR_ADMIN';
   const isManager = role === 'Manager' || role === 'COURSE_MANAGER';
   
   // Filter courses: Admin/HR sees all courses across departments, Manager sees department/self-owned, Employee sees self-owned

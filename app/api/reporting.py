@@ -26,7 +26,7 @@ def get_departments_summary(
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
-    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles
+    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
 
     # Scoping: Admin/HR sees all departments; Manager/Employee sees their own assigned department
     query = db.query(Department)
@@ -112,7 +112,7 @@ def get_department_employees(
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
-    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles
+    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
 
     # Scoping check: Manager/Employee can only view their assigned department
     if not is_global_admin and current_user.department_id != department_id:
@@ -236,7 +236,7 @@ def get_employee_detail_profile(
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
-    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles
+    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
 
     emp = db.query(User).filter(User.id == user_id).first()
     if not emp:

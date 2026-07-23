@@ -74,6 +74,9 @@ class RequireRoles:
 
     def __call__(self, current_user: User = Depends(get_current_user)) -> User:
         user_roles = [r.name for r in current_user.roles]
+        # HR department members (HR Admin & HR Manager) pass any endpoint permitting Admin/HR
+        if ("SYSTEM_ADMIN" in self.allowed_roles or "HR_ADMIN" in self.allowed_roles) and current_user.department and current_user.department.code in ["HR", "HR_ADMIN"]:
+            return current_user
         if not any(role in user_roles for role in self.allowed_roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
