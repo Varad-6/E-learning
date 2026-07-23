@@ -2,6 +2,21 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+## [2026-07-23] Kiezen LMS - Full Event-Driven Notification System
+- Problem: The application required a production-grade, event-driven notification system with zero mock data, covering role-based triggers (Employee, Manager, HR, Admin), database indexing, REST endpoints, and live Navbar dropdown UI.
+- Changed:
+  - `app/models/notification.py`: Added `related_entity_type`, `read_at`, and composite index `idx_notifications_user_read_created` on `(user_id, is_read, created_at)`.
+  - `alembic/versions/7a8b9c0d1e2f_enhance_notifications_schema_and_index.py`: Created and ran migration (`alembic upgrade head`).
+  - `app/schemas/notification.py`: Updated `NotificationResponse` schema to include `related_entity_type` and `read_at`.
+  - `app/services/notification_service.py`: Implemented helper methods `notify_department_managers_and_hr()`, `notify_system_admins()`, daily job `check_course_locks_and_warn()`, and weekly job `generate_weekly_admin_digest()`.
+  - `app/api/notification.py`: Implemented `GET /api/notifications?unread_only=false&limit=20`, `GET /api/notifications/unread-count`, `PATCH /api/notifications/{id}/read`, `PATCH /api/notifications/read-all`, `POST /api/notifications/jobs/check-locks`, and `POST /api/notifications/jobs/weekly-digest`.
+  - `app/api/course.py`, `app/api/enrollment.py`, `app/api/admin.py`, `app/api/exam.py`, `app/services/badge_service.py`: Connected real event triggers across course creation/publishing/reverting, enrollment, completion, user creation, exam grading, and badge awards.
+  - `frontend/src/components/Navbar/Navbar.tsx`: Connected live unread count badge (`GET /api/notifications/unread-count`), dropdown notifications list with relative timestamps, click-to-read navigation, mark-all-read (`PATCH /api/notifications/read-all`), and 60s background refresh interval.
+  - `tracker.xlsx`: Documented all 12 notification event triggers, recipient rules, and verification statuses.
+- Tests added: Updated `scratch/tmp_verify_final.py` (56 automated test cases, 100% green).
+- Migration: Yes — `7a8b9c0d1e2f_enhance_notifications_schema_and_index.py`.
+- Known risk/follow-up: None. Zero mock data, all notifications driven by real backend database mutations.
+
 ## [2026-07-23] Kiezen LMS - HR Manager Unscoped All-Department Access Pass
 - Problem: HR Managers (`hr.mgr1@lms.com`, role `COURSE_MANAGER` in `HR` department) needed to see ALL departments identically to Admin, unlocking all-department views, User Studio, Creator Studio, and global analytics.
 - Changed:

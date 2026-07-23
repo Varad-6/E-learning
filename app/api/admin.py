@@ -39,6 +39,28 @@ def create_user(
         type="provisioning",
         title="Welcome to Kaizen LMS! 👋",
         message="Your corporate e-learning profile has been successfully provisioned. Please complete your profile and checklist.",
+        related_entity_type="user",
+        related_entity_id=user.id
+    )
+
+    # 🟢 Trigger notification for Department Manager & HR
+    NotificationService.notify_department_managers_and_hr(
+        db=db,
+        department_id=user.department_id,
+        type="user_created",
+        title="New Team Member Joined",
+        message=f"New user provisioned: {user.first_name} {user.last_name} ({user.employee_code}).",
+        related_entity_type="user",
+        related_entity_id=user.id
+    )
+
+    # 🟢 Trigger notification for System Admins
+    NotificationService.notify_system_admins(
+        db=db,
+        type="user_created",
+        title="New User Created",
+        message=f"System-wide user creation: {user.first_name} {user.last_name} ({user.email}).",
+        related_entity_type="user",
         related_entity_id=user.id
     )
     return user

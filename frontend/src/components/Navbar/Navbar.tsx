@@ -29,6 +29,7 @@ export const Navbar: React.FC = () => {
   
   // Notification states
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadBadgeCount, setUnreadBadgeCount] = useState<number>(0);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
@@ -37,9 +38,13 @@ export const Navbar: React.FC = () => {
     if (!email) return;
 
     try {
-      const res = await apiCall('/api/notifications');
-      if (res.ok) {
-        const data = await res.json();
+      const [resNotifs, resUnread] = await Promise.all([
+        apiCall('/api/notifications?limit=20'),
+        apiCall('/api/notifications/unread-count')
+      ]);
+
+      if (resNotifs.ok) {
+        const data = await resNotifs.json();
         const mapped: AppNotification[] = data.map((n: any) => ({
           id: n.id,
           message: n.message,
@@ -50,6 +55,11 @@ export const Navbar: React.FC = () => {
           timestamp: n.created_at
         }));
         setNotifications(mapped);
+      }
+
+      if (resUnread.ok) {
+        const unreadData = await resUnread.json();
+        setUnreadBadgeCount(unreadData.unread_count);
       }
     } catch {
       // Silently ignore — backend may be temporarily unreachable
@@ -173,12 +183,13 @@ export const Navbar: React.FC = () => {
   };
 
   const filteredNotifs = notifications;
-  const unreadCount = filteredNotifs.filter(n => !n.isRead).length;
+  const unreadCount = unreadBadgeCount || filteredNotifs.filter(n => !n.isRead).length;
 
   const handleNotifClick = async (notif: AppNotification) => {
     try {
-      await apiCall(`/api/notifications/${notif.id}/read`, { method: 'PUT' });
+      await apiCall(`/api/notifications/${notif.id}/read`, { method: 'PATCH' });
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
+      setUnreadBadgeCount(prev => Math.max(0, prev - (notif.isRead ? 0 : 1)));
     } catch (err) {
       console.error(err);
     }
@@ -208,8 +219,9 @@ export const Navbar: React.FC = () => {
   const handleDismissNotif = async (notifId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await apiCall(`/api/notifications/${notifId}/read`, { method: 'PUT' });
+      await apiCall(`/api/notifications/${notifId}/read`, { method: 'PATCH' });
       setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true } : n));
+      setUnreadBadgeCount(prev => Math.max(0, prev - 1));
     } catch (err) {
       console.error(err);
     }
@@ -217,8 +229,9 @@ export const Navbar: React.FC = () => {
 
   const handleMarkAllRead = async () => {
     try {
-      await apiCall('/api/notifications/read-all', { method: 'POST' });
+      await apiCall('/api/notifications/read-all', { method: 'PATCH' });
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadBadgeCount(0);
     } catch (err) {
       console.error(err);
     }

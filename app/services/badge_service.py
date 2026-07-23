@@ -57,6 +57,16 @@ class BadgeService:
                     target=actor_code,
                     details=f"Employee {actor_email} earned achievement badge: '{tier_name}'"
                 )
+                from app.services.notification_service import NotificationService
+                NotificationService.create_notification(
+                    db=db,
+                    user_id=user_id,
+                    type="badge_earned",
+                    title="New Badge Earned! 🏆",
+                    message=f"Congratulations! You earned the '{tier_name}' badge milestone.",
+                    related_entity_type="badge",
+                    related_entity_id=b.id
+                )
 
         return awarded
 
