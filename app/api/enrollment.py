@@ -81,7 +81,7 @@ def get_my_enrollments(
 )
 def get_current_manager_roster(
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     if not current_user.department_id:
         raise HTTPException(
@@ -222,7 +222,7 @@ def unlock_enrollment(
     enrollment_id: UUID,
     extension_days: int = 3,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     return EnrollmentService.unlock_enrollment(db, enrollment_id=enrollment_id, extension_days=extension_days)
 

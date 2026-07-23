@@ -20,6 +20,6 @@ def get_audit_logs(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
     return AuditService.get_logs(db, skip=skip, limit=limit)

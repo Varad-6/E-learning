@@ -101,7 +101,7 @@ def assign_role(
     user_id: UUID,
     request: RoleAssignmentRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
     if request.user_id != user_id:
         raise HTTPException(

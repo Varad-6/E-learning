@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/quizzes", tags=["Quizzes"])
 def create_quiz(
     request: QuizCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     return QuizService.create_quiz(db, request=request)
 
@@ -54,7 +54,7 @@ def create_question(
     quiz_id: UUID,
     request: QuizQuestionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     return QuizService.create_question(db, quiz_id=quiz_id, request=request)
 
@@ -133,7 +133,7 @@ def get_quiz_by_module(
 def delete_quiz_by_module(
     module_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     QuizService.delete_quiz_by_module(db, module_id=module_id)
     return None

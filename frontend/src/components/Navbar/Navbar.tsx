@@ -289,7 +289,7 @@ export const Navbar: React.FC = () => {
           {userEmail && (() => {
             const rawRolesStr = localStorage.getItem('rawRoles');
             const rawRoles = rawRolesStr ? JSON.parse(rawRolesStr) : [];
-            const hasAccess = rawRoles.includes('SYSTEM_ADMIN') || rawRoles.includes('COURSE_MANAGER');
+            const hasAccess = rawRoles.includes('SYSTEM_ADMIN') || rawRoles.includes('COURSE_MANAGER') || rawRoles.includes('HR_ADMIN');
             if (!hasAccess) return null;
             return (
               <div 
@@ -302,7 +302,7 @@ export const Navbar: React.FC = () => {
               </div>
             );
           })()}
-          {userEmail && userRole === 'Admin' && (
+          {userEmail && (userRole === 'Admin' || userRole === 'HR Admin' || userRole === 'HR') && (
             <div 
               onClick={() => navigate('/admin/users')} 
               className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`} 
@@ -312,7 +312,7 @@ export const Navbar: React.FC = () => {
               User Studio
             </div>
           )}
-          {userEmail && (userRole === 'Admin' || userRole === 'Manager') && (
+          {userEmail && (userRole === 'Admin' || userRole === 'HR Admin' || userRole === 'HR' || userRole === 'Manager') && (
             <div 
               onClick={() => navigate('/reporting')} 
               className={`nav-link ${location.pathname.startsWith('/reporting') ? 'active' : ''}`} 
@@ -332,7 +332,7 @@ export const Navbar: React.FC = () => {
               Leaderboard
             </div>
           )}
-          {userEmail && userRole !== 'Admin' && userRole !== 'Manager' && (
+          {userEmail && userRole !== 'Admin' && userRole !== 'HR Admin' && userRole !== 'HR' && userRole !== 'Manager' && (
             <div 
               onClick={() => navigate('/view-courses')} 
               className={`nav-link ${location.pathname === '/view-courses' ? 'active' : ''}`} 

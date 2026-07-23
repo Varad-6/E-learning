@@ -106,7 +106,8 @@ export const Login: React.FC = () => {
       const backendRole = data.roles[0] || 'EMPLOYEE';
       let mappedRole = 'Employee';
       if (backendRole === 'COURSE_MANAGER') mappedRole = 'Manager';
-      else if (backendRole === 'SYSTEM_ADMIN' || backendRole === 'HR_ADMIN') mappedRole = 'Admin';
+      else if (backendRole === 'HR_ADMIN') mappedRole = 'HR Admin';
+      else if (backendRole === 'SYSTEM_ADMIN') mappedRole = 'Admin';
       
       localStorage.setItem('isLoggedInRole', mappedRole);
       localStorage.setItem('rawRoles', JSON.stringify(data.roles || [backendRole]));

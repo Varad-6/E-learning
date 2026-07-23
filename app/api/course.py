@@ -76,7 +76,7 @@ def get_course(
 def create_course(
     request: CourseCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     course = CourseService.create_course(db, request=request, user_id=current_user.id)
     AuditService.create_entry(
@@ -99,7 +99,7 @@ def update_course(
     course_id: UUID,
     request: CourseUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     course = CourseService.update_course(db, course_id=course_id, request=request)
     AuditService.create_entry(
@@ -120,7 +120,7 @@ def update_course(
 def delete_course(
     course_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     course = CourseService.get_course(db, course_id=course_id)
     CourseService.delete_course(db, course_id=course_id)
@@ -143,7 +143,7 @@ def delete_course(
 def publish_course(
     course_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     course = CourseService.publish_course(db, course_id=course_id)
     AuditService.create_entry(
@@ -212,7 +212,7 @@ def submit_for_approval(
 def approve_course(
     course_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     course = CourseService.approve_course(db, course_id=course_id, reviewer_id=current_user.id)
     AuditService.create_entry(
@@ -245,7 +245,7 @@ def reject_course(
     course_id: UUID,
     rejection_reason: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     course = CourseService.reject_course(
         db, course_id=course_id, reviewer_id=current_user.id, rejection_reason=rejection_reason

@@ -37,7 +37,7 @@ def create_exam(
 ):
     # Ensure current user is Admin or Manager (Course Admin)
     user_roles = [r.name for r in current_user.roles]
-    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         raise HTTPException(
             status_code=403,
             detail="Only Admins or Course Managers can create exams."
@@ -54,7 +54,7 @@ def create_exam(
         dept = db.query(Department).filter(Department.id == exam_in.department_id).first()
         if not dept:
             raise HTTPException(status_code=404, detail="Department not found")
-    elif "SYSTEM_ADMIN" not in user_roles:
+    elif "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles:
         # Managers must create exams for their own department
         exam_in.department_id = current_user.department_id
 
@@ -357,7 +357,7 @@ def get_submissions(
 ):
     # Ensure current user is Admin or Manager
     user_roles = [r.name for r in current_user.roles]
-    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         raise HTTPException(status_code=403, detail="Unauthorized role access.")
 
     # Get submissions in submitted or graded state
@@ -366,10 +366,10 @@ def get_submissions(
     )
 
     # CRITICAL BUSINESS RULE B: Submission Routing — Manager vs Admin Reviewer Logic
-    # 1. If Manager created exam -> routes to Manager's review queue only.
-    # 2. If Admin created exam -> routes to Admin's review queue only (never to Manager).
-    if "SYSTEM_ADMIN" in user_roles:
-        admin_user_ids = [u.id for u in db.query(User.id).join(User.roles).filter(Role.name == "SYSTEM_ADMIN").all()]
+    # 1. If Admin created exam -> routes to Admin's review queue only.
+    # 2. If Manager created exam -> routes to Manager's review queue only.
+    if "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles:
+        admin_user_ids = [u.id for u in db.query(User.id).join(User.roles).filter(Role.name.in_(["SYSTEM_ADMIN", "HR_ADMIN"])).all()]
         query = query.filter(Exam.created_by.in_(admin_user_ids))
     else:
         # Manager sees ONLY submissions for exams created by themselves
@@ -417,7 +417,7 @@ def grade_submission(
 ):
     # Ensure role is Admin or Manager
     user_roles = [r.name for r in current_user.roles]
-    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         raise HTTPException(status_code=403, detail="Unauthorized role access.")
 
     sub = db.query(ExamSubmission).filter(ExamSubmission.id == submission_id).first()
@@ -483,7 +483,7 @@ def submit_exam_for_review(
 ):
     # Ensure current user is Admin or Manager
     user_roles = [r.name for r in current_user.roles]
-    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         raise HTTPException(status_code=403, detail="Unauthorized role access.")
 
     exam = db.query(Exam).filter(Exam.id == exam_id).first()
@@ -586,13 +586,13 @@ def get_pending_reviews(
 ):
     # Ensure current user is Admin or Manager
     user_roles = [r.name for r in current_user.roles]
-    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         raise HTTPException(status_code=403, detail="Unauthorized role access.")
 
     query = db.query(ExamReview).filter(ExamReview.status == "pending")
 
     # If the user is a COURSE_MANAGER, filter reviews scoped to their department
-    if "SYSTEM_ADMIN" not in user_roles:
+    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles:
         query = query.filter(ExamReview.department_id == current_user.department_id)
 
     reviews = query.all()
@@ -635,7 +635,7 @@ def approve_exam_review(
 ):
     # Ensure current user is Admin or Manager
     user_roles = [r.name for r in current_user.roles]
-    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         raise HTTPException(status_code=403, detail="Unauthorized role access.")
 
     review = db.query(ExamReview).filter(ExamReview.id == review_id).first()
@@ -685,7 +685,7 @@ def reject_exam_review(
 ):
     # Ensure current user is Admin or Manager
     user_roles = [r.name for r in current_user.roles]
-    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         raise HTTPException(status_code=403, detail="Unauthorized role access.")
 
     review = db.query(ExamReview).filter(ExamReview.id == review_id).first()
@@ -736,9 +736,9 @@ def get_all_exams(
     query = db.query(Exam)
 
     # Scoping filter
-    if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" in user_roles:
+    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" in user_roles:
         query = query.filter(Exam.department_id == current_user.department_id)
-    elif "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+    elif "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
         query = query.filter(
             (Exam.created_by == current_user.id) | (Exam.is_published == True)
         )

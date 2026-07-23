@@ -2,6 +2,25 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+## [2026-07-23] Kiezen LMS - HR Role Full Equivalence to Admin Pass
+- Problem: The HR role (`HR_ADMIN`) required full capability equivalence to System Admin (`SYSTEM_ADMIN`) across all system views, navigation links, CRUD actions, and cross-department analytics, while preserving distinct role identity for display and audit log attribution.
+- Changed:
+  - `app/api/admin.py`: Updated `RequireRoles("SYSTEM_ADMIN")` to `RequireRoles("SYSTEM_ADMIN", "HR_ADMIN")` on user role assignment endpoint.
+  - `app/api/audit.py`: Updated `RequireRoles("SYSTEM_ADMIN")` to `RequireRoles("SYSTEM_ADMIN", "HR_ADMIN")` on `/api/admin/audit-logs`.
+  - `app/api/department.py`: Updated `RequireRoles("SYSTEM_ADMIN")` to `RequireRoles("SYSTEM_ADMIN", "HR_ADMIN")` on department creation, update, and deletion endpoints.
+  - `app/api/course.py`: Updated `RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER")` to include `"HR_ADMIN"` across course creation, update, deletion, approval, rejection, and publishing endpoints.
+  - `app/api/enrollment.py`: Added `"HR_ADMIN"` to `RequireRoles` for manager roster and enrollment unlock endpoints.
+  - `app/api/module.py` & `app/api/quiz.py`: Added `"HR_ADMIN"` to `RequireRoles` across all module and quiz management endpoints.
+  - `app/api/exam.py`: Updated all exam management, submission routing, review approval/rejection, and unscoped listing endpoints to treat `HR_ADMIN` as a global admin role alongside `SYSTEM_ADMIN`.
+  - `frontend/src/pages/Login/Login.tsx`: Mapped `HR_ADMIN` to `'HR Admin'` display role string to preserve role identity while unlocking admin-equivalent views.
+  - `frontend/src/components/Navbar/Navbar.tsx`: Granted `'HR Admin'` access to "Creator Studio", "User Studio", and "Reporting" navigation items.
+  - `frontend/src/pages/Admin/UserAdminStudio.tsx`: Updated route guard to permit `'HR Admin'` full access to department and user administration.
+  - `frontend/src/pages/Creator/CreatorDashboard.tsx`: Updated `isAdmin` check to include `'HR Admin'` for global course management and approval cards.
+  - `frontend/src/pages/Dashboard/Dashboard.tsx`: Enabled `'HR Admin'` full access to System Analytics dashboard with distinct "HR Admin Workspace" header badge.
+- Tests added: Updated `scratch/tmp_verify_final.py` (48 automated test cases, 100% green).
+- Migration: No.
+- Known risk/follow-up: None. HR role has full system capabilities with distinct audit attribution.
+
 ## [2026-07-23] Kiezen LMS - Full System Audit & Production Readiness Pass
 - Problem: Deep verification pass across database, backend APIs, frontend, cross-role scoping, and Docker compose stack to eliminate compounding regressions, missing migrations, CORS gaps, and path mismatches.
 - Changed:

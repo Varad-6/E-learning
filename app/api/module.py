@@ -26,7 +26,7 @@ router = APIRouter(tags=["Modules"])
 def create_module(
     request: ModuleCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     return ModuleService.create_module(db, request=request)
 
@@ -72,7 +72,7 @@ def update_module(
     module_id: UUID,
     request: ModuleUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     return ModuleService.update_module(db, module_id=module_id, request=request)
 
@@ -85,7 +85,7 @@ def update_module(
 def delete_module(
     module_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     ModuleService.delete_module(db, module_id=module_id)
     return None
@@ -115,7 +115,7 @@ def create_content(
     module_id: UUID,
     request: ModuleContentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     return ModuleService.create_content(db, module_id=module_id, request=request)
 
@@ -158,7 +158,7 @@ def update_content(
     content_id: UUID,
     request: ModuleContentUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     return ModuleService.update_content(db, content_id=content_id, request=request)
 
@@ -171,7 +171,7 @@ def update_content(
 def delete_content(
     content_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     ModuleService.delete_content(db, content_id=content_id)
     return None
@@ -186,7 +186,7 @@ def delete_content(
 def reorder_modules(
     request: ReorderRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     ModuleService.reorder_modules(db, items=request.items)
     return {"message": "Modules successfully reordered"}
@@ -201,7 +201,7 @@ def reorder_modules(
 def reorder_contents(
     request: ReorderRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     ModuleService.reorder_contents(db, items=request.items)
     return {"message": "Content blocks successfully reordered"}

@@ -48,7 +48,7 @@ def get_department(
 def create_department(
     request: DepartmentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
     return DepartmentService.create_department(db, request=request)
 
@@ -63,7 +63,7 @@ def update_department(
     department_id: UUID,
     request: DepartmentUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
     return DepartmentService.update_department(db, department_id=department_id, request=request)
 
@@ -76,7 +76,7 @@ def update_department(
 def delete_department(
     department_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
     DepartmentService.delete_department(db, department_id=department_id)
     return None
