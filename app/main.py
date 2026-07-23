@@ -19,6 +19,7 @@ from app.api.notification import router as notification_router
 from app.api.reporting import router as reporting_router
 from app.api.leaderboard import router as leaderboard_router
 from app.api.dashboard import router as dashboard_router
+from app.api.employee_dashboard import router as employee_dashboard_router
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -75,6 +76,7 @@ app.include_router(notification_router)
 app.include_router(reporting_router)
 app.include_router(leaderboard_router)
 app.include_router(dashboard_router)
+app.include_router(employee_dashboard_router)
 
 # Mount static uploads folder for descriptive exam file submissions
 os.makedirs("uploads", exist_ok=True)

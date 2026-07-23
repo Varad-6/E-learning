@@ -29,9 +29,16 @@ def get_leaderboard(
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
-    is_hr_dept = bool(current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
-    is_manager = "COURSE_MANAGER" in user_roles and not ("SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles or is_hr_dept)
-    
+    is_admin_or_hr = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles or bool(current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
+    is_manager = "COURSE_MANAGER" in user_roles and not is_admin_or_hr
+    is_employee_only = "EMPLOYEE" in user_roles and not (is_admin_or_hr or is_manager)
+
+    if is_employee_only:
+        raise HTTPException(
+            status_code=403,
+            detail="Employees are restricted from accessing leaderboard rankings."
+        )
+
     if is_manager:
         scope = "department"
         department_id = current_user.department_id

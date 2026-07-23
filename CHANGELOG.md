@@ -2,6 +2,24 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+## [2026-07-23] Kiezen LMS - Selective Merge: Employee Role UI & Data Pipelines
+- Problem: Needed to pull in Employee role UI pages, Employee Dashboard analytics data pipeline, and Light Mode design tokens from `sam23july` without touching Admin, Manager, or HR views, permissions, notification system, or Dark Mode tokens.
+- Changed:
+  - `app/schemas/dashboard.py`: Created schema file with `EmployeeDashboardResponse` defining `exam_score_trend` and `category_progress`.
+  - `app/api/employee_dashboard.py`: Added `GET /api/employee/dashboard` endpoint returning employee course progress, upcoming exams, rank, chronological score trends, and category progress.
+  - `app/main.py`: Registered `employee_dashboard_router`.
+  - `frontend/src/styles/theme.css`: Updated `:root` Light mode tokens (`--bg-main: #f7f8fa`, `--accent-color: #10b981`, `--text-primary: #1e293b`). Preserved `[data-theme="dark"]` tokens.
+  - `frontend/src/components/Button/Button.css`, `Input.css`, `Login.css`: Updated primary button styling and focus ring colors to emerald theme.
+  - `frontend/src/pages/Exams/ExamsCenter.tsx`: Merged Employee exam center view (assigned exams, start exam flow, answer submission, graded exam breakdown modal, reviewer feedback).
+  - `frontend/src/pages/CoursePlayer/CoursePlayer.tsx`: Updated module completion banner styling.
+  - `frontend/src/components/Navbar/Navbar.tsx`: Hidden `Leaderboard` link and removed `View Courses` for Employee role.
+  - `app/api/leaderboard.py`: Enforced 403 Forbidden role restriction on `GET /api/leaderboard` for `EMPLOYEE` role.
+  - `app/api/employee_dashboard.py`: Restricted course categories and available courses strictly to employee's own department.
+  - `tracker.xlsx`: Documented department isolation and role restriction rules.
+- Excluded: Admin & HR User Studio (`UserAdminStudio.tsx`), Creator Studio (`CreatorDashboard.tsx`, `ExamCreator.tsx`, `ExamReviewer.tsx`), Reporting (`ReportingDashboard.tsx`), Leaderboard (`Leaderboard.tsx`), Navbar Notifications (`Navbar.tsx`), Login Role Mapping (`Login.tsx`), and Dark Mode tokens.
+- Tests added: Executed `scratch/tmp_verify_final.py` (57/57 PASSED, 100% green across all roles).
+- Git Push: Deliberately omitted per instructions (changes kept local for manual review).
+
 ## [2026-07-23] Kiezen LMS - Full Event-Driven Notification System
 - Problem: The application required a production-grade, event-driven notification system with zero mock data, covering role-based triggers (Employee, Manager, HR, Admin), database indexing, REST endpoints, and live Navbar dropdown UI.
 - Changed:

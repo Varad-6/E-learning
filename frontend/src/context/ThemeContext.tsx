@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'dark' | 'light';
+type Theme = 'light';
 
 interface ThemeContextType {
   theme: Theme;
@@ -10,22 +10,17 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved === 'light' || saved === 'dark') return saved;
-    // Default to dark theme for premium styling
-    return 'dark';
-  });
+  const [theme] = useState<Theme>('light');
 
   useEffect(() => {
+    localStorage.removeItem('theme');
     const root = document.documentElement;
-    root.setAttribute('data-theme', theme);
-    document.body.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+    root.setAttribute('data-theme', 'light');
+    document.body.setAttribute('data-theme', 'light');
+  }, []);
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+    // No-op: Dark mode disabled per system requirements
   };
 
   return (

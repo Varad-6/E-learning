@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, Clock, CheckCircle, Upload } from 'lucide-react';
+import { BookOpen, Clock, CheckCircle, Upload, Hourglass, Calendar, FileText, Award, AlertCircle } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
+import { Modal } from '../../components/Modal/Modal';
 
 interface ExamSubmission {
   id: string;
@@ -11,6 +12,14 @@ interface ExamSubmission {
   submitted_at: string | null;
   answers: { [key: string]: any };
   exam_title: string;
+  course_title?: string;
+  course_code?: string;
+  duration_minutes?: number;
+  due_date?: string | null;
+  graded_at?: string | null;
+  overall_score?: number | null;
+  overall_feedback?: string | null;
+  scores?: { [qId: string]: number } | null;
 }
 
 interface ExamDetails {
@@ -25,10 +34,14 @@ interface ExamDetails {
 }
 
 export const ExamsCenter: React.FC = () => {
-  const [submissions, setSubmissions] = useState<ExamSubmission[]>([]);
+  const [toAttempt, setToAttempt] = useState<ExamSubmission[]>([]);
+  const [awaitingEvaluation, setAwaitingEvaluation] = useState<ExamSubmission[]>([]);
+  const [evaluated, setEvaluated] = useState<ExamSubmission[]>([]);
+  
   const [activeSubmission, setActiveSubmission] = useState<ExamSubmission | null>(null);
   const [examDetails, setExamDetails] = useState<ExamDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'toAttempt' | 'awaitingEvaluation' | 'evaluated'>('toAttempt');
 
   // Exam Player Workspace States
   const [answers, setAnswers] = useState<{ [qId: string]: string }>({});
@@ -39,23 +52,29 @@ export const ExamsCenter: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const timerRef = useRef<any>(null);
 
-  const fetchAssignedExams = async () => {
+  // Detailed modal viewer
+  const [viewingDetails, setViewingDetails] = useState<{ submission: ExamSubmission; exam: ExamDetails } | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+
+  const fetchCategorizedExams = async () => {
     try {
       setLoading(true);
-      const res = await apiCall('/api/exams/assigned');
+      const res = await apiCall('/api/employee/exams');
       if (res.ok) {
         const data = await res.json();
-        setSubmissions(data);
+        setToAttempt(data.toAttempt || []);
+        setAwaitingEvaluation(data.awaitingEvaluation || []);
+        setEvaluated(data.evaluated || []);
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error fetching employee exams:', e);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAssignedExams();
+    fetchCategorizedExams();
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -148,8 +167,6 @@ export const ExamsCenter: React.FC = () => {
       
       const res = await apiCall(`/api/exams/submissions/${activeSubmission.id}/upload`, {
         method: 'POST',
-        // apiCall handles headers, but for FormData we must let the browser establish the correct boundaries.
-        // We will pass custom header or form payload
         body: formData
       });
       
@@ -192,7 +209,7 @@ export const ExamsCenter: React.FC = () => {
       alert('Time limit expired. Your exam answers have been auto-submitted.');
       setActiveSubmission(null);
       setExamDetails(null);
-      fetchAssignedExams();
+      fetchCategorizedExams();
     } catch (e) {
       console.error(e);
     }
@@ -234,7 +251,7 @@ export const ExamsCenter: React.FC = () => {
         alert('Exam submitted successfully. Under review by Administrations.');
         setActiveSubmission(null);
         setExamDetails(null);
-        fetchAssignedExams();
+        fetchCategorizedExams();
       } else {
         const err = await res.json();
         alert(`Submit failed: ${err.detail}`);
@@ -245,6 +262,33 @@ export const ExamsCenter: React.FC = () => {
     }
   };
 
+  const handleViewDetails = async (sub: ExamSubmission) => {
+    try {
+      setDetailsLoading(true);
+      const res = await apiCall(`/api/exams/${sub.exam_id}`);
+      if (res.ok) {
+        const exam = await res.json();
+        setViewingDetails({ submission: sub, exam });
+      } else {
+        alert('Failed to load exam details');
+      }
+    } catch (e) {
+      console.error('Error fetching detailed exam specs:', e);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return 'N/A';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return dateStr;
+    }
+  };
+
   if (activeSubmission && examDetails) {
     return (
       <div className="container animate-fade-in" style={{ marginTop: '40px', paddingBottom: '80px' }}>
@@ -252,17 +296,17 @@ export const ExamsCenter: React.FC = () => {
         {/* Exam Running header */}
         <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <span style={{ fontSize: '0.72rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: 'var(--neon-coral-glow)', color: 'var(--color-danger)', textTransform: 'uppercase', marginRight: '8px' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', textTransform: 'uppercase', marginRight: '8px' }}>
               Exam in Progress
             </span>
             <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '6px 0 0 0' }}>{examDetails.title}</h2>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: timeLeft && timeLeft < 300 ? 'var(--neon-coral-glow)' : 'rgba(255,255,255,0.03)', padding: '10px 18px', borderRadius: '8px', border: timeLeft && timeLeft < 300 ? '1px solid var(--color-danger)' : '1px solid var(--border-color)' }}>
-            <Clock size={18} style={{ color: timeLeft && timeLeft < 300 ? 'var(--color-danger)' : 'var(--accent-color)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: timeLeft && timeLeft < 300 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255,255,255,0.03)', padding: '10px 18px', borderRadius: '8px', border: timeLeft && timeLeft < 300 ? '1px solid #ef4444' : '1px solid var(--border-color)' }}>
+            <Clock size={18} style={{ color: timeLeft && timeLeft < 300 ? '#ef4444' : 'var(--accent-color)' }} />
             <div>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase' }}>Time Remaining</span>
-              <span style={{ fontSize: '1.15rem', fontWeight: 800, color: timeLeft && timeLeft < 300 ? 'var(--color-danger)' : 'var(--text-primary)' }}>
+              <span style={{ fontSize: '1.15rem', fontWeight: 800, color: timeLeft && timeLeft < 300 ? '#ef4444' : 'var(--text-primary)' }}>
                 {timeLeft !== null ? formatTime(timeLeft) : 'Calculating...'}
               </span>
             </div>
@@ -332,8 +376,8 @@ export const ExamsCenter: React.FC = () => {
                   </div>
 
                   {uploadedFiles[q.id] && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'color-mix(in srgb, var(--success-color) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--success-color) 15%, transparent)', borderRadius: '6px', width: 'fit-content' }}>
-                      <CheckCircle size={14} style={{ color: 'var(--success-color)' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: '6px', width: 'fit-content' }}>
+                      <CheckCircle size={14} style={{ color: '#10b981' }} />
                       <span style={{ fontSize: '0.82rem', color: 'var(--text-primary)', fontWeight: '600' }}>{uploadedFiles[q.id].name}</span>
                     </div>
                   )}
@@ -350,7 +394,7 @@ export const ExamsCenter: React.FC = () => {
               if (timerRef.current) clearInterval(timerRef.current);
               setActiveSubmission(null);
               setExamDetails(null);
-              fetchAssignedExams();
+              fetchCategorizedExams();
             }
           }} style={{ height: '44px' }}>
             Quit Exam
@@ -366,72 +410,367 @@ export const ExamsCenter: React.FC = () => {
 
   return (
     <div className="container animate-fade-in" style={{ marginTop: '40px', paddingBottom: '60px' }}>
-      <div className="pane-header" style={{ marginBottom: '24px' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>📋 Assigned Descriptive Exams</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>Complete assigned descriptive, short-answer, and document-upload curriculum examinations.</p>
+      <div className="pane-header" style={{ marginBottom: '28px' }}>
+        <h2 style={{ fontSize: '1.6rem', fontWeight: 800 }}>Assigned Exams</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginTop: '4px' }}>
+          Inspect, launch, and review assigned exams mapped to your corporate training pathways.
+        </p>
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
-          <div className="animate-spin" style={{ width: '32px', height: '32px', border: '3px solid var(--accent-color)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
-        </div>
-      ) : submissions.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)' }}>
-          <BookOpen size={48} style={{ opacity: 0.15, margin: '0 auto 16px', color: 'var(--accent-color)' }} />
-          <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No active exam templates have been assigned to your department catalog yet.</p>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+          <div className="animate-spin" style={{ width: '36px', height: '36px', border: '3px solid var(--accent-color)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
-          {submissions.map((sub) => {
-            const isCompleted = sub.status === 'submitted' || sub.status === 'graded';
-            const inProgress = sub.status === 'in_progress';
+        <>
+          {/* Tab Selection Buttons - Using Global Theme Accent Colors */}
+          <div className="catalog-tabs-container" style={{ display: 'flex', gap: '20px', marginBottom: '28px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('toAttempt')}
+              style={{
+                border: 'none',
+                background: 'none',
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                color: activeTab === 'toAttempt' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                borderBottom: activeTab === 'toAttempt' ? '2px solid var(--accent-color)' : 'none',
+                paddingBottom: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <Clock size={16} />
+              <span>To Attempt</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, padding: '2px 6px', borderRadius: '10px', background: activeTab === 'toAttempt' ? 'var(--accent-glow)' : 'var(--bg-main)', color: activeTab === 'toAttempt' ? 'var(--accent-color)' : 'var(--text-secondary)' }}>
+                {toAttempt.length}
+              </span>
+            </button>
             
-            return (
-              <div key={sub.id} className="course-lobby-card glass-panel glow-hover" style={{ display: 'flex', flexDirection: 'column', borderRadius: 'var(--border-radius-lg)', padding: '20px', justifyContent: 'space-between', minHeight: '180px', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span style={{ 
-                      padding: '2px 8px', 
-                      borderRadius: '12px', 
-                      background: isCompleted ? 'color-mix(in srgb, var(--success-color) 10%, transparent)' : inProgress ? 'color-mix(in srgb, var(--danger-color) 10%, transparent)' : 'var(--accent-glow)', 
-                      color: isCompleted ? 'var(--success-color)' : inProgress ? 'var(--danger-color)' : 'var(--accent-color)', 
-                      fontSize: '0.68rem', 
-                      fontWeight: '800',
-                      textTransform: 'uppercase'
-                    }}>
-                      {sub.status.replace('_', ' ')}
-                    </span>
-                  </div>
-                  <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px 0', lineHeight: '1.3' }}>
-                    {sub.exam_title}
-                  </h4>
-                </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('awaitingEvaluation')}
+              style={{
+                border: 'none',
+                background: 'none',
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                color: activeTab === 'awaitingEvaluation' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                borderBottom: activeTab === 'awaitingEvaluation' ? '2px solid var(--accent-color)' : 'none',
+                paddingBottom: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <Hourglass size={16} />
+              <span>Awaiting Evaluation</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, padding: '2px 6px', borderRadius: '10px', background: activeTab === 'awaitingEvaluation' ? 'var(--accent-glow)' : 'var(--bg-main)', color: activeTab === 'awaitingEvaluation' ? 'var(--accent-color)' : 'var(--text-secondary)' }}>
+                {awaitingEvaluation.length}
+              </span>
+            </button>
 
-                <div style={{ marginTop: '20px' }}>
-                  {isCompleted ? (
-                    <Button 
-                      variant="outline" 
-                      disabled
-                      style={{ width: '100%', height: '40px', opacity: 0.6 }}
-                      leftIcon={<CheckCircle size={14} />}
-                    >
-                      {sub.status === 'graded' ? 'Grading Completed' : 'Waiting for Review'}
-                    </Button>
-                  ) : (
-                    <Button 
-                      variant="primary" 
-                      onClick={() => handleStartExam(sub)}
-                      style={{ width: '100%', height: '40px', fontWeight: '700' }}
-                    >
-                      {inProgress ? 'Resume Exam' : 'Launch Exam'}
-                    </Button>
-                  )}
+            <button
+              type="button"
+              onClick={() => setActiveTab('evaluated')}
+              style={{
+                border: 'none',
+                background: 'none',
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                color: activeTab === 'evaluated' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                borderBottom: activeTab === 'evaluated' ? '2px solid var(--accent-color)' : 'none',
+                paddingBottom: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <CheckCircle size={16} />
+              <span>Completed</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, padding: '2px 6px', borderRadius: '10px', background: activeTab === 'evaluated' ? 'var(--accent-glow)' : 'var(--bg-main)', color: activeTab === 'evaluated' ? 'var(--accent-color)' : 'var(--text-secondary)' }}>
+                {evaluated.length}
+              </span>
+            </button>
+          </div>
+
+          {/* ACTIVE TAB CONTENT */}
+          {activeTab === 'toAttempt' && (
+            <div className="animate-fade-in">
+              {toAttempt.length === 0 ? (
+                <div className="glass-panel" style={{ padding: '60px 20px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <BookOpen size={48} style={{ opacity: 0.15, marginBottom: '16px', color: 'var(--accent-color)' }} />
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'italic', margin: 0 }}>
+                    Nothing to attempt right now — check back after your next course unlocks
+                  </p>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
+                  {toAttempt.map(sub => (
+                    <div key={sub.id} className="glass-panel glow-hover" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: 'var(--bg-card)' }}>
+                      <div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', background: 'var(--accent-glow)', color: 'var(--accent-color)', display: 'inline-block', marginBottom: '10px', textTransform: 'uppercase' }}>
+                          {sub.course_code || 'EXAM'}
+                        </span>
+                        <h4 style={{ fontSize: '1.05rem', fontWeight: '800', margin: '0 0 8px 0', color: 'var(--text-primary)', lineHeight: 1.3 }}>{sub.exam_title}</h4>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 12px 0' }}>{sub.course_title || 'Standalone Exam'}</p>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '10px' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>⏱️ Limit: {sub.duration_minutes || 60} mins</span>
+                          {sub.due_date && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>📅 Due: {new Date(sub.due_date).toLocaleDateString()}</span>}
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: '20px' }}>
+                        <Button 
+                          variant="primary" 
+                          onClick={() => handleStartExam(sub)}
+                          style={{ width: '100%', height: '40px', fontSize: '0.85rem', fontWeight: '700' }}
+                        >
+                          {sub.status === 'in_progress' ? 'Resume Exam' : 'Start Exam'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'awaitingEvaluation' && (
+            <div className="animate-fade-in">
+              {awaitingEvaluation.length === 0 ? (
+                <div className="glass-panel" style={{ padding: '60px 20px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <Hourglass size={48} style={{ opacity: 0.15, marginBottom: '16px', color: 'var(--accent-color)' }} />
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'italic', margin: 0 }}>
+                    No exams awaiting evaluation
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
+                  {awaitingEvaluation.map(sub => (
+                    <div key={sub.id} className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <span style={{ fontSize: '0.7rem', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', background: 'var(--accent-glow)', color: 'var(--accent-color)', display: 'inline-block', textTransform: 'uppercase' }}>
+                            {sub.course_code || 'EXAM'}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', fontWeight: '800', padding: '2px 8px', borderRadius: '4px', background: 'var(--bg-main)', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                            Awaiting Results
+                          </span>
+                        </div>
+                        <h4 style={{ fontSize: '1.05rem', fontWeight: '800', margin: '0 0 8px 0', color: 'var(--text-primary)', lineHeight: 1.3 }}>{sub.exam_title}</h4>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 12px 0' }}>{sub.course_title || 'Standalone Exam'}</p>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '10px' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>📤 Submitted: {formatDate(sub.submitted_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'evaluated' && (
+            <div className="animate-fade-in">
+              {evaluated.length === 0 ? (
+                <div className="glass-panel" style={{ padding: '60px 20px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <CheckCircle size={48} style={{ opacity: 0.15, marginBottom: '16px', color: 'var(--accent-color)' }} />
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'italic', margin: 0 }}>
+                    You haven't completed any exams yet
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
+                  {evaluated.map(sub => {
+                    const isPass = sub.overall_score !== undefined && sub.overall_score !== null && sub.overall_score >= 8.0;
+                    return (
+                      <div key={sub.id} className="glass-panel glow-hover" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: 'var(--bg-card)' }}>
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', background: 'var(--accent-glow)', color: 'var(--accent-color)', display: 'inline-block', textTransform: 'uppercase' }}>
+                              {sub.course_code || 'EXAM'}
+                            </span>
+                            <span style={{ 
+                              fontSize: '0.72rem', 
+                              fontWeight: '800', 
+                              padding: '2px 8px', 
+                              borderRadius: '4px', 
+                              background: isPass ? 'rgba(20,168,0,0.15)' : 'rgba(239,68,68,0.15)', 
+                              color: isPass ? 'var(--accent-color)' : '#ef4444', 
+                              textTransform: 'uppercase' 
+                            }}>
+                              {isPass ? 'Pass' : 'Needs Imp.'}
+                            </span>
+                          </div>
+                          <h4 style={{ fontSize: '1.05rem', fontWeight: '800', margin: '0 0 8px 0', color: 'var(--text-primary)', lineHeight: 1.3 }}>{sub.exam_title}</h4>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 12px 0' }}>{sub.course_title || 'Standalone Exam'}</p>
+                          
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', border: '1px solid var(--border-color)', padding: '12px', borderRadius: '6px', margin: '14px 0' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Score:</span>
+                            <strong style={{ fontSize: '1.1rem', color: isPass ? 'var(--accent-color)' : '#ef4444' }}>{sub.overall_score !== null ? `${sub.overall_score} / 10.0` : 'N/A'}</strong>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '10px' }}>
+                            <span>📅 Graded: {formatDate(sub.graded_at)}</span>
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: '20px' }}>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => handleViewDetails(sub)}
+                            style={{ width: '100%', height: '40px', fontSize: '0.85rem', fontWeight: '700' }}
+                            leftIcon={<FileText size={14} />}
+                          >
+                            View Details
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
+
+      {/* DETAILED EVALUATION VIEW MODAL */}
+      <Modal
+        isOpen={viewingDetails !== null}
+        onClose={() => setViewingDetails(null)}
+        title="📝 Graded Examination Breakdown"
+        subtitle={viewingDetails?.exam.title || ''}
+        maxWidth="550px"
+        icon={<Award size={20} style={{ color: 'var(--accent-color)' }} />}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+            <Button variant="outline" onClick={() => setViewingDetails(null)}>Close</Button>
+          </div>
+        }
+      >
+        {viewingDetails && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '4px 0' }}>
+            
+            {/* Grade summary banner */}
+            <div style={{ 
+              padding: '16px', 
+              borderRadius: 'var(--border-radius-md)', 
+              background: 'var(--bg-main)', 
+              border: '1px solid var(--border-color)', 
+              display: 'flex', 
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase' }}>Overall Score</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: '900', color: (viewingDetails.submission.overall_score || 0) >= 8.0 ? 'var(--accent-color)' : '#ef4444' }}>
+                  {viewingDetails.submission.overall_score} / 10.0
+                </span>
+              </div>
+              <span style={{ 
+                padding: '4px 12px', 
+                borderRadius: '12px', 
+                fontSize: '0.78rem', 
+                fontWeight: '800',
+                textTransform: 'uppercase',
+                background: (viewingDetails.submission.overall_score || 0) >= 8.0 ? 'var(--accent-glow)' : 'rgba(239,68,68,0.15)',
+                color: (viewingDetails.submission.overall_score || 0) >= 8.0 ? 'var(--accent-color)' : '#ef4444'
+              }}>
+                {(viewingDetails.submission.overall_score || 0) >= 8.0 ? 'Compliant / Pass' : 'Needs Improvement'}
+              </span>
+            </div>
+
+            {/* Overall Feedback */}
+            {viewingDetails.submission.overall_feedback && (
+              <div className="glass-panel" style={{ padding: '16px', borderRadius: 'var(--border-radius-md)', background: 'rgba(20,168,0,0.02)', border: '1px solid var(--border-color)' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: 'var(--accent-color)', display: 'block', marginBottom: '6px' }}>
+                  Reviewer Feedback
+                </span>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                  {viewingDetails.submission.overall_feedback}
+                </p>
+              </div>
+            )}
+
+            {/* Question level breakdown */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+                Question Breakdown
+              </span>
+
+              {viewingDetails.exam.questions.map((q, idx) => {
+                const answerRaw = viewingDetails.submission.answers[q.id] || '';
+                let answerText = answerRaw;
+                let fileObj: { name: string; url: string } | null = null;
+
+                if (q.question_type === 'file_upload') {
+                  try {
+                    fileObj = JSON.parse(answerRaw);
+                  } catch {
+                    fileObj = null;
+                  }
+                }
+
+                const questionScore = viewingDetails.submission.scores?.[q.id] ?? 0;
+
+                return (
+                  <div key={q.id} style={{ 
+                    borderBottom: idx === viewingDetails.exam.questions.length - 1 ? 'none' : '1px solid var(--border-color)', 
+                    paddingBottom: '16px' 
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                        {idx + 1}. {q.question_text}
+                      </span>
+                      <span style={{ 
+                        fontSize: '0.78rem', 
+                        fontWeight: '700', 
+                        padding: '2px 8px', 
+                        borderRadius: '4px',
+                        background: 'var(--bg-main)',
+                        color: questionScore >= 8 ? 'var(--accent-color)' : questionScore >= 5 ? '#f59e0b' : '#ef4444',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {questionScore} / 10
+                      </span>
+                    </div>
+
+                    <div style={{ padding: '10px 14px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.82rem' }}>
+                      {q.question_type === 'file_upload' && fileObj ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <CheckCircle size={14} style={{ color: '#10b981' }} />
+                          <a 
+                            href={fileObj.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ color: 'var(--accent-color)', fontWeight: '600', textDecoration: 'underline' }}
+                          >
+                            {fileObj.name}
+                          </a>
+                        </div>
+                      ) : (
+                        <p style={{ margin: 0, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
+                          {answerText || <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>No answer submitted</span>}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+          </div>
+        )}
+      </Modal>
+
     </div>
   );
 };

@@ -259,7 +259,7 @@
 
 .custom-select-field:focus {
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
   background-color: var(--bg-card);
 }
 

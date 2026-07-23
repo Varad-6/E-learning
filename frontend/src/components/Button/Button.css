@@ -26,18 +26,16 @@
   font-size: 1.05rem;
 }
 
-/* Primary Button - Premium Glass / Linear Indigo style */
+/* Primary Button - FitHabit Vibrant Emerald style */
 .btn-primary {
-  background: linear-gradient(135deg, oklch(0.55 0.19 275) 0%, oklch(0.48 0.19 275) 100%) !important;
-  color: #ffffff !important;
-  border-radius: 14px !important;
-  transition: transform 250ms ease, box-shadow 250ms ease, background 250ms ease;
+  background-color: var(--accent-color);
+  color: #0b0c10; /* Dark contrast text */
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, oklch(0.60 0.19 275) 0%, oklch(0.52 0.19 275) 100%) !important;
+  background-color: var(--accent-hover);
   transform: translateY(-2px);
-  box-shadow: 0 0 20px var(--accent-glow) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
 }
 
 .btn-primary:active:not(:disabled) {

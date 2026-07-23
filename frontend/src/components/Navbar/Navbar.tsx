@@ -4,7 +4,6 @@ import {
   User, LogOut, Bell, Trash2, CheckCircle2, X,
   BookOpen, Award, FileText, CheckCircle, AlertTriangle, Settings, Info
 } from 'lucide-react';
-import { ThemeToggle } from '../ThemeToggle/ThemeToggle';
 import { Button } from '../Button/Button';
 import { apiCall, handleLogoutLocal } from '../../services/api';
 import './Navbar.css';
@@ -335,7 +334,7 @@ export const Navbar: React.FC = () => {
               Reporting
             </div>
           )}
-          {userEmail && (
+          {userEmail && userRole !== 'Employee' && (
             <div 
               onClick={() => navigate('/leaderboard')} 
               className={`nav-link ${location.pathname.startsWith('/leaderboard') ? 'active' : ''}`} 
@@ -345,21 +344,9 @@ export const Navbar: React.FC = () => {
               Leaderboard
             </div>
           )}
-          {userEmail && userRole !== 'Admin' && userRole !== 'HR Admin' && userRole !== 'HR Manager' && userRole !== 'HR' && userRole !== 'Manager' && (
-            <div 
-              onClick={() => navigate('/view-courses')} 
-              className={`nav-link ${location.pathname === '/view-courses' ? 'active' : ''}`} 
-              style={{ cursor: 'pointer' }}
-              role="button"
-            >
-              View Courses
-            </div>
-          )}
         </nav>
 
         <div className="navbar-actions">
-          <ThemeToggle />
-
           {userEmail && (
             /* Global Notifications Bell Widget */
             <div className="notif-badge-trigger-wrapper">
