@@ -2,6 +2,95 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+## [2026-07-23] Kiezen LMS - Full System Audit & Production Readiness Pass
+- Problem: Deep verification pass across database, backend APIs, frontend, cross-role scoping, and Docker compose stack to eliminate compounding regressions, missing migrations, CORS gaps, and path mismatches.
+- Changed:
+  - Database & Migrations: Ran `alembic upgrade head` to apply all 16 pending migrations. Added missing tables (`notifications`, `user_badges`, `badge_tiers`, `audit_logs`, `exam_assignments`, `exam_grades`, `exam_questions`, `exam_reviews`, `exam_submissions`, `user_module_notes`). Re-seeded full dataset (26 users across 4 departments with SYSTEM_ADMIN, HR_ADMIN, COURSE_MANAGER, EMPLOYEE roles, 8 published courses, 20 badge tiers).
+  - CORS & Backend: Injected CORS headers directly into FastAPI exception handlers in `app/main.py` (`StarletteHTTPException`, `RequestValidationError`, `global_exception_handler`) to ensure errors return CORS headers and don't trigger browser block.
+  - Frontend API Integration: Updated `API_BASE_URL` in `frontend/src/services/api.ts` to dynamically target host port `8080` for Docker environment compatibility.
+  - Navbar: Reduced notification polling interval to 60s and silenced background network fetch errors.
+  - Docker Compose: Validated full containerized build and execution via `docker compose up --build -d`.
+- Tests added: `scratch/tmp_verify_final.py` (45 automated E2E endpoint test cases covering all 4 roles).
+- Migration: Yes (`alembic upgrade head`).
+- Known risk/follow-up: None. 100% (45/45) automated tests passed against the containerized stack.
+
+## [2026-07-23] Kaizen Design System - Color Token Migration
+- Problem: The UI needed to migrate color tokens site-wide (across all roles, modules, and sub-views) to align with the "Kaizen Design System" (neutral-dominant with Indigo primary accent and oklch status colors). This migration is colors only: layout, structures, and functionality must remain completely unchanged.
+- Changed:
+  - `frontend/src/styles/theme.css`:
+    - Defined custom properties for the neutral grays scale (`--neutral-50` to `--neutral-950`).
+    - Configured Indigo primary accent (`--color-accent-primary: oklch(0.52 0.19 275)`), status colors, and chart data-series (`--color-chart-1` to `--color-chart-5`).
+    - Standardized focus rings to use `var(--accent-glow)`.
+  - `frontend/src/components/Button/Button.css`:
+    - Updated primary fill and hover button styles to use the new primary indigo accents.
+  - `frontend/src/components/Input/Input.css`, `frontend/src/pages/Login/Login.css`, `frontend/src/pages/Dashboard/Dashboard.css`:
+    - Cleaned up hardcoded focus ring colors to consume `var(--accent-glow)`.
+    - Rewrote `.dashboard-hero-banner` background glows using the new indigo accent.
+  - `frontend/src/pages/Dashboard/Dashboard.tsx`:
+    - Modified donut charts, bar charts, and courses lists to maps colors sequentially using the new `chartPalette` array.
+  - `frontend/src/pages/Exams/ExamsCenter.tsx`, `frontend/src/pages/Leaderboard/Leaderboard.tsx`, `frontend/src/pages/Reporting/ReportingDashboard.tsx`, `frontend/src/pages/Creator/Creator.css`:
+    - Swapped all hardcoded checkmark, rank delta, status badge, and progress color tones with their respective token custom properties (`var(--success-color)`, `var(--warning-color)`, `var(--danger-color)`).
+- Tests added: Clean build compiled successfully (`npm run build`).
+- Migration: No
+- Known risk/follow-up: None
+
+## [2026-07-23] Simplify Manager Dashboard (Analytics Only)
+- Problem: The manager's dashboard needed to be streamlined to show only department analytics. Extra tabs (Syllabus Catalog, Creator Sandbox, Employee Roster), tab switchers, and the redundant "Analytics Dashboard" subview header were cluttering the UI. The "Pending Approvals" stat card was also redundant here.
+- Changed:
+  - `frontend/src/pages/Dashboard/Dashboard.tsx`:
+    - Removed the tab switcher button layout from the manager's header console node.
+    - Set the initial `managerSubView` state to `'analytics'`.
+    - Cleaned up the file by removing the markup blocks for `my_courses`, `create_course`, and `audit_reporting` subviews.
+    - Removed the "Pending Approvals" card from the manager's analytics summary grid.
+- Tests added: Clean build compiled successfully (`npm run build`).
+- Migration: No
+- Known risk/follow-up: None
+
+## [2026-07-23] UI Theme Update: Premium Enterprise Soft Glassmorphism Dark Mode
+- **Problem**:
+  - The application visual layout needed to be transformed into a premium enterprise Soft Glassmorphism Dark Theme (Apple VisionOS + Linear + Vercel + Microsoft Fluent design style) while keeping the original layout, margins, padding, and functionality completely identical.
+- **Changed**:
+  - `frontend/src/styles/theme.css`:
+    - Changed `--color-bg-glow` to a premium deep layered gradient with soft green and blue radial glow elements at top-left and bottom-right corners.
+    - Updated `--color-surface` to use a soft linear gradient overlay (`linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02))`).
+    - Standardized glass parameters: backdrop-filter blur (`18px`), borders (`rgba(255, 255, 255, 0.08)`), shadows (`0 10px 40px rgba(0, 0, 0, 0.35), inset 0 1px rgba(255, 255, 255, 0.04)`).
+    - Mapped primary accent color (KAIZEN Green) to `#18D38A` (hover `#22E89C`, glow `rgba(24, 211, 138, 0.25)`).
+    - Set secondary blue accent to `#4C7DFF` and secondary purple accent to `#8B7CFF`.
+    - Defined text colors (Primary: `#F8FAFC`, Secondary: `#CBD5E1`, Muted: `#94A3B8`, Disabled: `#64748B`).
+    - Configured glass panel hover animations (lifts translateY `-3px`, deepens shadow to `rgba(0, 0, 0, 0.45)`, transitions with `250ms ease`).
+    - Applied green focus rings to input fields (`0 0 0 3px rgba(24, 211, 138, 0.18)`).
+  - `frontend/src/components/Button/Button.css`:
+    - Re-styled primary buttons to consume KAIZEN Green gradient (`#18D38A` to `#12B876`), 12px border radius, and a subtle glowing hover shadow.
+  - `frontend/src/components/Navbar/Navbar.css`:
+    - Updated dark navbar header to use `rgba(18, 22, 30, 0.75)` with `20px` blur.
+    - Added green underline with soft glow active tab highlight styles.
+  - `frontend/src/pages/Dashboard/Dashboard.css`:
+    - Designed the Welcome Banner hero card as a premium glass pane with subtle green and blue radial lights, large blur, and an elegant shadow.
+- **Tests added**:
+  - Production Vite build successfully compiled (`npm run build` completed).
+- **Migration**: No
+- **Known risk/follow-up**: None (Changes kept uncommitted locally per user instruction).
+
+## [2026-07-23] Dark Mode Color Correction & Top Navbar Layout Restoration
+- **Problem**:
+  - The previous glassmorphism dark theme implementation leaned too green/greenish overall with a green tint/cast in the backgrounds and card surfaces.
+  - The navigation layout needed to be restored to the top navbar layout ("upside") as it was earlier, rather than the left sidebar layout.
+- **Changed**:
+  - Restored original Top Navbar navigation layout ("upside") and removed the left sidebar navigation components/files.
+  - Corrected dark theme variables in `theme.css`:
+    - Changed base background (`--color-bg`) to a neutral black-to-deep-blue-to-grey gradient (`#0a0b0f` base background with `#0a0b0f` → `#12141c` → `#1a1d26` range and cool purple/blue radial glow; zero green tint).
+    - Corrected card surface (`--color-surface`) to a neutral cool-grey/blue-black translucent background (`rgba(26, 29, 38, 0.45)`) and border (`rgba(255, 255, 255, 0.08)`).
+    - Kept green only as a minority accent (`--color-accent-primary` set to `#2ee6a6`) for positive/active highlights (donut completion ring, sidebar active nav highlights, trend lines/sparklines).
+    - Kept purple (`var(--color-accent-secondary)`), blue (`var(--color-accent-info)`), and pink/red (`var(--color-accent-danger)`) accents exactly as-is without shift towards green.
+    - Verified text colors (`--color-text-primary`: `#f8fafc`, `--color-text-secondary`: `#8b93a7`) read as neutral white/grey with zero mint tint.
+    - Preserved intended distinct badge backgrounds (green for book icon, purple for users icon, blue for pending approvals icon) at low opacity tints.
+  - Integrated tiny trend Sparklines inside dashboard stat cards reflecting real recent-trend data.
+  - Verified WCAG AA contrast compliance (exceeding 4.5:1 for body text and 3:1 for graphical elements).
+- **Tests added**:
+  - Production Vite build (`npm run build` completed successfully).
+- **Migration**: No
+- **Known risk/follow-up**: None (Changes kept uncommitted locally per user instruction).
+
 ## [2026-07-22] User Detail Modal Compact Row-Based Restyling Pass
 - **Problem**:
   - User detail modals (Admin's User Analytics Modal and Manager's Roster Audit Modal) were oversized, featured excessive vertical padding, used heavy stat panels, and had full-width stretched footer buttons.

@@ -398,3 +398,20 @@
   to { transform: scale(1); opacity: 1; }
 }
 
+/* Dark mode specific navbar overrides for premium glassmorphism */
+[data-theme="dark"] .navbar-header {
+  background: rgba(18, 22, 30, 0.75) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme="dark"] .nav-link.active {
+  color: var(--accent-color) !important;
+  background: rgba(24, 211, 138, 0.12) !important;
+  border-bottom: 2px solid var(--accent-color) !important;
+  box-shadow: 0 0 18px rgba(24, 211, 138, 0.18) !important;
+  border-radius: var(--border-radius-md) !important;
+  font-weight: 800;
+}
+

@@ -14,7 +14,7 @@ from app.api.admin import router as admin_router
 from app.api.module import router as module_router
 from app.api.exam import router as exam_router
 from app.api.audit import router as audit_router
-from app.api.badge import router as badge_router
+from app.api.badge import router as badge_router, users_router as badge_users_router
 from app.api.notification import router as notification_router
 from app.api.reporting import router as reporting_router
 from app.api.leaderboard import router as leaderboard_router
@@ -70,6 +70,7 @@ app.include_router(module_router)
 app.include_router(exam_router)
 app.include_router(audit_router)
 app.include_router(badge_router)
+app.include_router(badge_users_router)
 app.include_router(notification_router)
 app.include_router(reporting_router)
 app.include_router(leaderboard_router)
@@ -81,23 +82,34 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Allow-Methods": "*",
+    "Access-Control-Allow-Headers": "*",
+}
+
 # Exception Handlers
+# NOTE: FastAPI exception handlers run OUTSIDE the CORS middleware, so we must
+# inject CORS headers manually into every JSONResponse returned here.
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    """Ensure HTTP exceptions are returned with standard detail format."""
+    """Ensure HTTP exceptions are returned with standard detail format and CORS headers."""
     logger.error(f"HTTP error on {request.url.path}: {exc.detail} (status: {exc.status_code})")
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
+        headers=CORS_HEADERS,
     )
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Ensure Pydantic validation errors return structured details."""
+    """Ensure Pydantic validation errors return structured details with CORS headers."""
     logger.error(f"Validation error on {request.url.path}: {exc.errors()}")
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": exc.errors()},
+        headers=CORS_HEADERS,
     )
 
 @app.exception_handler(Exception)
@@ -107,6 +119,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "An unexpected server error occurred. Please try again later."},
+        headers=CORS_HEADERS,
     )
 
 @app.get("/", tags=["Health Check"])

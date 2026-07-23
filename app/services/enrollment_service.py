@@ -116,7 +116,12 @@ class EnrollmentService:
 
     @staticmethod
     def get_user_enrollments(db: Session, user_id: UUID) -> List[CourseEnrollment]:
-        return db.query(CourseEnrollment).filter(CourseEnrollment.user_id == user_id).all()
+        return db.query(CourseEnrollment).join(
+            Course, CourseEnrollment.course_id == Course.id
+        ).filter(
+            CourseEnrollment.user_id == user_id,
+            Course.status == "published"
+        ).all()
 
     @staticmethod
     def update_progress(db: Session, user_id: UUID, request: ProgressUpdate) -> UserCourseProgress:
@@ -252,6 +257,10 @@ class EnrollmentService:
         db.refresh(progress)
         db.refresh(enrollment)
 
+        if enrollment.status == "completed":
+            from app.services.badge_service import BadgeService
+            BadgeService.check_and_award_badges(db, enrollment.user_id)
+
         return progress
 
     @staticmethod
@@ -271,6 +280,8 @@ class EnrollmentService:
             enrollment.completed_at = datetime.now(timezone.utc)
             db.commit()
             db.refresh(enrollment)
+            from app.services.badge_service import BadgeService
+            BadgeService.check_and_award_badges(db, enrollment.user_id)
 
         return enrollment
 
@@ -321,6 +332,11 @@ class EnrollmentService:
             
         db.commit()
         db.refresh(enrollment)
+
+        if enrollment.status == "completed":
+            from app.services.badge_service import BadgeService
+            BadgeService.check_and_award_badges(db, enrollment.user_id)
+
         return enrollment
 
     @staticmethod
@@ -377,26 +393,46 @@ class EnrollmentService:
 
         roster = []
         for user in users:
-            # Check completed courses count
-            completed_count = db.query(CourseEnrollment).filter(
+            # Check completed courses count (published only)
+            completed_count = db.query(CourseEnrollment).join(
+                Course, CourseEnrollment.course_id == Course.id
+            ).filter(
                 CourseEnrollment.user_id == user.id,
-                CourseEnrollment.status == "completed"
+                CourseEnrollment.status == "completed",
+                Course.status == "published"
             ).count()
 
-            # Find newest active course enrollment
-            active_enroll = db.query(CourseEnrollment).filter(
+            # Find newest active course enrollment (published only)
+            active_enroll = db.query(CourseEnrollment).join(
+                Course, CourseEnrollment.course_id == Course.id
+            ).filter(
                 CourseEnrollment.user_id == user.id,
-                CourseEnrollment.status.in_(["enrolled", "in_progress"])
+                CourseEnrollment.status.in_(["enrolled", "in_progress"]),
+                Course.status == "published"
             ).order_by(CourseEnrollment.enrolled_at.desc()).first()
 
             assigned_course = "None"
             progress_percent = 0
             if active_enroll:
-                assigned_course = active_enroll.course_code
+                assigned_course = active_enroll.course.course_code if active_enroll.course else "Course"
                 progress_percent = active_enroll.progress_percent
 
-            # Fetch all quiz attempts
-            attempts = db.query(QuizAttempt).filter(QuizAttempt.user_id == user.id).all()
+            # Fetch all quiz attempts (standalone or published-course-linked only)
+            from sqlalchemy import or_
+            attempts = db.query(QuizAttempt).join(
+                Quiz, QuizAttempt.quiz_id == Quiz.id
+            ).outerjoin(
+                CourseModule, Quiz.module_id == CourseModule.id
+            ).outerjoin(
+                Course, CourseModule.course_id == Course.id
+            ).filter(
+                QuizAttempt.user_id == user.id,
+                or_(
+                    Course.id.is_(None),
+                    Course.status == "published"
+                )
+            ).all()
+            
             test_marks = []
             for att in attempts:
                 course_code = "None"
@@ -411,6 +447,18 @@ class EnrollmentService:
 
             full_name = f"{user.first_name} {user.last_name}".strip()
 
+            # Get user's highest active badge tier
+            from app.models.user_badge import UserBadge
+            from app.models.badge_tier import BadgeTier
+            highest_badge = db.query(UserBadge).join(
+                BadgeTier, UserBadge.badge_tier_id == BadgeTier.id
+            ).filter(
+                UserBadge.user_id == user.id
+            ).order_by(
+                BadgeTier.tier_order.desc()
+            ).first()
+            badge_name = highest_badge.badge_tier.name if highest_badge else None
+
             roster.append({
                 "id": user.id,
                 "name": full_name,
@@ -419,7 +467,8 @@ class EnrollmentService:
                 "coursesTaken": completed_count,
                 "assignedCourse": assigned_course,
                 "progressPercent": progress_percent,
-                "testMarks": test_marks
+                "testMarks": test_marks,
+                "badgeName": badge_name
             })
 
         return roster

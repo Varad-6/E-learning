@@ -49,6 +49,8 @@ class ProgressUpdate(BaseModel):
     completed: bool = Field(..., description="Completion status")
     time_spent_seconds: int = Field(0, ge=0, description="Time spent in seconds on this content")
 
+from typing import List, Optional
+
 class TestMarkResponse(BaseModel):
     courseCode: str
     testName: str
@@ -63,4 +65,5 @@ class RosterEmployeeResponse(BaseModel):
     assignedCourse: str
     progressPercent: int
     testMarks: List[TestMarkResponse] = []
+    badgeName: Optional[str] = None
 

@@ -144,13 +144,13 @@ class CourseService:
         
         if "SYSTEM_ADMIN" not in roles:
             from sqlalchemy import or_, and_
-            # Learners and Managers should only see approved/published courses belonging to their department,
-            # or any courses they created themselves (drafts, pending, rejected).
+            # Learners should only see published courses belonging to their department,
+            # or any courses they created themselves (drafts, pending, rejected, approved).
             query = query.filter(
                 or_(
                     Course.created_by == current_user.id,
                     and_(
-                        Course.status.in_(["approved", "published"]),
+                        Course.status == "published",
                         Course.department_id == current_user.department_id
                     )
                 )
@@ -169,10 +169,11 @@ class CourseService:
                 detail=f"Course with ID {course_id} not found."
             )
         if db_course.status not in ["approved", "published"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Course must be approved before it can be published."
-            )
+            if not db_course.published_at:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Course must be approved before it can be published."
+                )
         
         from app.models.course_module import CourseModule
         beg_count = db.query(CourseModule).filter(CourseModule.course_id == course_id, CourseModule.tier == "beginner").count()

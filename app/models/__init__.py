@@ -18,6 +18,7 @@ from app.models.user_module_note import UserModuleNote
 from app.models.exam import Exam, ExamAssignment, ExamQuestion, ExamSubmission, ExamGrade, ExamReview
 from app.models.audit_log import AuditLog
 from app.models.user_badge import UserBadge
+from app.models.badge_tier import BadgeTier
 from app.models.notification import Notification
 
 __all__ = [
@@ -46,5 +47,6 @@ __all__ = [
     "ExamReview",
     "AuditLog",
     "UserBadge",
+    "BadgeTier",
     "Notification",
 ]

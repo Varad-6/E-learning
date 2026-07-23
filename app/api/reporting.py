@@ -11,6 +11,7 @@ from app.models.department import Department
 from app.models.role import Role
 from app.models.user_role import UserRole
 from app.models.course_enrollment import CourseEnrollment
+from app.models.course import Course
 from app.models.exam import Exam, ExamSubmission, ExamGrade
 
 router = APIRouter(prefix="/api/reporting", tags=["Reporting"])
@@ -57,19 +58,25 @@ def get_departments_summary(
 
         avg_score = round(float(avg_score_query), 1) if avg_score_query is not None else None
 
-        # 3. Courses in-progress vs completed count in this department
+        # 3. Courses in-progress vs completed count in this department (published only)
         in_progress_count = db.query(CourseEnrollment).join(
             User, CourseEnrollment.user_id == User.id
+        ).join(
+            Course, CourseEnrollment.course_id == Course.id
         ).filter(
             User.department_id == dept.id,
-            CourseEnrollment.status == "in_progress"
+            CourseEnrollment.status == "in_progress",
+            Course.status == "published"
         ).count()
 
         completed_count = db.query(CourseEnrollment).join(
             User, CourseEnrollment.user_id == User.id
+        ).join(
+            Course, CourseEnrollment.course_id == Course.id
         ).filter(
             User.department_id == dept.id,
-            CourseEnrollment.status == "completed"
+            CourseEnrollment.status == "completed",
+            Course.status == "published"
         ).count()
 
         # 4. Pending exam reviews count for this department
@@ -115,10 +122,15 @@ def get_department_employees(
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
 
-    employees = db.query(User).filter(
+    employees = db.query(User).join(
+        UserRole, User.id == UserRole.user_id
+    ).join(
+        Role, UserRole.role_id == Role.id
+    ).filter(
         User.department_id == department_id,
         User.is_active == True,
-        User.is_deleted == False
+        User.is_deleted == False,
+        Role.name == "EMPLOYEE"
     ).all()
 
     emp_list = []
@@ -126,16 +138,35 @@ def get_department_employees(
         emp_roles = [r.name for r in emp.roles]
         role_display = emp_roles[0] if emp_roles else "EMPLOYEE"
 
-        enrolled_count = db.query(CourseEnrollment).filter(CourseEnrollment.user_id == emp.id).count()
-        completed_count = db.query(CourseEnrollment).filter(
+        enrolled_count = db.query(CourseEnrollment).join(
+            Course, CourseEnrollment.course_id == Course.id
+        ).filter(
             CourseEnrollment.user_id == emp.id,
-            CourseEnrollment.status == "completed"
+            Course.status == "published"
+        ).count()
+        completed_count = db.query(CourseEnrollment).join(
+            Course, CourseEnrollment.course_id == Course.id
+        ).filter(
+            CourseEnrollment.user_id == emp.id,
+            CourseEnrollment.status == "completed",
+            Course.status == "published"
         ).count()
 
         # Exam stats
-        graded_subs = db.query(ExamSubmission).filter(
+        # Note: Standalone exams are allowed, but if linked to a course, the course must be published.
+        # So we filter submissions accordingly.
+        from sqlalchemy import or_
+        graded_subs = db.query(ExamSubmission).join(
+            Exam, ExamSubmission.exam_id == Exam.id
+        ).outerjoin(
+            Course, Exam.course_id == Course.id
+        ).filter(
             ExamSubmission.user_id == emp.id,
-            ExamSubmission.status == "graded"
+            ExamSubmission.status == "graded",
+            or_(
+                Exam.course_id.is_(None),
+                Course.status == "published"
+            )
         ).all()
 
         exams_taken_count = len(graded_subs)
@@ -150,8 +181,11 @@ def get_department_employees(
             ExamSubmission.user_id == emp.id
         ).order_by(ExamSubmission.started_at.desc()).first()
 
-        last_enrollment = db.query(CourseEnrollment).filter(
-            CourseEnrollment.user_id == emp.id
+        last_enrollment = db.query(CourseEnrollment).join(
+            Course, CourseEnrollment.course_id == Course.id
+        ).filter(
+            CourseEnrollment.user_id == emp.id,
+            Course.status == "published"
         ).order_by(CourseEnrollment.enrolled_at.desc()).first()
 
         dates = []
@@ -168,7 +202,10 @@ def get_department_employees(
         last_activity = max(dates).isoformat() if dates else None
 
         emp_list.append({
-            "id": emp.id,
+            "id": str(emp.id),
+            "user_id": str(emp.id),
+            "name": f"{emp.first_name} {emp.last_name}",
+            "avatar_initials": f"{emp.first_name[0] if emp.first_name else ''}{emp.last_name[0] if emp.last_name else ''}".upper(),
             "employee_code": emp.employee_code,
             "first_name": emp.first_name,
             "last_name": emp.last_name,
@@ -177,6 +214,7 @@ def get_department_employees(
             "courses_enrolled_count": enrolled_count,
             "courses_completed_count": completed_count,
             "avg_exam_score": avg_score,
+            "avg_score": avg_score,
             "exams_taken_count": exams_taken_count,
             "last_activity_date": last_activity
         })
@@ -209,23 +247,54 @@ def get_employee_detail_profile(
         if current_user.department_id != emp.department_id:
             raise HTTPException(status_code=403, detail="Personnel can only view profiles within their department.")
 
-    # 1. Enrolled Courses
-    enrollments = db.query(CourseEnrollment).filter(CourseEnrollment.user_id == emp.id).all()
+    # 1. Enrolled Courses (published only)
+    enrollments = db.query(CourseEnrollment).join(
+        Course, CourseEnrollment.course_id == Course.id
+    ).filter(
+        CourseEnrollment.user_id == emp.id,
+        Course.status == "published"
+    ).all()
     courses_data = []
     for enr in enrollments:
+        # Find score for this specific course from its exam submissions
+        course_exam_score = None
+        if enr.course:
+            exam_sub = db.query(ExamSubmission).join(
+                Exam, ExamSubmission.exam_id == Exam.id
+            ).filter(
+                ExamSubmission.user_id == emp.id,
+                Exam.course_id == enr.course_id,
+                ExamSubmission.status == "graded"
+            ).first()
+            if exam_sub and exam_sub.grade:
+                course_exam_score = exam_sub.grade.overall_score
+
         courses_data.append({
             "enrollment_id": enr.id,
             "course_id": enr.course_id,
             "course_title": enr.course.title if enr.course else "Course",
+            "title": enr.course.title if enr.course else "Course",
             "course_code": enr.course.course_code if enr.course else "",
             "progress_percent": enr.progress_percent,
             "status": enr.status,
+            "score": course_exam_score,
             "enrolled_at": enr.enrolled_at.isoformat() if enr.enrolled_at else None,
             "completed_at": enr.completed_at.isoformat() if enr.completed_at else None
         })
 
-    # 2. Taken Exams
-    submissions = db.query(ExamSubmission).filter(ExamSubmission.user_id == emp.id).all()
+    # 2. Taken Exams (standalone or published-course-linked only)
+    from sqlalchemy import or_
+    submissions = db.query(ExamSubmission).join(
+        Exam, ExamSubmission.exam_id == Exam.id
+    ).outerjoin(
+        Course, Exam.course_id == Course.id
+    ).filter(
+        ExamSubmission.user_id == emp.id,
+        or_(
+            Exam.course_id.is_(None),
+            Course.status == "published"
+        )
+    ).all()
     exams_data = []
     score_trend = []
 
@@ -263,9 +332,34 @@ def get_employee_detail_profile(
     dept_name = emp.department.name if emp.department else "General"
     emp_roles = [r.name for r in emp.roles]
 
+    # Recompute average score
+    scores = [s.grade.overall_score for s in submissions if s.grade and s.grade.overall_score is not None and s.status == "graded"]
+    avg_score = round(sum(scores) / len(scores), 1) if scores else None
+
+    # Query earned badges
+    from app.models.user_badge import UserBadge
+    from app.models.badge_tier import BadgeTier
+    user_badges = db.query(UserBadge).join(
+        BadgeTier, UserBadge.badge_tier_id == BadgeTier.id
+    ).filter(
+        UserBadge.user_id == emp.id
+    ).order_by(
+        BadgeTier.tier_order.desc()
+    ).all()
+    badges_list = [
+        {
+            "id": str(ub.id),
+            "badge_tier_id": str(ub.badge_tier_id),
+            "name": ub.badge_tier.name,
+            "required_completions": ub.badge_tier.required_completions,
+            "awarded_at": ub.awarded_at.isoformat() if ub.awarded_at else None
+        }
+        for ub in user_badges
+    ]
+
     return {
         "user": {
-            "id": emp.id,
+            "id": str(emp.id),
             "employee_code": emp.employee_code,
             "first_name": emp.first_name,
             "last_name": emp.last_name,
@@ -274,7 +368,13 @@ def get_employee_detail_profile(
             "department_name": dept_name,
             "role_name": emp_roles[0] if emp_roles else "EMPLOYEE"
         },
+        "name": f"{emp.first_name} {emp.last_name}",
+        "email": emp.email,
+        "department": dept_name,
         "courses": courses_data,
         "exams": exams_data,
-        "score_trend": score_trend
+        "score_trend": score_trend,
+        "avg_score": avg_score,
+        "exams_attempted": len(submissions),
+        "badges": badges_list
     }

@@ -19,7 +19,7 @@ class ExamQuestionResponse(ExamQuestionBase):
 
 class ExamBase(BaseModel):
     title: str
-    course_id: UUID
+    course_id: Optional[UUID] = None
     department_id: Optional[UUID] = None  # None = All Departments (Admin scope)
     duration_minutes: int = 60
     is_published: bool = False

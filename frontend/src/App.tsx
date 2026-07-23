@@ -43,6 +43,7 @@ const AppContent: React.FC = () => {
           <Route path="/creator/exams/review" element={<ExamReviewer />} />
           <Route path="/exams" element={<ExamsCenter />} />
           <Route path="/reporting" element={<ReportingDashboard />} />
+          <Route path="/reporting/employees/:userId" element={<ReportingDashboard />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
         </Routes>
       </main>
@@ -50,7 +51,6 @@ const AppContent: React.FC = () => {
     </div>
   );
 };
-
 
 const App: React.FC = () => {
   return (

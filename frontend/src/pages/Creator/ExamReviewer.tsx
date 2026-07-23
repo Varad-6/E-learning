@@ -356,7 +356,7 @@ export const ExamReviewer: React.FC = () => {
                         className="glow-hover"
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '0.72rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: sub.status === 'graded' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(0, 242, 254, 0.1)', color: sub.status === 'graded' ? '#10b981' : 'var(--accent-color)', textTransform: 'uppercase' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: sub.status === 'graded' ? 'var(--accent-glow)' : 'rgba(255, 255, 255, 0.05)', color: sub.status === 'graded' ? 'var(--color-success)' : 'var(--color-warning)', textTransform: 'uppercase' }}>
                             {sub.status}
                           </span>
                           <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>

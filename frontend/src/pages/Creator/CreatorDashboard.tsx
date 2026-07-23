@@ -24,13 +24,14 @@ interface CourseData {
   priority: 'High' | 'Medium' | 'Low';
   duration: string;
   is_published: boolean;
-  status: 'Draft' | 'Pending' | 'Approved' | 'Rejected';
+  status: 'Draft' | 'Pending' | 'Approved' | 'Rejected' | 'Published';
   creatorName: string;
   creatorRole: string;
   department_id?: string;
   departmentName: string;
   rejectionReason?: string;
   createdDate: string;
+  published_at?: string | null;
 }
 
 interface AppNotification {
@@ -69,7 +70,7 @@ export const CreatorDashboard: React.FC = () => {
 
   // Navigation states
   const [activeTab, setActiveTab] = useState<'my_courses' | 'approvals' | 'auditing' | 'departments'>('my_courses');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Draft' | 'Pending' | 'Approved' | 'Rejected'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Draft' | 'Pending' | 'Approved' | 'Rejected' | 'Published'>('All');
   
   // Admin departments state
   const [departmentsList, setDepartmentsList] = useState<{ id: string; name: string; code: string; description?: string }[]>([]);
@@ -108,11 +109,12 @@ export const CreatorDashboard: React.FC = () => {
         const data = await response.json();
         const dbCourses = data.courses || [];
         const mapped = dbCourses.map((c: any) => {
-          let frontendStatus: 'Draft' | 'Pending' | 'Approved' | 'Rejected' = 'Draft';
+          let frontendStatus = 'Draft';
           const backendStatus = c.status?.toLowerCase();
           if (backendStatus === 'pending') frontendStatus = 'Pending';
           else if (backendStatus === 'approved') frontendStatus = 'Approved';
           else if (backendStatus === 'rejected') frontendStatus = 'Rejected';
+          else if (backendStatus === 'published') frontendStatus = 'Published';
           
           return {
             id: c.id,
@@ -123,6 +125,7 @@ export const CreatorDashboard: React.FC = () => {
             duration: c.duration || '10 hours',
             is_published: c.is_published,
             status: frontendStatus,
+            published_at: c.published_at,
             creatorName: c.creator_name || 'John Doe',
             creatorRole: c.creator_role || 'Employee',
             department_id: c.department_id,
@@ -811,31 +814,92 @@ export const CreatorDashboard: React.FC = () => {
                           </span>
                         </div>
 
-                        <Button
-                          variant={course.is_published ? "outline" : "primary"}
-                          size="sm"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              const res = await apiCall(`/api/courses/${course.id}`, {
-                                method: 'PUT',
-                                body: JSON.stringify({
-                                  is_published: !course.is_published,
-                                  status: 'approved'
-                                })
-                              });
-                              if (res.ok) {
-                                fetchDBCourses();
-                                triggerToast(course.is_published ? 'Course reverted to draft!' : 'Course published successfully!', 'success');
-                              }
-                            } catch (err) {
-                              console.error(err);
-                            }
-                          }}
-                          style={{ fontSize: '0.75rem', padding: '6px 12px' }}
-                        >
-                          {course.is_published ? 'Revert to Draft' : 'Publish'}
-                        </Button>
+                        {(() => {
+                          if (course.is_published || course.status === 'Published') {
+                            return (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const res = await apiCall(`/api/courses/${course.id}`, {
+                                      method: 'PUT',
+                                      body: JSON.stringify({
+                                        is_published: false,
+                                        status: 'draft'
+                                      })
+                                    });
+                                    if (res.ok) {
+                                      fetchDBCourses();
+                                      triggerToast('Course reverted to draft!', 'success');
+                                    }
+                                  } catch (err) {
+                                    console.error(err);
+                                  }
+                                }}
+                                style={{ fontSize: '0.75rem', padding: '6px 12px' }}
+                              >
+                                Revert to Draft
+                              </Button>
+                            );
+                          } else if (course.status === 'Draft' && course.published_at) {
+                            return (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const res = await apiCall(`/api/courses/${course.id}/publish`, {
+                                      method: 'POST'
+                                    });
+                                    if (res.ok) {
+                                      fetchDBCourses();
+                                      triggerToast('Course republished successfully!', 'success');
+                                    } else {
+                                      const err = await res.json();
+                                      triggerToast(err.detail || 'Failed to republish course', 'error');
+                                    }
+                                  } catch (err) {
+                                    console.error(err);
+                                  }
+                                }}
+                                style={{ fontSize: '0.75rem', padding: '6px 12px' }}
+                              >
+                                Republish
+                              </Button>
+                            );
+                          } else if (course.status === 'Approved') {
+                            return (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const res = await apiCall(`/api/courses/${course.id}/publish`, {
+                                      method: 'POST'
+                                    });
+                                    if (res.ok) {
+                                      fetchDBCourses();
+                                      triggerToast('Course published successfully!', 'success');
+                                    } else {
+                                      const err = await res.json();
+                                      triggerToast(err.detail || 'Failed to publish course', 'error');
+                                    }
+                                  } catch (err) {
+                                    console.error(err);
+                                  }
+                                }}
+                                style={{ fontSize: '0.75rem', padding: '6px 12px' }}
+                              >
+                                Publish
+                              </Button>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
                   ))}

@@ -153,8 +153,8 @@
 }
 
 .course-badge-priority.low {
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
+  background: color-mix(in srgb, var(--success-color) 15%, transparent);
+  color: var(--success-color);
 }
 
 .creator-course-card h3 {
@@ -788,9 +788,9 @@
   box-shadow: 0 0 10px rgba(245, 158, 11, 0.1);
 }
 .course-badge-status.status-approved {
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+  background: color-mix(in srgb, var(--success-color) 15%, transparent);
+  color: var(--success-color);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--success-color) 10%, transparent);
 }
 .course-badge-status.status-rejected {
   background: rgba(239, 68, 68, 0.15);

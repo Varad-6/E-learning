@@ -43,10 +43,11 @@ def create_exam(
             detail="Only Admins or Course Managers can create exams."
         )
 
-    # Validate Course exists
-    course = db.query(Course).filter(Course.id == exam_in.course_id).first()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+    # Validate Course exists if course_id is provided
+    if exam_in.course_id:
+        course = db.query(Course).filter(Course.id == exam_in.course_id).first()
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
 
     # If department_id is provided, validate Department exists
     if exam_in.department_id:

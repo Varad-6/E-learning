@@ -13,6 +13,7 @@ from app.models.exam import Exam, ExamQuestion, ExamAssignment, ExamReview, Exam
 from app.models.course_enrollment import CourseEnrollment
 from app.models.user_course_progress import UserCourseProgress
 from app.models.user_badge import UserBadge
+from app.models.badge_tier import BadgeTier
 from app.models.otp import PasswordResetOTP
 from app.models.refresh_token import RefreshToken
 from app.models.audit_log import AuditLog
@@ -28,6 +29,7 @@ try:
     db.query(Notification).delete()
     db.query(UserModuleNote).delete()
     db.query(UserBadge).delete()
+    db.query(BadgeTier).delete()
     db.query(UserCourseProgress).delete()
     db.query(CourseEnrollment).delete()
     db.query(ExamGrade).delete()
@@ -393,7 +395,42 @@ try:
                 db.add(q1)
                 db.commit()
 
-    print("Successfully seeded/updated database with departments, roles, test users, courses, modules, contents and quizzes!")
+    print("Seeding Badge Tiers...")
+    badge_progression = [
+        ("Bronze I", 1, "bronze_1", 1),
+        ("Bronze II", 2, "bronze_2", 2),
+        ("Bronze III", 3, "bronze_3", 3),
+        ("Silver I", 4, "silver_1", 4),
+        ("Silver II", 5, "silver_2", 5),
+        ("Silver III", 6, "silver_3", 6),
+        ("Gold I", 7, "gold_1", 7),
+        ("Gold II", 8, "gold_2", 8),
+        ("Gold III", 9, "gold_3", 9),
+        ("Ruby Crest", 10, "ruby_crest", 10),
+        ("Amethyst I", 11, "amethyst_1", 11),
+        ("Amethyst II", 12, "amethyst_2", 12),
+        ("Amethyst III", 13, "amethyst_3", 13),
+        ("Emerald I", 14, "emerald_1", 14),
+        ("Emerald II", 15, "emerald_2", 15),
+        ("Emerald III", 16, "emerald_3", 16),
+        ("Sapphire I", 17, "sapphire_1", 17),
+        ("Sapphire II", 18, "sapphire_2", 18),
+        ("Sapphire III", 19, "sapphire_3", 19),
+        ("Diamond Crest", 20, "diamond_crest", 20)
+    ]
+    for name, order, asset_ref, count in badge_progression:
+        bt = BadgeTier(
+            id=uuid.uuid4(),
+            name=name,
+            tier_order=order,
+            icon_asset_ref=asset_ref,
+            courses_required_cumulative=count
+        )
+        db.add(bt)
+    db.commit()
+    print("Badge Tiers seeded.")
+
+    print("Successfully seeded/updated database with departments, roles, test users, courses, modules, contents, quizzes and badge tiers!")
 except Exception as e:
     db.rollback()
     print(f"Error seeding: {e}")

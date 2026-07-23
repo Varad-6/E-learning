@@ -11,17 +11,94 @@ class EmailService:
     def send_otp_email(to_email: str, otp_code: str) -> None:
         """Send a 6-digit OTP to the registered user email."""
         subject = "Enterprise LMS - Password Reset OTP"
-        body = f"""Hello,
+        
+        # Plain text fallback
+        text_body = f"""Hello,
 
 You have requested a password reset for your Enterprise LMS account.
-Your 6-digit OTP code is: {otp_code}
+Your 6-digit verification code is: {otp_code}
 
-This OTP is valid for 10 minutes.
-
-If you did not request this reset, please ignore this email.
+This code is valid for 10 minutes. If you did not request this reset, you can safely ignore this email.
 
 Regards,
 Enterprise LMS Security Team
+"""
+
+        # Elegant HTML email matching Glassdoor's Brand Guidelines (White, Black, Gray, Accent Green)
+        html_body = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {{
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #ffffff;
+      color: #111827;
+      margin: 0;
+      padding: 40px 20px;
+      -webkit-font-smoothing: antialiased;
+    }}
+    .container {{
+      max-width: 500px;
+      margin: 0 auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }}
+    .header {{
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 24px;
+      color: #111827;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 16px;
+    }}
+    .code-container {{
+      background-color: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px 16px;
+      text-align: center;
+      margin: 24px 0;
+    }}
+    .otp-code {{
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: #008b5c; /* Accessible Brand Accent Green */
+      margin-top: 4px;
+    }}
+    .footer {{
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 32px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 16px;
+      line-height: 1.5;
+    }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      Enterprise LMS
+    </div>
+    <p style="font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">Hello,</p>
+    <p style="font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">You have requested a password reset for your Enterprise LMS account.</p>
+    <div class="code-container">
+      <div style="font-size: 11px; text-transform: uppercase; color: #4b5563; font-weight: 800; letter-spacing: 0.08em;">Verification Code</div>
+      <div class="otp-code">{otp_code}</div>
+    </div>
+    <p style="color: #4b5563; font-size: 14px; line-height: 1.6; margin: 24px 0 0 0;">This code is valid for 10 minutes. If you did not request this reset, you can safely ignore this email.</p>
+    <div class="footer">
+      Regards,<br>
+      <strong style="color: #475569;">Enterprise LMS Security Team</strong>
+    </div>
+  </div>
+</body>
+</html>
 """
 
         # Check if SMTP user is configured; if not, simulate sending
@@ -40,11 +117,14 @@ Enterprise LMS Security Team
             return
 
         try:
-            msg = MIMEMultipart()
+            msg = MIMEMultipart("alternative")
             msg["From"] = settings.SMTP_FROM
             msg["To"] = to_email
             msg["Subject"] = subject
-            msg.attach(MIMEText(body, "plain"))
+            
+            # Attach both parts
+            msg.attach(MIMEText(text_body, "plain"))
+            msg.attach(MIMEText(html_body, "html"))
 
             logger.info(f"Connecting to SMTP server {settings.SMTP_HOST}:{settings.SMTP_PORT}")
             # Connect to SMTP server

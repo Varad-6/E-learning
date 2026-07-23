@@ -51,8 +51,8 @@ export const Navbar: React.FC = () => {
         }));
         setNotifications(mapped);
       }
-    } catch (err) {
-      console.error('Failed to fetch notifications from backend', err);
+    } catch {
+      // Silently ignore — backend may be temporarily unreachable
     }
   };
 
@@ -79,7 +79,7 @@ export const Navbar: React.FC = () => {
     if (localStorage.getItem('isLoggedInEmail')) {
       intervalId = setInterval(() => {
         fetchNotificationsBackend();
-      }, 15000); // Poll every 15 seconds
+      }, 60000); // Poll every 60 seconds
     }
 
     const handleNotifChange = () => {
@@ -332,7 +332,7 @@ export const Navbar: React.FC = () => {
               Leaderboard
             </div>
           )}
-          {userEmail && userRole !== 'Admin' && (
+          {userEmail && userRole !== 'Admin' && userRole !== 'Manager' && (
             <div 
               onClick={() => navigate('/view-courses')} 
               className={`nav-link ${location.pathname === '/view-courses' ? 'active' : ''}`} 

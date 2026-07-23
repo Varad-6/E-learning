@@ -1295,7 +1295,7 @@ export const CoursePlayer: React.FC = () => {
                         </p>
                         {quizScore >= 66 ? (
                           <>
-                            <div className="form-info-banner" style={{ backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid #10b981', width: '100%', marginBottom: '16px' }}>
+                            <div className="form-info-banner" style={{ backgroundColor: 'var(--accent-glow)', color: 'var(--color-success)', border: '1px solid var(--color-success)', width: '100%', marginBottom: '16px' }}>
                               <span>Status: Completed. Next module is unlocked!</span>
                             </div>
                             {activeContentIndex === flatContents.length - 1 ? (

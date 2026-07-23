@@ -28,8 +28,19 @@ def get_leaderboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    user_roles = [r.name for r in current_user.roles]
+    is_manager = "COURSE_MANAGER" in user_roles and not ("SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles)
+    
+    if is_manager:
+        scope = "department"
+        department_id = current_user.department_id
+
     # Fetch lists for dropdown selectors and department summary cards
-    departments_list = db.query(Department).all()
+    if is_manager:
+        departments_list = db.query(Department).filter(Department.id == current_user.department_id).all()
+    else:
+        departments_list = db.query(Department).all()
+        
     dept_dicts = []
     for d in departments_list:
         # Average exam score in department
@@ -81,10 +92,15 @@ def get_leaderboard(
             "employee_count": headcount
         })
 
-    exams_list = db.query(Exam).filter(Exam.is_published == True).all()
-    exam_dicts = [{"id": str(e.id), "title": e.title} for e.find in exams_list] if hasattr(exams_list, 'find') else [{"id": str(e.id), "title": e.title} for e in exams_list]
+    # Standalone exams should show up too.
+    exams_query = db.query(Exam).filter(Exam.is_published == True)
+    if is_manager:
+        exams_query = exams_query.filter(Exam.department_id == current_user.department_id)
+    exams_list = exams_query.all()
+    exam_dicts = [{"id": str(e.id), "title": e.title} for e in exams_list]
 
     rankings = []
+    thirty_days_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=30)
 
     if scope == "exam":
         if not exam_id:
@@ -127,6 +143,24 @@ def get_leaderboard(
         # Sort by overall_score desc, then submitted_at asc
         sorted_subs = sorted(graded_subs, key=lambda x: (-x.overall_score, x.submitted_at or datetime.datetime.max))
 
+        # Query historical data (before 30 days ago) for delta
+        prev_graded_subs = db.query(
+            ExamSubmission.user_id,
+            ExamGrade.overall_score,
+            ExamSubmission.submitted_at
+        ).join(
+            ExamGrade, ExamGrade.submission_id == ExamSubmission.id
+        ).join(
+            User, ExamSubmission.user_id == User.id
+        ).filter(
+            ExamSubmission.exam_id == exam_id,
+            ExamSubmission.status == "graded",
+            ExamGrade.overall_score.isnot(None),
+            ExamSubmission.submitted_at < thirty_days_ago
+        ).all()
+        sorted_prev = sorted(prev_graded_subs, key=lambda x: (-x.overall_score, x.submitted_at or datetime.datetime.max))
+        prev_ranks = {str(row.user_id): idx + 1 for idx, row in enumerate(sorted_prev)}
+
         for idx, row in enumerate(sorted_subs):
             time_taken_str = "N/A"
             if row.submitted_at and row.started_at:
@@ -136,9 +170,28 @@ def get_leaderboard(
                 time_taken_str = f"{minutes}m {seconds}s"
             
             date_str = row.submitted_at.strftime("%Y-%m-%d") if row.submitted_at else "N/A"
+            
+            curr_rank = idx + 1
+            prev_rank = prev_ranks.get(str(row.user_id))
+            if prev_rank is not None:
+                delta = prev_rank - curr_rank
+            else:
+                delta = "New"
+
+            # Query user's highest active badge tier
+            from app.models.user_badge import UserBadge
+            from app.models.badge_tier import BadgeTier
+            highest_badge = db.query(UserBadge).join(
+                BadgeTier, UserBadge.badge_tier_id == BadgeTier.id
+            ).filter(
+                UserBadge.user_id == row.user_id
+            ).order_by(
+                BadgeTier.tier_order.desc()
+            ).first()
+            badge_name = highest_badge.badge_tier.name if highest_badge else None
 
             rankings.append({
-                "rank": idx + 1,
+                "rank": curr_rank,
                 "user_id": str(row.user_id),
                 "user_name": f"{row.first_name} {row.last_name}",
                 "employee_code": row.employee_code,
@@ -146,7 +199,9 @@ def get_leaderboard(
                 "exams_completed": 1,
                 "score": round(float(row.overall_score), 2),
                 "time_taken": time_taken_str,
-                "date": date_str
+                "date": date_str,
+                "delta": delta,
+                "badge_name": badge_name
             })
 
     else:
@@ -174,6 +229,7 @@ def get_leaderboard(
             User.is_deleted == False
         )
 
+        target_dept_id = department_id
         if scope == "department":
             target_dept_id = department_id or current_user.department_id
             if target_dept_id:
@@ -193,15 +249,63 @@ def get_leaderboard(
         rows = query.all()
         sorted_rows = sorted(rows, key=lambda x: -float(x.avg_score))
 
+        # Query historical data (before 30 days ago) for delta
+        prev_query = db.query(
+            ExamSubmission.user_id,
+            func.avg(ExamGrade.overall_score).label("avg_score")
+        ).join(
+            ExamGrade, ExamGrade.submission_id == ExamSubmission.id
+        ).join(
+            User, ExamSubmission.user_id == User.id
+        ).filter(
+            ExamSubmission.status == "graded",
+            ExamGrade.overall_score.isnot(None),
+            User.is_active == True,
+            User.is_deleted == False,
+            ExamSubmission.submitted_at < thirty_days_ago
+        )
+        if scope == "department" and target_dept_id:
+            prev_query = prev_query.filter(User.department_id == target_dept_id)
+            
+        prev_rows = prev_query.group_by(
+            ExamSubmission.user_id
+        ).having(
+            func.count(ExamSubmission.id) >= min_exams
+        ).all()
+        
+        sorted_prev = sorted(prev_rows, key=lambda x: -float(x.avg_score))
+        prev_ranks = {str(row.user_id): idx + 1 for idx, row in enumerate(sorted_prev)}
+
         for idx, r in enumerate(sorted_rows):
+            curr_rank = idx + 1
+            prev_rank = prev_ranks.get(str(r.user_id))
+            if prev_rank is not None:
+                delta = prev_rank - curr_rank
+            else:
+                delta = "New"
+
+            # Query user's highest active badge tier
+            from app.models.user_badge import UserBadge
+            from app.models.badge_tier import BadgeTier
+            highest_badge = db.query(UserBadge).join(
+                BadgeTier, UserBadge.badge_tier_id == BadgeTier.id
+            ).filter(
+                UserBadge.user_id == r.user_id
+            ).order_by(
+                BadgeTier.tier_order.desc()
+            ).first()
+            badge_name = highest_badge.badge_tier.name if highest_badge else None
+
             rankings.append({
-                "rank": idx + 1,
+                "rank": curr_rank,
                 "user_id": str(r.user_id),
                 "user_name": f"{r.first_name} {r.last_name}",
                 "employee_code": r.employee_code,
                 "department_name": r.department_name or "General",
                 "exams_completed": r.exams_count,
-                "score": round(float(r.avg_score), 2)
+                "score": round(float(r.avg_score), 2),
+                "delta": delta,
+                "badge_name": badge_name
             })
 
     # Compute current user rank

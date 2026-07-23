@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User, Users, ShieldAlert, Award, FileText, PlusCircle, Bookmark, Layers, BookOpen } from 'lucide-react';
+import { User, Users, ShieldAlert, Award, FileText, PlusCircle, Bookmark, Layers, BookOpen, Clock } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import type { Course } from '../../types/schema';
@@ -8,6 +8,14 @@ import { getBadgeForCompletions } from '../../services/badge';
 import type { Badge } from '../../services/badge';
 import { apiCall } from '../../services/api';
 import './Dashboard.css';
+
+const chartPalette = [
+  'var(--color-chart-1)',
+  'var(--color-chart-2)',
+  'var(--color-chart-3)',
+  'var(--color-chart-4)',
+  'var(--color-chart-5)'
+];
 
 // Pure SVG Donut Chart Component (Zero External Dependencies)
 const SVGDonutChart: React.FC<{ items: { label: string; value: number; color: string }[] }> = ({ items }) => {
@@ -17,7 +25,16 @@ const SVGDonutChart: React.FC<{ items: { label: string; value: number; color: st
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', width: '100%' }}>
       <div style={{ position: 'relative', width: '150px', height: '150px' }}>
-        <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+        <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)', overflow: 'visible' }}>
+          <defs>
+            <filter id="donutGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="0.8" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
           {items.map((item, idx) => {
             const percent = (item.value / total) * 100;
             const strokeDasharray = `${percent} ${100 - percent}`;
@@ -31,10 +48,11 @@ const SVGDonutChart: React.FC<{ items: { label: string; value: number; color: st
                 r="15.91549430918954"
                 fill="transparent"
                 stroke={item.color}
-                strokeWidth="4"
+                strokeWidth="4.2"
                 strokeDasharray={strokeDasharray}
                 strokeDashoffset={strokeDashoffset}
                 style={{ transition: 'all 0.5s ease' }}
+                filter="url(#donutGlow)"
               />
             );
           })}
@@ -72,9 +90,16 @@ const SVGLineChart: React.FC<{ data: { label: string; value: number }[] }> = ({ 
       <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: '140px', overflow: 'visible' }}>
         <defs>
           <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#00f2fe" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#00f2fe" stopOpacity="0.0" />
+            <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="var(--color-chart-1)" stopOpacity="0.0" />
           </linearGradient>
+          <filter id="lineGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
         <polygon
           points={`0,${height} ${points} ${width},${height}`}
@@ -82,17 +107,18 @@ const SVGLineChart: React.FC<{ data: { label: string; value: number }[] }> = ({ 
         />
         <polyline
           fill="none"
-          stroke="#00f2fe"
+          stroke="var(--color-chart-1)"
           strokeWidth="3"
           points={points}
           strokeLinecap="round"
           strokeLinejoin="round"
+          filter="url(#lineGlow)"
         />
         {data.map((d, i) => {
           const x = (i / (data.length - 1)) * width;
           const y = height - (d.value / maxVal) * height;
           return (
-            <circle key={i} cx={x} cy={y} r="4" fill="#00f2fe" stroke="var(--bg-card)" strokeWidth="2" />
+            <circle key={i} cx={x} cy={y} r="4.5" fill="var(--color-chart-1)" stroke="var(--bg-card)" strokeWidth="2.5" />
           );
         })}
       </svg>
@@ -101,6 +127,36 @@ const SVGLineChart: React.FC<{ data: { label: string; value: number }[] }> = ({ 
           <span key={i}>{d.label}</span>
         ))}
       </div>
+    </div>
+  );
+};
+
+// Pure SVG Sparkline Component for mini stat card charts
+const Sparkline: React.FC<{ data: { label: string; value: number }[]; color: string }> = ({ data, color }) => {
+  if (!data || data.length < 2) return null;
+  const maxVal = Math.max(...data.map(d => d.value)) * 1.1 || 1;
+  const minVal = Math.min(...data.map(d => d.value)) * 0.9 || 0;
+  const range = maxVal - minVal || 1;
+  const width = 120;
+  const height = 30;
+  const points = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - ((d.value - minVal) / range) * height;
+    return `${x},${y}`;
+  }).join(' ');
+
+  return (
+    <div style={{ marginTop: '8px', opacity: 0.8 }}>
+      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '120px', height: '30px', overflow: 'visible' }}>
+        <polyline
+          fill="none"
+          stroke={color}
+          strokeWidth="2.5"
+          points={points}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     </div>
   );
 };
@@ -238,7 +294,7 @@ export const Dashboard: React.FC = () => {
   const [selectedCourseForModules, setSelectedCourseForModules] = useState<ProgressItem | null>(null);
 
   // Manager Dashboard Navigation & Workspace States
-  const [managerSubView, setManagerSubView] = useState<'my_courses' | 'create_course' | 'audit_reporting'>('audit_reporting');
+  const [managerSubView, setManagerSubView] = useState<'my_courses' | 'create_course' | 'audit_reporting' | 'analytics'>('analytics');
   const [activeManagerFilterDept, setActiveManagerFilterDept] = useState<string>('All');
   
   // Manager Edit & Draft states
@@ -302,6 +358,9 @@ export const Dashboard: React.FC = () => {
     total_pending: 0
   });
   const [topPerformersData, setTopPerformersData] = useState<any[]>([]);
+  const [avgScorePerCourseData, setAvgScorePerCourseData] = useState<any[]>([]);
+  const [managerCompletionRate, setManagerCompletionRate] = useState<any | null>(null);
+  const [managerPassFailRate, setManagerPassFailRate] = useState<any | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(false);
   const [analyticsError, setAnalyticsError] = useState<boolean>(false);
 
@@ -310,7 +369,7 @@ export const Dashboard: React.FC = () => {
     setAnalyticsError(false);
     try {
       const [
-        sumRes, compRes, trendRes, deptRes, actRes, topCRes, pfRes, pendRes, topPRes
+        sumRes, compRes, trendRes, deptRes, actRes, topCRes, pfRes, pendRes, topPRes, avgRes
       ] = await Promise.all([
         apiCall('/api/dashboard/summary'),
         apiCall('/api/dashboard/completion-rate'),
@@ -320,18 +379,42 @@ export const Dashboard: React.FC = () => {
         apiCall('/api/dashboard/top-courses'),
         apiCall('/api/dashboard/exam-pass-fail'),
         apiCall('/api/dashboard/pending-approvals'),
-        apiCall('/api/dashboard/top-performers')
+        apiCall('/api/dashboard/top-performers'),
+        apiCall('/api/dashboard/avg-score-per-course')
       ]);
 
       if (sumRes.ok) setSummaryData(await sumRes.json());
-      if (compRes.ok) setCompletionRateData(await compRes.json());
+      
+      if (compRes.ok) {
+        const compJson = await compRes.json();
+        if (compJson && !Array.isArray(compJson) && compJson.chart_data) {
+          setCompletionRateData(compJson.chart_data);
+          setManagerCompletionRate(compJson);
+        } else {
+          setCompletionRateData(compJson);
+          setManagerCompletionRate(null);
+        }
+      }
+      
       if (trendRes.ok) setEnrollmentTrendData(await trendRes.json());
       if (deptRes.ok) setDeptPerformanceData(await deptRes.json());
       if (actRes.ok) setActiveInactiveData(await actRes.json());
       if (topCRes.ok) setTopCoursesData(await topCRes.json());
-      if (pfRes.ok) setPassFailRatioData(await pfRes.json());
+      
+      if (pfRes.ok) {
+        const pfJson = await pfRes.json();
+        if (pfJson && !Array.isArray(pfJson) && pfJson.chart_data) {
+          setPassFailRatioData(pfJson.chart_data);
+          setManagerPassFailRate(pfJson);
+        } else {
+          setPassFailRatioData(pfJson);
+          setManagerPassFailRate(null);
+        }
+      }
+      
       if (pendRes.ok) setPendingApprovalsData(await pendRes.json());
       if (topPRes.ok) setTopPerformersData(await topPRes.json());
+      if (avgRes.ok) setAvgScorePerCourseData(await avgRes.json());
     } catch (err) {
       console.error('Error fetching dashboard analytics:', err);
       setAnalyticsError(true);
@@ -1372,7 +1455,7 @@ export const Dashboard: React.FC = () => {
       {activeMainView === 'dashboard' && role === 'Manager' && (
         <div className="dashboard-layout-manager animate-fade-in">
           {/* Dashboard header */}
-          <div className="manager-workspace-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '28px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+          <div className="manager-workspace-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '28px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <div className="pane-header" style={{ marginBottom: 0 }}>
                 <h3>{dept} Department Head View</h3>
@@ -1399,464 +1482,249 @@ export const Dashboard: React.FC = () => {
 
           {/* DYNAMIC VIEWS */}
           
-          {/* VIEW A: MY COURSES CATALOG */}
-          {managerSubView === 'my_courses' && (
-            <div className="manager-main-content">
-              {/* Inline Course Editing Form Modal */}
-              {editingCourseId && (
-                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div className="modal-content glass-panel" style={{ padding: '32px', maxWidth: '500px', width: '90%', borderRadius: 'var(--border-radius-md)', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-                    <h3 style={{ marginBottom: '16px' }}>Edit Course Details</h3>
-                    <form onSubmit={handleEditCourseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div className="form-input-group">
-                        <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Course Title</label>
-                        <input
-                          type="text"
-                          className="form-select-field"
-                          value={editCourseTitle}
-                          onChange={(e) => setEditCourseTitle(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-input-group">
-                        <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Course Description</label>
-                        <textarea
-                          className="form-select-field"
-                          value={editCourseDesc}
-                          onChange={(e) => setEditCourseDesc(e.target.value)}
-                          rows={4}
-                          style={{ fontFamily: 'inherit', resize: 'vertical' }}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                        <Button type="button" variant="outline" onClick={() => setEditingCourseId(null)}>Cancel</Button>
-                        <Button type="submit" variant="primary">Update Details</Button>
-                      </div>
-                    </form>
-                  </div>
+          {/* VIEW D: ANALYTICS DASHBOARD */}
+          {managerSubView === 'analytics' && (
+            <div className="manager-main-content animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              
+              {/* Error state */}
+              {analyticsError && (
+                <div style={{ padding: '16px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Failed to load department analytics from backend.</span>
+                  <Button variant="primary" style={{ fontSize: '0.78rem' }} onClick={fetchDashboardAnalytics}>Retry</Button>
                 </div>
               )}
 
-              <div className="manager-dashboard-grid">
-                {/* Courses Listing */}
-                <div className="manager-main-pane">
-                  <div className="roster-card glass-panel" style={{ padding: '24px' }}>
-                    <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Bookmark size={18} className="icon-blue" />
-                      <span>Syllabus Catalog ({activeManagerFilterDept === 'All' ? 'All' : activeManagerFilterDept} Department)</span>
-                    </h3>
+              {analyticsLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+                  <div className="animate-spin" style={{ width: '36px', height: '36px', border: '3px solid var(--accent-color)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
+                </div>
+              ) : (
+                <>
+                  {/* Stats Summary Panel */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+                    <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: 'color-mix(in srgb, var(--color-info) 15%, transparent)', color: 'var(--color-info)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <BookOpen size={22} />
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Department Courses</span>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '2px' }}>
+                          {summaryData.total_courses || 0}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: 'color-mix(in srgb, var(--success-color) 15%, transparent)', color: 'var(--success-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Users size={22} />
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Active Learners</span>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '2px' }}>
+                          {summaryData.total_users || 0}
+                        </div>
+                      </div>
+                    </div>
+
+
+                  </div>
+
+                  {/* 4 BI Charts Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
                     
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      {managedCourses
-                        .filter(c => activeManagerFilterDept === 'All' || c.course_code.includes(activeManagerFilterDept))
-                        .map(course => (
-                          <div key={course.id} className="course-progress-row" style={{ gridTemplateColumns: '1fr auto', padding: '20px', backgroundColor: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)' }}>
-                            <div className="course-row-info">
-                              <span className="course-row-code" style={{ color: 'var(--accent-color)', fontWeight: '700' }}>{course.course_code}</span>
-                              <h4 style={{ margin: '4px 0 8px 0' }}>{course.title}</h4>
-                              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4', marginBottom: '8px' }}>{course.description}</p>
-                              <span className="course-row-difficulty">{course.difficulty_level}</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setEditingCourseId(course.id);
-                                  setEditCourseTitle(course.title);
-                                  setEditCourseDesc(course.description);
-                                }}
-                              >
-                                Edit Course
-                              </Button>
-                            </div>
-                          </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Side Pane: Department Syllabus Metadata */}
-                <div className="manager-side-pane">
-                  {activeManagerFilterDept !== 'All' ? (
-                    <div className="sidebar-card glass-panel" style={{ borderLeft: '3px solid var(--accent-color)' }}>
-                      <div className="sidebar-card-title">
-                        <Users size={18} className="sidebar-icon icon-blue" />
-                        <h3>{activeManagerFilterDept} Overview</h3>
-                      </div>
-                      <div style={{ marginTop: '12px', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Department Head:</span>
-                          <span style={{ fontWeight: '600' }}>
-                            {activeManagerFilterDept === 'All' || activeManagerFilterDept === dept ? profileName : getManagerForDept(activeManagerFilterDept)}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Matching Courses:</span>
-                          <span style={{ fontWeight: '600' }}>
-                            {managedCourses.filter(c => c.course_code.includes(activeManagerFilterDept)).length} Published
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Roster Node Count:</span>
-                          <span style={{ fontWeight: '600' }}>{roster.length} {roster.length === 1 ? 'Member' : 'Members'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="sidebar-card glass-panel" style={{ borderLeft: '3px solid var(--accent-color)' }}>
-                      <div className="sidebar-card-title">
-                        <Users size={18} className="sidebar-icon icon-blue" />
-                        <h3>Department Overview</h3>
-                      </div>
-                      <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: '1.4' }}>
-                        Select a department using the filter dropdown above to inspect course syllabus matching counts, department managers, and employee roster nodes.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* VIEW B: CREATE COURSE SYSTEM */}
-          {managerSubView === 'create_course' && (
-            <div className="manager-dashboard-grid" style={{ gridTemplateColumns: '1.8fr 1.2fr' }}>
-              <div className="manager-main-pane">
-                {/* Tabs for Create Course (if draft exists) */}
-                {hasDraftCourse && (
-                  <div className="create-course-tabs" style={{ display: 'flex', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
-                    <button
-                      className={`tab-btn ${createCourseTab === 'resume' ? 'active' : ''}`}
-                      onClick={() => setCreateCourseTab('resume')}
-                      style={{
-                        padding: '10px 18px',
-                        borderRadius: 'var(--border-radius-sm)',
-                        border: '1px solid var(--border-color)',
-                        background: createCourseTab === 'resume' ? 'var(--accent-glow)' : 'transparent',
-                        color: createCourseTab === 'resume' ? 'var(--accent-color)' : 'var(--text-secondary)',
-                        fontWeight: '700',
-                        fontSize: '0.82rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.03em',
-                        cursor: 'pointer',
-                        transition: 'var(--transition-smooth)'
-                      }}
-                    >
-                      📝 Resume Course Editing
-                    </button>
-                    <button
-                      className={`tab-btn ${createCourseTab === 'new' ? 'active' : ''}`}
-                      onClick={() => setCreateCourseTab('new')}
-                      style={{
-                        padding: '10px 18px',
-                        borderRadius: 'var(--border-radius-sm)',
-                        border: '1px solid var(--border-color)',
-                        background: createCourseTab === 'new' ? 'var(--accent-glow)' : 'transparent',
-                        color: createCourseTab === 'new' ? 'var(--accent-color)' : 'var(--text-secondary)',
-                        fontWeight: '700',
-                        fontSize: '0.82rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.03em',
-                        cursor: 'pointer',
-                        transition: 'var(--transition-smooth)'
-                      }}
-                    >
-                      ➕ Create New Course
-                    </button>
-                  </div>
-                )}
-
-                {/* If draft is active and resume is selected, render the Resume Draft panel */}
-                {(hasDraftCourse && createCourseTab === 'resume') ? (
-                  <div className="roster-card glass-panel" style={{ padding: '24px' }}>
-                    <div className="roster-card-header" style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', padding: 0, marginBottom: '12px' }}>
-                      <PlusCircle size={18} className="icon-blue" />
-                      <h3>Resume Course Editing Draft</h3>
-                    </div>
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                      Continue assembling your un-published course draft.
-                    </p>
-
-                    {isEditingDraft ? (
-                      <form onSubmit={handleSaveDraft} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div className="form-input-group">
-                          <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Draft Title</label>
-                          <input
-                            type="text"
-                            className="form-select-field"
-                            value={draftTitle}
-                            onChange={(e) => setDraftTitle(e.target.value)}
-                          />
-                        </div>
-                        <div className="form-input-group">
-                          <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Draft Description</label>
-                          <textarea
-                            className="form-select-field"
-                            value={draftDesc}
-                            onChange={(e) => setDraftDesc(e.target.value)}
-                            rows={3}
-                            style={{ fontFamily: 'inherit' }}
-                          />
-                        </div>
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                          <Button type="submit" variant="primary" style={{ flex: 1 }}>Save Draft Changes</Button>
-                          <Button 
-                            type="button" 
-                            variant="coral" 
-                            style={{ flex: 1 }}
-                            onClick={() => {
-                              const newC: Course = {
-                                id: `c${Date.now()}`,
-                                course_code: 'AI-202',
-                                title: draftTitle,
-                                description: draftDesc,
-                                difficulty_level: 'Advanced',
-                                is_published: true
-                              };
-                              setManagedCourses(prev => [...prev, newC]);
-                              setHasDraftCourse(false);
-                              setIsEditingDraft(false);
-                              alert(`Successfully published Draft "${draftTitle}" to active curriculum!`);
-                              setManagerSubView('my_courses');
-                            }}
-                          >
-                            Publish Draft
-                          </Button>
-                        </div>
-                      </form>
-                    ) : (
-                      <div style={{ padding: '20px', backgroundColor: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)' }}>
-                        <h4 style={{ color: 'var(--text-primary)' }}>{draftTitle}</h4>
-                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.4' }}>{draftDesc}</p>
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                          <Button variant="outline" onClick={() => setIsEditingDraft(true)}>Resume Draft Assembly</Button>
-                          <Button variant="ghost" onClick={() => { if(confirm('Discard draft?')) setHasDraftCourse(false); }}>Discard Draft</Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  /* Render the Create New Course Form in the main pane */
-                  <div className="assignment-form-card glass-panel" style={{ padding: '24px' }}>
-                    <div className="form-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                      <PlusCircle size={18} className="icon-blue" />
-                      <h3>Create New Course</h3>
-                    </div>
-                    <p className="form-card-subtitle" style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                      Publish a new learning module instantly to curriculum.
-                    </p>
-                    
-                    <form onSubmit={handleCreateNewCourseSubmit} className="assignment-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div className="form-input-group">
-                        <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Course Title</label>
-                        <input
-                          type="text"
-                          className="form-select-field"
-                          placeholder="e.g. ABAP Netweaver Basics"
-                          value={newCourseTitle}
-                          onChange={(e) => setNewCourseTitle(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-input-group">
-                        <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Course Code</label>
-                        <input
-                          type="text"
-                          className="form-select-field"
-                          placeholder="e.g. ABAP-101"
-                          value={newCourseCode}
-                          onChange={(e) => setNewCourseCode(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-input-group">
-                        <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Course Description</label>
-                        <textarea
-                          className="form-select-field"
-                          placeholder="Core syntax, expressions and select queries."
-                          value={newCourseDesc}
-                          onChange={(e) => setNewCourseDesc(e.target.value)}
-                          rows={3}
-                          style={{ fontFamily: 'inherit' }}
-                        />
-                      </div>
-                      <div className="form-input-group">
-                        <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Difficulty Level</label>
-                        <select
-                          className="form-select-field"
-                          value={newCourseDiff}
-                          onChange={(e) => setNewCourseDiff(e.target.value as any)}
-                        >
-                          <option value="Beginner">Beginner</option>
-                          <option value="Intermediate">Intermediate</option>
-                          <option value="Advanced">Advanced</option>
-                        </select>
-                      </div>
-
-                      <Button type="submit" variant="primary" className="dispatch-btn" style={{ width: '100%' }}>
-                        Publish Course Curriculum
-                      </Button>
-                    </form>
-                  </div>
-                )}
-              </div>
-
-              {/* Side Guide panel for L&D guidelines */}
-              <div className="manager-side-pane">
-                <div className="sidebar-card glass-panel" style={{ borderLeft: '3px solid var(--accent-color)' }}>
-                  <div className="sidebar-card-title">
-                    <ShieldAlert size={18} className="sidebar-icon icon-blue" />
-                    <h3>L&D Standards</h3>
-                  </div>
-                  <div style={{ marginTop: '12px', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '10px', lineHeight: '1.4' }}>
-                    <p>All courses published here are synced automatically into the employee learning directory.</p>
-                    <p><strong>Code Convention:</strong> Prefix course codes matching their department key (e.g. <code>AI-</code>, <code>SD-</code>, <code>FICO-</code>, <code>ABAP-</code>).</p>
-                    <p><strong>Passing Criteria:</strong> The default assessment passing grade is set to 80% score limit.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* VIEW C: ROSTER AUDIT & REPORTING */}
-          {managerSubView === 'audit_reporting' && (
-            <div className="manager-main-content">
-              {/* Employee Detail Assessment Modal (Scores) */}
-              <Modal
-                isOpen={!!selectedAuditEmp}
-                onClose={() => setSelectedAuditEmp(null)}
-                title={selectedAuditEmp ? selectedAuditEmp.name : ''}
-                subtitle={selectedAuditEmp ? `${selectedAuditEmp.code} | ${selectedAuditEmp.email}` : ''}
-                icon={selectedAuditEmp ? (
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-color), #3b82f6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem' }}>
-                    {selectedAuditEmp.name[0]}
-                  </div>
-                ) : null}
-                maxWidth="460px"
-                footer={
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                    <Button variant="outline" style={{ height: '36px', padding: '0 16px', fontSize: '0.82rem' }} onClick={() => setSelectedAuditEmp(null)}>
-                      Close Marks Registry
-                    </Button>
-                  </div>
-                }
-              >
-                {selectedAuditEmp && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '8px 0 16px 0' }}>
-                    {/* Show current achievement badge in Audit Drawer */}
-                    {(() => {
-                      const badgeObj = getBadgeForCompletions(selectedAuditEmp.coursesTaken);
-                      if (!badgeObj) return null;
-                      return (
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          padding: '10px 14px',
-                          borderRadius: '8px',
-                          background: badgeObj.color,
-                          color: '#fff',
-                          boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-                        }}>
-                          <span style={{ fontSize: '1.4rem' }}>{badgeObj.icon}</span>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: '700', fontSize: '0.82rem' }}>{badgeObj.name}</span>
-                            <span style={{ fontSize: '0.65rem', opacity: 0.9 }}>Level {badgeObj.step} Achiever ({selectedAuditEmp.coursesTaken} Completed Courses)</span>
+                    {/* Donut Widget 1: Completion Rate */}
+                    <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Department Course Completion Rate</h3>
+                      {managerCompletionRate && managerCompletionRate.total_count > 0 ? (
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                          <SVGDonutChart items={completionRateData.length > 0 ? completionRateData.map((item, idx) => ({ ...item, color: chartPalette[idx % 5] })) : [{ label: 'Not Started', value: 100, color: 'var(--color-chart-3)' }]} />
+                          <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '12px' }}>
+                            <strong>{managerCompletionRate.completed_count}</strong> of <strong>{managerCompletionRate.total_count}</strong> course enrollments completed.
                           </div>
                         </div>
-                      );
-                    })()}
-                    
-                    <div className="scores-table-section" style={{ marginTop: '4px' }}>
-                      <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-color)', letterSpacing: '0.03em', marginBottom: '12px', fontWeight: '700' }}>Test Scores & Marks Report</h4>
-                      
-                      {selectedAuditEmp.testMarks.length === 0 ? (
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No assessments submitted yet.</span>
                       ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {selectedAuditEmp.testMarks.map((mark, i) => (
-                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                              <div>
-                                <span style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-primary)', fontWeight: '600' }}>{mark.testName}</span>
-                                <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>Module: <code>{mark.courseCode}</code></span>
-                              </div>
-                              <strong style={{ fontSize: '0.88rem', color: mark.score >= 80 ? '#10b981' : 'var(--accent-color)' }}>
-                                {mark.score} / 100
-                              </strong>
-                            </div>
-                          ))}
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem' }}>
+                          No course completion progress recorded yet.
                         </div>
                       )}
                     </div>
+
+                    {/* Line Widget 2: Enrollment Trend */}
+                    <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Enrollment Trend</h3>
+                      {enrollmentTrendData && enrollmentTrendData.length > 0 ? (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <SVGLineChart data={enrollmentTrendData} />
+                        </div>
+                      ) : (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem' }}>
+                          No course enrollment trends to report.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bar Widget 3: Avg Score per Course */}
+                    <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Avg Score per Course</h3>
+                      {avgScorePerCourseData && avgScorePerCourseData.length > 0 ? (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <SVGBarChart data={avgScorePerCourseData.map((item, idx) => ({ ...item, color: chartPalette[idx % 5] }))} />
+                        </div>
+                      ) : (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem' }}>
+                          No graded course assessment scores yet.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Donut Widget 4: Exam Pass/Fail Ratio */}
+                    <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
+                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Exam Pass/Fail Ratio</h3>
+                      {managerPassFailRate && (managerPassFailRate.passed_count > 0 || managerPassFailRate.failed_count > 0) ? (
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                          <SVGDonutChart items={passFailRatioData.length > 0 ? passFailRatioData.map((item, idx) => ({ ...item, color: chartPalette[idx % 5] })) : []} />
+                          <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '12px' }}>
+                            <strong>{managerPassFailRate.passed_count}</strong> passed, <strong>{managerPassFailRate.failed_count}</strong> failed.
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem' }}>
+                          No graded assessment submissions recorded.
+                        </div>
+                      )}
+                    </div>
+
                   </div>
-                )}
-              </Modal>
 
-              <div className="roster-card glass-panel" style={{ padding: '24px' }}>
-                <div className="roster-card-header" style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', padding: 0, marginBottom: '16px' }}>
-                  <Users size={18} className="roster-icon" />
-                  <h3>Enrolled Employees</h3>
-                </div>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                  Select an employee row to view course assessment results and test scores.
-                </p>
+                  {/* Widget 5: Top 3 Performers Leaderboard Widget */}
+                  <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                        🏆 Top Department Performers
+                      </h3>
+                      <span style={{ fontSize: '0.74rem', padding: '3px 8px', borderRadius: '6px', background: 'var(--accent-glow)', color: 'var(--accent-color)', fontWeight: 'bold' }}>
+                        TOP 3 RANK
+                      </span>
+                    </div>
 
-                <div className="roster-table-wrapper">
-                  <table className="roster-table">
-                    <thead>
-                      <tr>
-                        <th>Employee Name</th>
-                        <th>Employee Code</th>
-                        <th>Email Contact</th>
-                        <th>Active Course</th>
-                        <th>Courses Taken</th>
-                        <th>Badge Earned</th>
-                        <th>Current Completion</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {roster.map((emp) => {
-                        const badgeObj = getBadgeForCompletions(emp.coursesTaken);
-                        return (
-                          <tr key={emp.id} onClick={() => setSelectedAuditEmp(emp)} style={{ cursor: 'pointer' }}>
-                            <td className="emp-name-cell" style={{ color: 'var(--accent-color)' }}>{emp.name}</td>
-                            <td><code>{emp.code}</code></td>
-                            <td>{emp.email}</td>
-                            <td><span className="emp-course-badge">{emp.assignedCourse}</span></td>
-                            <td style={{ fontWeight: '600', paddingLeft: '24px' }}>{emp.coursesTaken}</td>
-                            <td>
-                              {badgeObj ? (
-                                <span className="employee-badge-tag" style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  padding: '4px 10px',
-                                  borderRadius: '12px',
-                                  background: badgeObj.color,
+                    {topPerformersData && topPerformersData.length > 0 ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                        {topPerformersData.slice(0, 3).map((perf, index) => {
+                          const badgeColorMap: {[key: string]: string} = {
+                            'Bronze': 'linear-gradient(135deg, #a1887f 0%, #5d4037 100%)',
+                            'Silver': 'linear-gradient(135deg, #bcaaa4 0%, #8d6e63 100%)',
+                            'Gold': 'linear-gradient(135deg, #ffd54f 0%, #ffb300 100%)',
+                            'Ruby Crest': 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)',
+                            'Amethyst': 'linear-gradient(135deg, #a855f7 0%, #6b21a8 100%)',
+                            'Emerald': 'linear-gradient(135deg, #10b981 0%, #065f46 100%)',
+                            'Sapphire': 'linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%)',
+                            'Diamond Crest': 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)'
+                          };
+                          const badgeEmojiMap: {[key: string]: string} = {
+                            'Bronze I': '🥉', 'Bronze II': '🥉✨', 'Bronze III': '🥉🛡️',
+                            'Silver I': '🥈', 'Silver II': '🥈✨', 'Silver III': '🥈🛡️',
+                            'Gold I': '🥇', 'Gold II': '🥇✨', 'Gold III': '🥇🛡️',
+                            'Ruby Crest': '👑🌺',
+                            'Amethyst I': '🔮', 'Amethyst II': '🔮✨', 'Amethyst III': '🔮🛡️',
+                            'Emerald I': '🟢', 'Emerald II': '🟢✨', 'Emerald III': '🟢🛡️',
+                            'Sapphire I': '🔵', 'Sapphire II': '🔵✨', 'Sapphire III': '🔵🛡️',
+                            'Diamond Crest': '💎🛡️'
+                          };
+
+                          const badgeName = perf.badge_name || '';
+                          const baseColorKey = Object.keys(badgeColorMap).find(k => badgeName.startsWith(k)) || 'Bronze';
+                          const gradient = badgeColorMap[baseColorKey];
+                          const emoji = badgeEmojiMap[badgeName] || '🥉';
+
+                          return (
+                            <div 
+                              key={perf.user_id} 
+                              style={{ 
+                                padding: '16px', 
+                                borderRadius: '12px', 
+                                background: 'rgba(255,255,255,0.01)', 
+                                border: '1px solid var(--border-color)', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'space-between',
+                                gap: '12px',
+                                position: 'relative',
+                                overflow: 'hidden'
+                              }}
+                            >
+                              {/* Left side info */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ 
+                                  width: '32px', 
+                                  height: '32px', 
+                                  borderRadius: '50%', 
+                                  background: index === 0 ? 'linear-gradient(135deg, #fbbf24, #d97706)' : index === 1 ? 'linear-gradient(135deg, #cbd5e1, #64748b)' : 'linear-gradient(135deg, #d97706, #78350f)',
                                   color: '#fff',
-                                  fontSize: '0.72rem',
-                                  fontWeight: '700',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: '900',
+                                  fontSize: '0.9rem',
                                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                                 }}>
-                                  <span>{badgeObj.icon}</span>
-                                  <span>{badgeObj.name}</span>
-                                </span>
-                              ) : (
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontStyle: 'italic' }}>None</span>
-                              )}
-                            </td>
-                            <td>
-                              <div className="roster-progress-group">
-                                <div className="mini-bar-container">
-                                  <div className="mini-bar-fill" style={{ width: `${emp.progressPercent}%` }}></div>
+                                  #{index + 1}
                                 </div>
-                                <span className="roster-percent-text">{emp.progressPercent}%</span>
+                                <div style={{ 
+                                  width: '40px', 
+                                  height: '40px', 
+                                  borderRadius: '50%', 
+                                  background: 'var(--accent-glow)', 
+                                  color: 'var(--accent-color)', 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center', 
+                                  fontWeight: 800, 
+                                  fontSize: '0.9rem' 
+                                }}>
+                                  {perf.name.split(' ').map((n: string) => n[0]).join('')}
+                                </div>
+                                <div>
+                                  <strong style={{ display: 'block', fontSize: '0.88rem', color: 'var(--text-primary)' }}>{perf.name}</strong>
+                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Code: <code>{perf.employee_code}</code></span>
+                                </div>
                               </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+
+                              {/* Right side info */}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                                <span style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--accent-color)' }}>
+                                  {perf.score} Avg
+                                </span>
+                                {perf.badge_name ? (
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '3px 8px',
+                                    borderRadius: '10px',
+                                    background: gradient,
+                                    color: '#fff',
+                                    fontSize: '0.65rem',
+                                    fontWeight: '700'
+                                  }}>
+                                    <span>{emoji}</span>
+                                    <span>{perf.badge_name}</span>
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Bronze I</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem' }}>
+                        No performers recorded yet.
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -1881,27 +1749,61 @@ export const Dashboard: React.FC = () => {
               <Button variant="primary" style={{ fontSize: '0.78rem' }} onClick={fetchDashboardAnalytics}>Retry</Button>
             </div>
           )}
-
           {/* Top Level Quick Stat Summary Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '28px' }}>
-            {/* Widget: Top Performing Department Card */}
-            <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gridColumn: '1 / -1' }}>
+            
+            {/* Stat Card 1: Department Courses */}
+            <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--radius-card)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Award size={24} />
+                <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: 'rgba(46, 230, 166, 0.15)', color: 'var(--color-accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <BookOpen size={22} />
                 </div>
                 <div>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Top Performing Department</span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '2px' }}>
-                    {deptPerformanceData && deptPerformanceData.length > 0
-                      ? (() => {
-                          const topDept = [...deptPerformanceData].sort((a, b) => (b.value || 0) - (a.value || 0))[0];
-                          return `${topDept.label} Department (${topDept.value} / 10 Avg Score)`;
-                        })()
-                      : 'No department performance recorded yet'}
+                  <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Department Courses</span>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '2px' }}>
+                    {summaryData.total_courses || 0}
                   </div>
                 </div>
               </div>
+              {enrollmentTrendData && enrollmentTrendData.length > 0 && (
+                <Sparkline data={enrollmentTrendData} color="var(--color-accent-primary)" />
+              )}
+            </div>
+
+            {/* Stat Card 2: Active Learners */}
+            <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--radius-card)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: 'rgba(139, 92, 246, 0.15)', color: 'var(--color-accent-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Users size={22} />
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Active Learners</span>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '2px' }}>
+                    {summaryData.total_users || 0}
+                  </div>
+                </div>
+              </div>
+              {enrollmentTrendData && enrollmentTrendData.length > 0 && (
+                <Sparkline data={enrollmentTrendData} color="var(--color-accent-secondary)" />
+              )}
+            </div>
+
+            {/* Stat Card 3: Pending Approvals */}
+            <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--radius-card)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.15)', color: 'var(--color-accent-info)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Users size={22} />
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Pending Approvals</span>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '2px' }}>
+                    {pendingApprovalsData.total_pending || 0}
+                  </div>
+                </div>
+              </div>
+              {enrollmentTrendData && enrollmentTrendData.length > 0 && (
+                <Sparkline data={enrollmentTrendData} color="var(--color-accent-info)" />
+              )}
             </div>
           </div>
 
@@ -1909,45 +1811,45 @@ export const Dashboard: React.FC = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px', marginBottom: '32px' }}>
             
             {/* Widget 1: Course Completion Rate (Donut) */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-card)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Overall Course Completion Rate</h3>
-              <SVGDonutChart items={completionRateData.length > 0 ? completionRateData : [{ label: 'Not Started', value: 100, color: '#64748b' }]} />
+              <SVGDonutChart items={completionRateData.length > 0 ? completionRateData.map((item, idx) => ({ ...item, color: chartPalette[idx % 5] })) : [{ label: 'Not Started', value: 100, color: 'var(--color-chart-3)' }]} />
             </div>
 
             {/* Widget 2: Enrollment Trend Over Time (Line) */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-card)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Enrollment Trend</h3>
               <SVGLineChart data={enrollmentTrendData.length > 0 ? enrollmentTrendData : [{ label: 'Baseline', value: 0 }]} />
             </div>
 
             {/* Widget 3: Department-wise Performance Comparison (Bar) */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-card)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Avg Score per Department</h3>
-              <SVGBarChart data={deptPerformanceData.length > 0 ? deptPerformanceData : [{ label: 'General', value: 0, color: '#10b981' }]} />
+              <SVGBarChart data={deptPerformanceData.length > 0 ? deptPerformanceData.map((item, idx) => ({ ...item, color: chartPalette[idx % 5] })) : [{ label: 'General', value: 0, color: 'var(--color-chart-1)' }]} />
             </div>
 
             {/* Widget 4: Active vs Inactive Learners (Doughnut) */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-card)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Active vs Inactive Learners</h3>
-              <SVGDonutChart items={activeInactiveData.length > 0 ? activeInactiveData : [{ label: 'Active', value: 100, color: '#10b981' }]} />
+              <SVGDonutChart items={activeInactiveData.length > 0 ? activeInactiveData.map((item, idx) => ({ ...item, color: chartPalette[idx % 5] })) : [{ label: 'Active', value: 100, color: 'var(--color-chart-1)' }]} />
             </div>
 
             {/* Widget 5: Top 5 Courses by Enrollment */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-card)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Top Courses by Enrollment</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {topCoursesData && topCoursesData.length > 0 ? (
                   topCoursesData.map((c: any, idx: number) => {
                     const maxCount = topCoursesData[0]?.enrollments_count || 1;
                     const pct = Math.max(10, Math.round((c.enrollments_count / maxCount) * 100));
-                    const barColor = idx === 0 ? '#00f2fe' : idx === 1 ? '#8b5cf6' : '#10b981';
+                    const barColor = chartPalette[idx % 5];
                     return (
                       <div key={c.id || idx}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
                           <strong style={{ color: 'var(--text-primary)' }}>{c.course_code}: {c.title}</strong>
                           <span>{c.enrollments_count} Enrollments</span>
                         </div>
-                        <div style={{ height: '8px', background: 'var(--bg-secondary)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ height: '8px', background: 'var(--bg-input)', borderRadius: '4px', overflow: 'hidden' }}>
                           <div style={{ width: `${pct}%`, height: '100%', background: barColor }}></div>
                         </div>
                       </div>
@@ -1960,9 +1862,13 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* Widget 6: Exam Pass / Fail Ratio */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--radius-card)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Exam Pass / Fail Ratio</h3>
-              <SVGDonutChart items={passFailRatioData.length > 0 ? passFailRatioData : [{ label: 'Passed (>= 8.0)', value: 100, color: '#10b981' }]} />
+              <SVGDonutChart items={
+                passFailRatioData.length > 0
+                  ? passFailRatioData.map((item, idx) => ({ ...item, color: chartPalette[idx % 5] }))
+                  : [{ label: 'Passed (>= 8.0)', value: 100, color: 'var(--color-chart-1)' }]
+              } />
             </div>
 
           </div>

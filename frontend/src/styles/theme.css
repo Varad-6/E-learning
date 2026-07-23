@@ -1,6 +1,37 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 :root {
+  /* Kaizen Design System Tokens */
+  --neutral-50: #f8fafc;
+  --neutral-100: #f1f5f9;
+  --neutral-200: #e2e8f0;
+  --neutral-300: #cbd5e1;
+  --neutral-400: #94a3b8;
+  --neutral-500: #64748b;
+  --neutral-600: #475569;
+  --neutral-700: #334155;
+  --neutral-800: #1e293b;
+  --neutral-900: #0f172a;
+  --neutral-950: #020617;
+
+  /* Primary Accent - oklch(0.52 0.19 275) is Indigo */
+  --color-accent-primary: oklch(0.52 0.19 275);
+  --color-accent-hover: oklch(0.58 0.21 275);
+  --color-accent-glow: rgba(79, 70, 229, 0.12);
+
+  /* Status Colors */
+  --color-success: oklch(0.62 0.19 145);
+  --color-warning: oklch(0.77 0.17 75);
+  --color-danger: oklch(0.58 0.22 25);
+  --color-info: oklch(0.58 0.20 250);
+
+  /* Chart Colors (Reserved for data-series only) */
+  --color-chart-1: oklch(0.52 0.19 275);  /* Series 1: Indigo */
+  --color-chart-2: oklch(0.68 0.16 195);  /* Series 2: Teal/Cyan */
+  --color-chart-3: oklch(0.77 0.17 75);   /* Series 3: Amber/Gold */
+  --color-chart-4: oklch(0.60 0.21 350);  /* Series 4: Magenta/Pink */
+  --color-chart-5: oklch(0.72 0.13 285);  /* Series 5: Light Purple/Lavender */
+
   /* Spacing Scale (4px/8px-based) */
   --space-xxs: 4px;
   --space-xs: 8px;
@@ -11,42 +42,41 @@
   --space-xxl: 48px;
 
   /* Colors - Light Mode (Soft Layered Neutrals) */
-  --bg-main: #f7f8fa; /* Soft neutral page background */
+  --bg-main: var(--neutral-50); /* Soft neutral page background */
   --bg-card: #ffffff; /* Clean white card panels */
-  --bg-input: #f1f3f5; /* Distinct input field background */
-  --bg-card-hover: #eef1f4;
+  --bg-input: var(--neutral-100); /* Distinct input field background */
+  --bg-card-hover: var(--neutral-100);
   
-  --accent-color: #10b981; /* Brand Emerald */
-  --accent-hover: #059669; /* Darker Emerald */
-  --accent-glow: rgba(16, 185, 129, 0.08);
-  --primary-brand: #10b981;
-  --primary-brand-hover: #059669;
+  --accent-color: var(--color-accent-primary);
+  --accent-hover: var(--color-accent-hover);
+  --accent-glow: var(--color-accent-glow);
+  --primary-brand: var(--color-accent-primary);
+  --primary-brand-hover: var(--color-accent-hover);
   
-  --success-color: #10b981; /* Brand Emerald */
-  --warning-color: #f97316; /* Brand Orange */
-  --danger-color: #ef4444; /* Brand Red */
+  --success-color: var(--color-success);
+  --warning-color: var(--color-warning);
+  --danger-color: var(--color-danger);
   
-  --neon-teal: var(--success-color);
-  --neon-coral: var(--danger-color);
-  --neon-teal-glow: rgba(16, 185, 129, 0.15);
-  --neon-coral-glow: rgba(239, 68, 68, 0.15);
+  --neon-teal: var(--color-success);
+  --neon-coral: var(--color-danger);
+  --neon-teal-glow: rgba(79, 70, 229, 0.08);
+  --neon-coral-glow: rgba(239, 68, 68, 0.08);
   
-  --text-primary: #1e293b; /* Slate-800 for high accessibility contrast */
-  --text-secondary: #475569; /* Slate-600 */
-  --text-muted: #64748b; /* Slate-500 */
+  --text-primary: var(--neutral-900); /* Slate-900 for high accessibility contrast */
+  --text-secondary: var(--neutral-600); /* Slate-600 */
+  --text-muted: var(--neutral-500); /* Slate-500 */
   
-  --border-color: #e2e8f0; /* Soft neutral border gray */
+  --border-color: var(--neutral-200); /* Soft neutral border gray */
   
-  /* Sizing & Border Radii (FitHabit standard) */
-  --border-radius-sm: 8px;   /* rounded-lg */
-  --border-radius-md: 12px;  /* rounded-xl */
-  --border-radius-lg: 24px;  /* rounded-3xl */
+  /* Sizing & Border Radii */
+  --border-radius-sm: 8px;
+  --border-radius-md: 12px;
+  --border-radius-lg: 24px;
   
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   --shadow-premium: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
   
-  /* Fonts - FitHabit Outfit & Plus Jakarta Sans stack */
   --font-sans: 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
   --font-body: var(--font-sans);
   --font-title: var(--font-sans);
@@ -66,26 +96,105 @@
 }
 
 [data-theme="dark"] {
-  /* FitHabit Dark Mode Foundations */
-  --bg-main: #0b0c10;
-  --bg-card: #171923;
-  --bg-input: #11131c;
-  --bg-card-hover: #1f2330;
+  /* Unified Theme Design Tokens - Dark Mode (Soft Glassmorphism Dark Theme - Premium Enterprise Elevation) */
+  --color-bg: var(--neutral-950);
+  --color-bg-glow: radial-gradient(circle at 10% 5%, rgba(79, 70, 229, 0.08), transparent 35%),
+                   radial-gradient(circle at 95% 15%, rgba(104, 16, 185, 0.06), transparent 45%),
+                   radial-gradient(circle at 50% 100%, rgba(79, 70, 229, 0.04), transparent 50%),
+                   linear-gradient(180deg, var(--neutral-900) 0%, var(--neutral-950) 100%);
+  --color-surface: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)), rgba(15, 23, 42, 0.60);
+  --color-surface-border: rgba(255, 255, 255, 0.08);
+  --color-text-primary: var(--neutral-200);
+  --color-text-secondary: var(--neutral-400);
+  --color-accent-primary: var(--color-accent-primary);
+  --color-accent-secondary: var(--color-chart-2); /* Teal */
+  --color-accent-info: var(--color-info);
+  --color-accent-danger: var(--color-danger);
+  --color-accent-warning: var(--color-warning);
+  --blur-glass: blur(22px);
+  --radius-card: 16px;
+
+  /* Elevation Levels - Dark Mode */
+  --bg-main: var(--color-bg);
+  --bg-card: var(--color-surface);
+  --bg-input: rgba(255, 255, 255, 0.05);
+  --bg-card-hover: rgba(255, 255, 255, 0.08);
   
-  --accent-color: #10b981;
-  --accent-hover: #059669;
-  --primary-brand: #10b981;
-  --primary-brand-hover: #059669;
+  --accent-color: var(--color-accent-primary);
+  --accent-hover: var(--color-accent-hover);
+  --accent-glow: var(--color-accent-glow);
+  --primary-brand: var(--color-accent-primary);
+  --primary-brand-hover: var(--color-accent-hover);
   
-  --text-primary: #f7fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #718096;
+  --success-color: var(--color-success);
+  --warning-color: var(--color-warning);
+  --danger-color: var(--color-danger);
+
+  --neon-teal: var(--color-success);
+  --neon-coral: var(--color-danger);
+  --neon-teal-glow: rgba(79, 70, 229, 0.15);
+  --neon-coral-glow: rgba(239, 68, 68, 0.15);
+
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--neutral-400);
+  --text-disabled: var(--neutral-500);
   
-  --border-color: #2d3748;
+  --border-color: var(--color-surface-border);
   
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.25), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
-  --shadow-premium: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 10px 35px rgba(0, 0, 0, 0.4);
+  --shadow-premium: 0 15px 45px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] body {
+  background: var(--color-bg-glow);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  color: var(--color-text-primary);
+}
+
+/* Card local overrides in Dark Mode */
+[data-theme="dark"] .glass-panel,
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .navbar,
+[data-theme="dark"] .card,
+[data-theme="dark"] .curriculum-drawer,
+[data-theme="dark"] .learning-player-sidebar,
+[data-theme="dark"] .reading-content-card,
+[data-theme="dark"] .quiz-player-panel,
+[data-theme="dark"] .admin-tab-container {
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --border-color: var(--color-surface-border);
+  --text-muted: #94A3B8;
+  color: var(--text-primary);
+  position: relative;
+  
+  /* Glassmorphism styling */
+  background: var(--bg-card) !important;
+  -webkit-backdrop-filter: var(--blur-glass) !important;
+  backdrop-filter: var(--blur-glass) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: var(--radius-card) !important;
+  box-shadow: var(--shadow-premium) !important;
+}
+
+[data-theme="dark"] .glass-panel::before,
+[data-theme="dark"] .modal-content::before,
+[data-theme="dark"] .card::before,
+[data-theme="dark"] .curriculum-drawer::before,
+[data-theme="dark"] .learning-player-sidebar::before,
+[data-theme="dark"] .reading-content-card::before,
+[data-theme="dark"] .quiz-player-panel::before,
+[data-theme="dark"] .admin-tab-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.06), transparent 45%);
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 1;
 }
 
 /* Base Form Elements styled according to FitHabit's layout */
@@ -112,7 +221,7 @@ textarea.form-input-styled {
 .form-input-styled:focus, .form-select-styled:focus {
   outline: none;
   border-color: var(--primary-brand);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); /* FitHabit emerald glow */
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .form-label-styled {
@@ -124,12 +233,22 @@ textarea.form-input-styled {
   letter-spacing: 0.02em;
 }
 
-/* Clean Cards modeled from FitHabit */
+/* Clean Cards modeled from FitHabit / Premium Glass */
 .glass-panel {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--radius-card, var(--border-radius-lg));
+  backdrop-filter: var(--blur-glass);
+  -webkit-backdrop-filter: var(--blur-glass);
   box-shadow: var(--shadow-premium);
+  transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease;
+}
+
+[data-theme="dark"] .glass-panel:hover,
+[data-theme="dark"] .card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45) !important;
+  border-color: var(--accent-glow) !important;
 }
 
 /* Animations */
@@ -184,4 +303,15 @@ select option {
   border: 1px solid var(--border-color) !important;
   box-shadow: var(--shadow-premium) !important;
   box-sizing: border-box !important;
+}
+
+[data-theme="dark"] select,
+[data-theme="dark"] select option {
+  background-color: rgba(30, 35, 46, 0.75) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .modal-content {
+  background: rgba(36, 42, 55, 0.82) !important;
+  box-shadow: var(--shadow-premium) !important;
 }

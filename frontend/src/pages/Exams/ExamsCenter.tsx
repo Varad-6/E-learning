@@ -252,17 +252,17 @@ export const ExamsCenter: React.FC = () => {
         {/* Exam Running header */}
         <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <span style={{ fontSize: '0.72rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', textTransform: 'uppercase', marginRight: '8px' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: 'var(--neon-coral-glow)', color: 'var(--color-danger)', textTransform: 'uppercase', marginRight: '8px' }}>
               Exam in Progress
             </span>
             <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '6px 0 0 0' }}>{examDetails.title}</h2>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: timeLeft && timeLeft < 300 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255,255,255,0.03)', padding: '10px 18px', borderRadius: '8px', border: timeLeft && timeLeft < 300 ? '1px solid #ef4444' : '1px solid var(--border-color)' }}>
-            <Clock size={18} style={{ color: timeLeft && timeLeft < 300 ? '#ef4444' : 'var(--accent-color)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: timeLeft && timeLeft < 300 ? 'var(--neon-coral-glow)' : 'rgba(255,255,255,0.03)', padding: '10px 18px', borderRadius: '8px', border: timeLeft && timeLeft < 300 ? '1px solid var(--color-danger)' : '1px solid var(--border-color)' }}>
+            <Clock size={18} style={{ color: timeLeft && timeLeft < 300 ? 'var(--color-danger)' : 'var(--accent-color)' }} />
             <div>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase' }}>Time Remaining</span>
-              <span style={{ fontSize: '1.15rem', fontWeight: 800, color: timeLeft && timeLeft < 300 ? '#ef4444' : 'var(--text-primary)' }}>
+              <span style={{ fontSize: '1.15rem', fontWeight: 800, color: timeLeft && timeLeft < 300 ? 'var(--color-danger)' : 'var(--text-primary)' }}>
                 {timeLeft !== null ? formatTime(timeLeft) : 'Calculating...'}
               </span>
             </div>
@@ -332,8 +332,8 @@ export const ExamsCenter: React.FC = () => {
                   </div>
 
                   {uploadedFiles[q.id] && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: '6px', width: 'fit-content' }}>
-                      <CheckCircle size={14} style={{ color: '#10b981' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'color-mix(in srgb, var(--success-color) 4%, transparent)', border: '1px solid color-mix(in srgb, var(--success-color) 15%, transparent)', borderRadius: '6px', width: 'fit-content' }}>
+                      <CheckCircle size={14} style={{ color: 'var(--success-color)' }} />
                       <span style={{ fontSize: '0.82rem', color: 'var(--text-primary)', fontWeight: '600' }}>{uploadedFiles[q.id].name}</span>
                     </div>
                   )}
@@ -393,8 +393,8 @@ export const ExamsCenter: React.FC = () => {
                     <span style={{ 
                       padding: '2px 8px', 
                       borderRadius: '12px', 
-                      background: isCompleted ? 'rgba(16, 185, 129, 0.1)' : inProgress ? 'rgba(239, 68, 68, 0.1)' : 'var(--accent-glow)', 
-                      color: isCompleted ? '#10b981' : inProgress ? '#ef4444' : 'var(--accent-color)', 
+                      background: isCompleted ? 'color-mix(in srgb, var(--success-color) 10%, transparent)' : inProgress ? 'color-mix(in srgb, var(--danger-color) 10%, transparent)' : 'var(--accent-glow)', 
+                      color: isCompleted ? 'var(--success-color)' : inProgress ? 'var(--danger-color)' : 'var(--accent-color)', 
                       fontSize: '0.68rem', 
                       fontWeight: '800',
                       textTransform: 'uppercase'

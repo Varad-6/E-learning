@@ -16,7 +16,7 @@ export const ExamCreator: React.FC = () => {
   const [courses, setCourses] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   
-  const [selectedCourse, setSelectedCourse] = useState('');
+  const [selectedCourse, setSelectedCourse] = useState('none');
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [examTitle, setExamTitle] = useState('');
   const [duration, setDuration] = useState(60);
@@ -31,12 +31,12 @@ export const ExamCreator: React.FC = () => {
   const filteredCourses = courses.filter(c => String(c.department_id) === String(selectedDepartment) || c.department_id === selectedDepartment);
 
   useEffect(() => {
-    if (selectedDepartment && filteredCourses.length > 0) {
+    if (selectedCourse !== 'none' && filteredCourses.length > 0) {
       if (!filteredCourses.find(c => String(c.id) === String(selectedCourse))) {
-        setSelectedCourse(filteredCourses[0].id);
+        setSelectedCourse('none');
       }
     } else if (filteredCourses.length === 0) {
-      setSelectedCourse('');
+      setSelectedCourse('none');
     }
   }, [selectedDepartment, courses]);
 
@@ -48,9 +48,7 @@ export const ExamCreator: React.FC = () => {
           const courseData = await coursesRes.json();
           // Filter out unpublished/draft if needed, or get approved courses
           setCourses(courseData.courses || []);
-          if (courseData.courses && courseData.courses.length > 0) {
-            setSelectedCourse(courseData.courses[0].id);
-          }
+          setSelectedCourse('none');
         }
         const deptsRes = await apiCall('/api/departments');
         if (deptsRes.ok) {
@@ -98,9 +96,10 @@ export const ExamCreator: React.FC = () => {
     setLoading(true);
     try {
       const targetDeptId = selectedDepartment === 'all' || !selectedDepartment ? null : selectedDepartment;
+      const targetCourseId = selectedCourse === 'none' || !selectedCourse ? null : selectedCourse;
       const payload = {
         title: examTitle.trim(),
-        course_id: selectedCourse,
+        course_id: targetCourseId,
         department_id: targetDeptId,
         duration_minutes: duration,
         is_published: true,
@@ -142,9 +141,9 @@ export const ExamCreator: React.FC = () => {
       </div>
 
       {success ? (
-        <div className="glass-panel animate-float" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-          <CheckCircle size={48} className="pulse-active" style={{ color: '#10b981', margin: '0 auto 16px' }} />
-          <h3 style={{ fontSize: '1.3rem', color: '#fff', marginBottom: '8px' }}>Exam Published Successfully!</h3>
+        <div className="glass-panel animate-float" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)', background: 'var(--accent-glow)', border: '1px solid var(--border-color)' }}>
+          <CheckCircle size={48} className="pulse-active" style={{ color: 'var(--color-success)', margin: '0 auto 16px' }} />
+          <h3 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', marginBottom: '8px' }}>Exam Published Successfully!</h3>
           <p style={{ color: 'var(--text-secondary)' }}>Assigning and loading parameters for department employees...</p>
         </div>
       ) : (
@@ -173,7 +172,7 @@ export const ExamCreator: React.FC = () => {
                     </div>
                     <button 
                       onClick={() => handleRemoveQuestion(idx)} 
-                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                      style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '4px' }}
                       title="Delete question"
                     >
                       <Trash2 size={16} />
@@ -256,15 +255,11 @@ export const ExamCreator: React.FC = () => {
                 className="form-input-styled" 
                 value={selectedCourse} 
                 onChange={(e) => setSelectedCourse(e.target.value)}
-                disabled={filteredCourses.length === 0}
               >
-                {filteredCourses.length > 0 ? (
-                  filteredCourses.map(c => (
-                    <option key={c.id} value={c.id}>[{c.course_code}] {c.title}</option>
-                  ))
-                ) : (
-                  <option value="">No courses in this department</option>
-                )}
+                <option value="none">None (Standalone Exam)</option>
+                {filteredCourses.map(c => (
+                  <option key={c.id} value={c.id}>[{c.course_code}] {c.title}</option>
+                ))}
               </select>
             </div>
 

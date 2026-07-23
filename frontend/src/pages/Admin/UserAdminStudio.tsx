@@ -55,6 +55,7 @@ export const UserAdminStudio: React.FC = () => {
   // Reporting Modal State
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [userProfileData, setUserProfileData] = useState<any | null>(null);
+  const [userBadges, setUserBadges] = useState<any[]>([]);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
@@ -109,16 +110,22 @@ export const UserAdminStudio: React.FC = () => {
   const handleOpenUserModal = async (user: UserData) => {
     setSelectedUser(user);
     setUserProfileData(null);
+    setUserBadges([]);
     setModalError(null);
     setModalLoading(true);
     try {
-      const res = await apiCall(`/api/reporting/employees/${user.id}/detail`);
-      if (res.ok) {
-        const data = await res.json();
+      const detailRes = await apiCall(`/api/reporting/employees/${user.id}/detail`);
+      const badgesRes = await apiCall(`/api/users/${user.id}/badges`);
+      if (detailRes.ok) {
+        const data = await detailRes.json();
         setUserProfileData(data);
       } else {
-        const err = await res.json();
+        const err = await detailRes.json();
         setModalError(err.detail || 'Failed to retrieve employee analytics profile.');
+      }
+      if (badgesRes.ok) {
+        const badgesData = await badgesRes.json();
+        setUserBadges(badgesData || []);
       }
     } catch (err) {
       console.error(err);
@@ -387,7 +394,7 @@ export const UserAdminStudio: React.FC = () => {
         title={selectedUser ? `${selectedUser.first_name} ${selectedUser.last_name}` : ''}
         subtitle={selectedUser ? `${selectedUser.employee_code} | ${selectedUser.email}` : ''}
         icon={selectedUser ? (
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-color), #3b82f6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-color), var(--color-chart-2))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem' }}>
             {selectedUser.first_name[0]}{selectedUser.last_name[0]}
           </div>
         ) : null}
@@ -396,7 +403,7 @@ export const UserAdminStudio: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <Button 
               variant="outline" 
-              style={{ borderColor: '#ef4444', color: '#ef4444', height: '36px', padding: '0 12px', fontSize: '0.82rem' }} 
+              style={{ borderColor: 'var(--color-danger)', color: 'var(--color-danger)', height: '36px', padding: '0 12px', fontSize: '0.82rem' }} 
               leftIcon={<Trash2 size={14} />}
               onClick={() => setShowDeleteConfirm(true)}
             >
@@ -418,7 +425,7 @@ export const UserAdminStudio: React.FC = () => {
           </div>
         ) : modalError ? (
           <div className="glass-panel" style={{ padding: '24px', textAlign: 'center', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', margin: '12px' }}>
-            <AlertCircle size={32} style={{ color: '#ef4444', margin: '0 auto 12px' }} />
+            <AlertCircle size={32} style={{ color: 'var(--color-danger)', margin: '0 auto 12px' }} />
             <p style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: '600', margin: '0 0 4px 0' }}>Error Loading Analytics</p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>{modalError}</p>
             <Button variant="outline" style={{ fontSize: '0.8rem' }} onClick={() => handleOpenUserModal(selectedUser!)}>Retry Fetch</Button>
@@ -449,21 +456,66 @@ export const UserAdminStudio: React.FC = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
               <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Earned Achievements</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-                {(() => {
-                  const completedCount = userProfileData?.courses?.filter((c: any) => c.status === 'completed' || c.progress_percent === 100).length || 0;
-                  const badge = getBadgeForCompletions(completedCount);
-                  if (!badge) {
-                    return <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No badges earned yet.</span>;
-                  }
-                  return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '6px', background: badge.color, color: '#fff', fontSize: '0.78rem', fontWeight: '700' }}>
-                      <span style={{ fontSize: '1rem' }}>{badge.icon}</span>
-                      <span>{badge.name} (Level {badge.step})</span>
-                    </div>
-                  );
-                })()}
-              </div>
+              {userBadges.length === 0 ? (
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No badges earned yet.</span>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px', marginTop: '4px' }}>
+                  {[...userBadges].reverse().map((ub: any) => {
+                    const badgeColorMap: {[key: string]: string} = {
+                      'Bronze': 'linear-gradient(135deg, #a1887f 0%, #5d4037 100%)',
+                      'Silver': 'linear-gradient(135deg, #bcaaa4 0%, #8d6e63 100%)',
+                      'Gold': 'linear-gradient(135deg, #ffd54f 0%, #ffb300 100%)',
+                      'Ruby Crest': 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)',
+                      'Amethyst': 'linear-gradient(135deg, #a855f7 0%, #6b21a8 100%)',
+                      'Emerald': 'linear-gradient(135deg, #10b981 0%, #065f46 100%)',
+                      'Sapphire': 'linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%)',
+                      'Diamond Crest': 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)'
+                    };
+                    const baseColorKey = Object.keys(badgeColorMap).find(k => ub.badge_tier.name.startsWith(k)) || 'Bronze';
+                    const gradient = badgeColorMap[baseColorKey];
+                    
+                    const badgeEmojiMap: {[key: string]: string} = {
+                      'Bronze I': '🥉', 'Bronze II': '🥉✨', 'Bronze III': '🥉🛡️',
+                      'Silver I': '🥈', 'Silver II': '🥈✨', 'Silver III': '🥈🛡️',
+                      'Gold I': '🥇', 'Gold II': '🥇✨', 'Gold III': '🥇🛡️',
+                      'Ruby Crest': '👑🌺',
+                      'Amethyst I': '🔮', 'Amethyst II': '🔮✨', 'Amethyst III': '🔮🛡️',
+                      'Emerald I': '🟢', 'Emerald II': '🟢✨', 'Emerald III': '🟢🛡️',
+                      'Sapphire I': '🔵', 'Sapphire II': '🔵✨', 'Sapphire III': '🔵🛡️',
+                      'Diamond Crest': '💎🛡️'
+                    };
+                    const emoji = badgeEmojiMap[ub.badge_tier.name] || '🎖️';
+                    const dateEarned = new Date(ub.earned_at).toLocaleDateString();
+
+                    return (
+                      <div 
+                        key={ub.id}
+                        title={`Earned after completing ${ub.badge_tier.courses_required_cumulative} courses on ${dateEarned}`}
+                        style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column',
+                          alignItems: 'center', 
+                          gap: '4px', 
+                          padding: '8px', 
+                          borderRadius: '8px', 
+                          background: gradient, 
+                          color: '#fff', 
+                          fontSize: '0.72rem', 
+                          fontWeight: '700',
+                          textAlign: 'center',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                          cursor: 'help'
+                        }}
+                      >
+                        <span style={{ fontSize: '1.4rem' }}>{emoji}</span>
+                        <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                          {ub.badge_tier.name}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -474,7 +526,7 @@ export const UserAdminStudio: React.FC = () => {
         isOpen={showDeleteConfirm && !!selectedUser}
         onClose={() => setShowDeleteConfirm(false)}
         title="Confirm User Deletion"
-        icon={<AlertCircle style={{ color: '#ef4444' }} size={24} />}
+        icon={<AlertCircle style={{ color: 'var(--color-danger)' }} size={24} />}
         maxWidth="440px"
         footer={
           <>
@@ -483,7 +535,7 @@ export const UserAdminStudio: React.FC = () => {
             </Button>
             <Button 
               variant="primary" 
-              style={{ background: '#ef4444', borderColor: '#ef4444' }} 
+              style={{ background: 'var(--color-danger)', borderColor: 'var(--color-danger)', color: '#fff' }} 
               onClick={handleDeleteUser}
               disabled={isDeletingUser}
             >
