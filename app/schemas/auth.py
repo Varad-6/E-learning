@@ -40,6 +40,7 @@ class RefreshTokenResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+    dev_otp: Optional[str] = None
 
 class ProfileUpdateRequest(BaseModel):
     first_name: str = Field(..., min_length=1, max_length=50, description="User first name")

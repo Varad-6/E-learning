@@ -39,7 +39,12 @@ def enroll_user(
             )
         target_user_id = request.user_id
 
-    enrollment = EnrollmentService.enroll_user(db, user_id=target_user_id, course_id=request.course_id)
+    enrollment = EnrollmentService.enroll_user(
+        db,
+        user_id=target_user_id,
+        course_id=request.course_id,
+        enrolled_by=current_user.id if target_user_id != current_user.id else None
+    )
     AuditService.create_entry(
         db=db,
         actor=current_user.email,

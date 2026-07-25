@@ -27,7 +27,7 @@ class User(Base):
     otps = relationship("PasswordResetOTP", back_populates="user", cascade="all, delete-orphan")
     department = relationship("Department", back_populates="users")
     created_courses = relationship("Course", back_populates="creator")
-    enrollments = relationship("CourseEnrollment", back_populates="user", cascade="all, delete-orphan")
+    enrollments = relationship("CourseEnrollment", foreign_keys="CourseEnrollment.user_id", back_populates="user", cascade="all, delete-orphan")
     quiz_attempts = relationship("QuizAttempt", back_populates="user", cascade="all, delete-orphan")
     submitted_approvals = relationship("CourseApproval", foreign_keys="CourseApproval.submitted_by", back_populates="submitter", cascade="all, delete-orphan")
     reviewed_approvals = relationship("CourseApproval", foreign_keys="CourseApproval.reviewed_by", back_populates="reviewer", cascade="all, delete-orphan")

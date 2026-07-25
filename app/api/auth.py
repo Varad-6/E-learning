@@ -47,8 +47,11 @@ def change_password(
     description="Generates a 6-digit OTP code, stores it, and sends it to the user's registered email."
 )
 def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    AuthService.forgot_password(db, request)
-    return MessageResponse(message="OTP has been sent to your registered email address")
+    otp_code = AuthService.forgot_password(db, request)
+    return MessageResponse(
+        message="OTP has been sent to your registered email address.",
+        dev_otp=otp_code
+    )
 
 @router.post(
     "/verify-otp",

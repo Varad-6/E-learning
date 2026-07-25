@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
   Building2, Users, BookOpen, Award, Clock, ArrowRight, ArrowLeft,
-  ChevronRight, Search, TrendingUp, CheckCircle, AlertCircle, FileText, User
+  ChevronRight, Search, TrendingUp, CheckCircle, AlertCircle, FileText, User, UserCheck, ShieldAlert, BookPlus, Trash2
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
@@ -101,6 +101,30 @@ export const ReportingDashboard: React.FC = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfileDetail | null>(null);
   const [selectedEmpBadges, setSelectedEmpBadges] = useState<any[]>([]);
 
+  // ── Manage Employee section state ──
+  const [assignableCourses, setAssignableCourses] = useState<any[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignSuccess, setAssignSuccess] = useState('');
+  const [assignError, setAssignError] = useState('');
+
+  const [eligibleRoles, setEligibleRoles] = useState<any[]>([]);
+  const [selectedNewRole, setSelectedNewRole] = useState('');
+  const [promoteReason, setPromoteReason] = useState('');
+  const [promoteLoading, setPromoteLoading] = useState(false);
+  const [promoteSuccess, setPromoteSuccess] = useState('');
+  const [promoteError, setPromoteError] = useState('');
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [currentRoleDisplay, setCurrentRoleDisplay] = useState('');
+
+  // Delete User state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Role check: is the logged-in user an Admin or HR?
+  const loggedInRole = localStorage.getItem('isLoggedInRole') || '';
+  const isAdminOrHR = loggedInRole === 'Admin' || loggedInRole === 'HR Admin' || loggedInRole === 'HR Manager';
+
   // Table filters & sorting
   const [searchTerm, setSearchTerm] = useState(() => {
     return sessionStorage.getItem('kaizen_reporting_search') || '';
@@ -186,12 +210,22 @@ export const ReportingDashboard: React.FC = () => {
   const handleSelectEmployee = async (empId: string) => {
     setLoading(true);
     setSelectedEmpBadges([]);
+    setAssignableCourses([]);
+    setSelectedCourseId('');
+    setAssignSuccess('');
+    setAssignError('');
+    setEligibleRoles([]);
+    setSelectedNewRole('');
+    setPromoteReason('');
+    setPromoteSuccess('');
+    setPromoteError('');
     try {
       const detailRes = await apiCall(`/api/reporting/employees/${empId}/detail`);
       const badgesRes = await apiCall(`/api/users/${empId}/badges`);
       if (detailRes.ok) {
         const data: EmployeeProfileDetail = await detailRes.json();
         setSelectedEmployee(data);
+        setCurrentRoleDisplay(data.user.role_name || 'EMPLOYEE');
       } else {
         const err = await detailRes.json();
         triggerToast(`Error loading profile: ${err.detail}`, 'error');
@@ -200,11 +234,111 @@ export const ReportingDashboard: React.FC = () => {
         const badgesData = await badgesRes.json();
         setSelectedEmpBadges(badgesData || []);
       }
+      // Load manage-employee data only for Admin/HR
+      const logRole = localStorage.getItem('isLoggedInRole') || '';
+      const isAdHR = logRole === 'Admin' || logRole === 'HR Admin' || logRole === 'HR Manager';
+      if (isAdHR) {
+        const [coursesRes, rolesRes] = await Promise.all([
+          apiCall(`/api/users/${empId}/assignable-courses`),
+          apiCall(`/api/users/${empId}/eligible-roles`)
+        ]);
+        if (coursesRes.ok) setAssignableCourses(await coursesRes.json());
+        if (rolesRes.ok) {
+          const rd = await rolesRes.json();
+          setEligibleRoles(rd.eligible_promotions || []);
+        }
+      }
     } catch (e) {
       console.error(e);
       triggerToast('Failed to fetch employee details.', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAssignCourse = async () => {
+    if (!selectedEmployee || !selectedCourseId) return;
+    setAssignLoading(true);
+    setAssignSuccess('');
+    setAssignError('');
+    try {
+      const res = await apiCall(`/api/users/${selectedEmployee.user.id}/assign-course`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course_id: selectedCourseId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAssignSuccess(`✅ "${data.course_title}" assigned successfully!`);
+        setSelectedCourseId('');
+        // Refresh course marks by re-loading employee detail
+        const detailRes = await apiCall(`/api/reporting/employees/${selectedEmployee.user.id}/detail`);
+        if (detailRes.ok) setSelectedEmployee(await detailRes.json());
+        // Refresh assignable list
+        const coursesRes = await apiCall(`/api/users/${selectedEmployee.user.id}/assignable-courses`);
+        if (coursesRes.ok) setAssignableCourses(await coursesRes.json());
+      } else {
+        const err = await res.json();
+        setAssignError(err.detail || 'Failed to assign course.');
+      }
+    } catch {
+      setAssignError('Network error. Please try again.');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const handlePromoteRole = async () => {
+    if (!selectedEmployee || !selectedNewRole) return;
+    setPromoteLoading(true);
+    setPromoteSuccess('');
+    setPromoteError('');
+    try {
+      const res = await apiCall(`/api/users/${selectedEmployee.user.id}/role`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_role: selectedNewRole, reason: promoteReason || null })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const roleLabel = selectedNewRole === 'COURSE_MANAGER' ? 'Manager' : selectedNewRole;
+        setPromoteSuccess(`🎉 Promoted to ${roleLabel} successfully!`);
+        setCurrentRoleDisplay(selectedNewRole);
+        setEligibleRoles([]);
+        setSelectedNewRole('');
+        setPromoteReason('');
+        setShowPromoteModal(false);
+      } else {
+        const err = await res.json();
+        setPromoteError(err.detail || 'Failed to promote role.');
+        setShowPromoteModal(false);
+      }
+    } catch {
+      setPromoteError('Network error. Please try again.');
+      setShowPromoteModal(false);
+    } finally {
+      setPromoteLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedEmployee) return;
+    setDeleteLoading(true);
+    try {
+      const res = await apiCall(`/api/admin/users/${selectedEmployee.user.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setShowDeleteModal(false);
+        navigate('/reporting');
+      } else {
+        const err = await res.json();
+        alert(err.detail || 'Failed to delete user.');
+        setShowDeleteModal(false);
+      }
+    } catch {
+      alert('Network error. Could not delete user.');
+      setShowDeleteModal(false);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -357,6 +491,147 @@ export const ReportingDashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* ── Manage Employee Section (Admin/HR only) ── */}
+        {isAdminOrHR && (
+          <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+              <UserCheck size={18} style={{ color: 'var(--accent-color)' }} />
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Manage Employee</h3>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+
+              {/* ── A: Assign Course Panel ── */}
+              <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                  <BookPlus size={15} style={{ color: 'var(--accent-color)' }} />
+                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>Assign a Course</span>
+                </div>
+
+                <select
+                  id="assign-course-select"
+                  value={selectedCourseId}
+                  onChange={e => { setSelectedCourseId(e.target.value); setAssignSuccess(''); setAssignError(''); }}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '0.875rem' }}
+                >
+                  <option value="">— Select a course —</option>
+                  {assignableCourses.map((c: any) => (
+                    <option key={c.id} value={c.id} disabled={c.already_enrolled}>
+                      {c.already_enrolled ? `[Enrolled] ` : ''}{c.course_code ? `[${c.course_code}] ` : ''}{c.title}
+                    </option>
+                  ))}
+                </select>
+
+                {assignableCourses.length === 0 && (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>No available courses in this department.</p>
+                )}
+
+                {assignError && (
+                  <div style={{ background: 'color-mix(in srgb, var(--danger-color) 10%, transparent)', border: '1px solid var(--danger-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.82rem', color: 'var(--danger-color)' }}>{assignError}</div>
+                )}
+                {assignSuccess && (
+                  <div style={{ background: 'color-mix(in srgb, var(--success-color) 10%, transparent)', border: '1px solid var(--success-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.82rem', color: 'var(--success-color)' }}>{assignSuccess}</div>
+                )}
+
+                <Button
+                  id="btn-assign-course"
+                  variant="primary"
+                  onClick={handleAssignCourse}
+                  disabled={!selectedCourseId || assignLoading}
+                  style={{ alignSelf: 'flex-start', fontSize: '0.875rem' }}
+                >
+                  {assignLoading ? 'Assigning…' : 'Assign Course'}
+                </Button>
+              </div>
+
+              {/* ── Divider (desktop: vertical, mobile: horizontal) ── */}
+              <div style={{ width: '1px', background: 'var(--border-color)', margin: '0 4px', display: 'none' }} className="manage-divider-v" />
+
+              {/* ── B: Promote Role Panel ── */}
+              <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                  <ShieldAlert size={15} style={{ color: 'var(--accent-color)' }} />
+                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>Change Role</span>
+                </div>
+
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                  Current Role: <strong style={{ color: 'var(--text-primary)' }}>{currentRoleDisplay === 'COURSE_MANAGER' ? 'Manager' : currentRoleDisplay === 'EMPLOYEE' ? 'Employee' : currentRoleDisplay}</strong>
+                </div>
+
+                {eligibleRoles.length > 0 ? (
+                  <>
+                    <select
+                      id="promote-role-select"
+                      value={selectedNewRole}
+                      onChange={e => { setSelectedNewRole(e.target.value); setPromoteSuccess(''); setPromoteError(''); }}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '0.875rem' }}
+                    >
+                      <option value="">— Select new role —</option>
+                      {eligibleRoles.map((r: any) => (
+                        <option key={r.role_name} value={r.role_name}>{r.display_name}</option>
+                      ))}
+                    </select>
+
+                    <textarea
+                      id="promote-reason-textarea"
+                      placeholder="Reason (optional)"
+                      value={promoteReason}
+                      onChange={e => setPromoteReason(e.target.value)}
+                      rows={2}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '0.875rem', resize: 'vertical', boxSizing: 'border-box' }}
+                    />
+
+                    {promoteError && (
+                      <div style={{ background: 'color-mix(in srgb, var(--danger-color) 10%, transparent)', border: '1px solid var(--danger-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.82rem', color: 'var(--danger-color)' }}>{promoteError}</div>
+                    )}
+                    {promoteSuccess && (
+                      <div style={{ background: 'color-mix(in srgb, var(--success-color) 10%, transparent)', border: '1px solid var(--success-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.82rem', color: 'var(--success-color)' }}>{promoteSuccess}</div>
+                    )}
+
+                    <Button
+                      id="btn-promote-role"
+                      variant="primary"
+                      onClick={() => setShowPromoteModal(true)}
+                      disabled={!selectedNewRole || promoteLoading}
+                      style={{ alignSelf: 'flex-start', fontSize: '0.875rem' }}
+                    >
+                      {promoteLoading ? 'Promoting…' : `Promote to ${selectedNewRole === 'COURSE_MANAGER' ? 'Manager' : selectedNewRole || '…'}`}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {promoteSuccess && (
+                      <div style={{ background: 'color-mix(in srgb, var(--success-color) 10%, transparent)', border: '1px solid var(--success-color)', borderRadius: '8px', padding: '8px 12px', fontSize: '0.82rem', color: 'var(--success-color)' }}>{promoteSuccess}</div>
+                    )}
+                    {!promoteSuccess && (
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0 }}>No eligible role promotions available for this employee.</p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Promotion Confirmation Modal */}
+        {showPromoteModal && (
+          <Modal
+            title="Confirm Role Promotion"
+            onClose={() => setShowPromoteModal(false)}
+          >
+            <div style={{ fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1.6 }}>
+              <p>Are you sure you want to promote <strong>{selectedEmployee?.name}</strong> to <strong>{selectedNewRole === 'COURSE_MANAGER' ? 'Manager' : selectedNewRole}</strong>?</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>This will grant them department-level access including Reporting, Leaderboard, and Course Management. This action is recorded in the audit log.</p>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '20px', justifyContent: 'flex-end' }}>
+              <Button variant="outline" onClick={() => setShowPromoteModal(false)}>Cancel</Button>
+              <Button id="btn-confirm-promote" variant="primary" onClick={handlePromoteRole} disabled={promoteLoading}>
+                {promoteLoading ? 'Promoting…' : 'Yes, Promote'}
+              </Button>
+            </div>
+          </Modal>
+        )}
+
         {/* Summary stats row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
           <div className="glass-panel" style={{ padding: '20px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
@@ -507,7 +782,50 @@ export const ReportingDashboard: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+
+      {/* ── Delete User Section (Admin/HR only) ── */}
+      {isAdminOrHR && (
+        <div className="glass-panel" style={{ padding: '20px 24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--danger-color, #ef4444)', marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--danger-color, #ef4444)', margin: 0 }}>Danger Zone</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>Permanently remove this user from the system. This cannot be undone.</p>
+          </div>
+          <Button
+            id="btn-delete-user"
+            variant="outline"
+            onClick={() => setShowDeleteModal(true)}
+            style={{ borderColor: 'var(--danger-color, #ef4444)', color: 'var(--danger-color, #ef4444)', fontSize: '0.875rem', gap: '6px' }}
+          >
+            <Trash2 size={15} style={{ marginRight: '6px' }} /> Delete User
+          </Button>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {showDeleteModal && (
+        <Modal
+          title="Delete User"
+          onClose={() => setShowDeleteModal(false)}
+        >
+          <div style={{ fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1.6 }}>
+            <p>Are you sure you want to permanently delete <strong>{selectedEmployee?.name}</strong>?</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>This will remove the user from the database including all enrollments, exam records, and notifications. <strong>This action cannot be undone.</strong></p>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', marginTop: '20px', justifyContent: 'flex-end' }}>
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
+            <Button
+              id="btn-confirm-delete-user"
+              variant="primary"
+              onClick={handleDeleteUser}
+              disabled={deleteLoading}
+              style={{ background: 'var(--danger-color, #ef4444)', borderColor: 'var(--danger-color, #ef4444)' }}
+            >
+              {deleteLoading ? 'Deleting…' : 'Yes, Delete User'}
+            </Button>
+          </div>
+        </Modal>
+      )}
+    </div>
     );
   }
 

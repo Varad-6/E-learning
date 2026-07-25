@@ -136,7 +136,7 @@ class AuthService:
         db.commit()
 
     @staticmethod
-    def forgot_password(db: Session, request: ForgotPasswordRequest) -> None:
+    def forgot_password(db: Session, request: ForgotPasswordRequest) -> str:
         """Trigger OTP generation and dispatch email for password resets."""
         user = db.query(User).filter(
             User.email == request.email,
@@ -161,6 +161,7 @@ class AuthService:
 
         # Send SMTP Email
         EmailService.send_otp_email(user.email, otp_code)
+        return otp_code
 
     @staticmethod
     def verify_otp(db: Session, request: VerifyOTPRequest) -> None:

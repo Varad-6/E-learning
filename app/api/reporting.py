@@ -130,7 +130,7 @@ def get_department_employees(
         User.department_id == department_id,
         User.is_active == True,
         User.is_deleted == False,
-        Role.name == "EMPLOYEE"
+        Role.name.in_(["EMPLOYEE", "COURSE_MANAGER"])
     ).all()
 
     emp_list = []

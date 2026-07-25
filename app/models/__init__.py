@@ -20,6 +20,7 @@ from app.models.audit_log import AuditLog
 from app.models.user_badge import UserBadge
 from app.models.badge_tier import BadgeTier
 from app.models.notification import Notification
+from app.models.role_history import RoleHistory
 
 __all__ = [
     "Base",
@@ -49,4 +50,5 @@ __all__ = [
     "UserBadge",
     "BadgeTier",
     "Notification",
+    "RoleHistory",
 ]

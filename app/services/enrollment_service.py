@@ -54,7 +54,7 @@ def parse_duration(duration_str: str) -> timedelta:
 
 class EnrollmentService:
     @staticmethod
-    def enroll_user(db: Session, user_id: UUID, course_id: UUID) -> CourseEnrollment:
+    def enroll_user(db: Session, user_id: UUID, course_id: UUID, enrolled_by: UUID = None) -> CourseEnrollment:
         # Check course exists and is published
         course = db.query(Course).filter(Course.id == course_id).first()
         if not course:
@@ -86,6 +86,7 @@ class EnrollmentService:
             if existing.status == "dropped":
                 existing.status = "enrolled"
                 existing.enrolled_at = datetime.now(timezone.utc)
+                existing.enrolled_by = enrolled_by
                 base_time = course.published_at if course.published_at is not None else datetime.now(timezone.utc)
                 existing.expires_at = base_time + parse_duration(course.duration)
                 existing.is_locked = False
@@ -104,6 +105,7 @@ class EnrollmentService:
         enrollment = CourseEnrollment(
             user_id=user_id,
             course_id=course_id,
+            enrolled_by=enrolled_by,
             status="enrolled",
             enrolled_at=datetime.now(timezone.utc),
             expires_at=expires_at,

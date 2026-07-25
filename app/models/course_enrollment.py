@@ -11,6 +11,7 @@ class CourseEnrollment(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
+    enrolled_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     status = Column(String, default="enrolled", nullable=False)  # enrolled, in_progress, completed, dropped
     progress_percent = Column(Integer, default=0, nullable=False)
     enrolled_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -19,7 +20,8 @@ class CourseEnrollment(Base):
     is_locked = Column(Boolean, default=False, nullable=False)
 
     # Relationships
-    user = relationship("User", back_populates="enrollments")
+    user = relationship("User", foreign_keys=[user_id], back_populates="enrollments")
+    assigned_by = relationship("User", foreign_keys=[enrolled_by])
     course = relationship("Course", back_populates="enrollments")
     progress_records = relationship("UserCourseProgress", back_populates="enrollment", cascade="all, delete-orphan")
 

@@ -265,9 +265,6 @@ export const UserAdminStudio: React.FC = () => {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginTop: '6px', marginBottom: 0 }}>Manage departments, personnel, and analytics.</p>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <Button variant={activeTab === 'users' ? 'primary' : 'outline'} onClick={() => { setActiveTab('users'); setSelectedDept(null); }}>
-            All Users
-          </Button>
           <Button variant={activeTab === 'departments' ? 'primary' : 'outline'} onClick={() => { setActiveTab('departments'); setSelectedDept(null); }}>
             Departments
           </Button>
@@ -279,46 +276,6 @@ export const UserAdminStudio: React.FC = () => {
           </Button>
         </div>
       </div>
-
-      {/* Main Content Area: Global Users Tab */}
-      {activeTab === 'users' && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '16px' }}>
-            <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
-              <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input 
-                className="form-input-styled" 
-                style={{ paddingLeft: '38px' }}
-                placeholder="Search by name, email, or code..." 
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Showing {users.filter(u => u.first_name.toLowerCase().includes(searchTerm.toLowerCase()) || u.last_name.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()) || u.employee_code.toLowerCase().includes(searchTerm.toLowerCase())).length} users
-            </span>
-          </div>
-
-          <div className="personnel-list">
-            {users
-              .filter(u => u.first_name.toLowerCase().includes(searchTerm.toLowerCase()) || u.last_name.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase()) || u.employee_code.toLowerCase().includes(searchTerm.toLowerCase()))
-              .map(user => (
-                <div key={user.id} className="personnel-card" onClick={() => handleOpenUserModal(user)}>
-                  <div className="person-info">
-                    <div className="person-avatar">{user.first_name[0]}{user.last_name[0]}</div>
-                    <div>
-                      <h4 className="person-name">{user.first_name} {user.last_name}</h4>
-                      <span className="person-role">{user.employee_code} • {user.email}</span>
-                    </div>
-                  </div>
-                  <div style={{ color: 'var(--text-muted)' }}>
-                    <BarChart3 size={20} />
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
 
       {/* Departments Grid View */}
       {activeTab === 'departments' && !selectedDept && (

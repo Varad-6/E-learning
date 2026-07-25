@@ -2,7 +2,23 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
-## [2026-07-23] Kiezen LMS - Selective Merge: Employee Role UI & Data Pipelines
+## [2026-07-25] Kiezen LMS - User Detail Course Assignment, Role Promotion, All-Dept Courses & Employee Deletion
+- Problem: Admin/HR needed capabilities on the User Detail page (`/reporting/employees/:userId`) to assign courses and promote employee roles. Additionally, course assignment needed to display courses across ALL departments, and a dedicated "Delete User" button was needed on the detail page.
+- Changed:
+  - `alembic/versions/f10000000001_add_enrolled_by_and_role_history.py`: Created migration adding `course_enrollments.enrolled_by` (FK -> users) and new `role_history` audit table.
+  - `app/models/course_enrollment.py` & `app/models/role_history.py`: Added `enrolled_by` column and created `RoleHistory` model.
+  - `app/models/user.py`: Explicitly specified `foreign_keys` on `User.enrollments` relationship to resolve SQLAlchemy ambiguity.
+  - `app/services/enrollment_service.py`: Updated `enroll_user()` to record `enrolled_by` user ID for audit trails.
+  - `app/api/user_management.py`: Implemented `GET /api/users/:id/assignable-courses` (returns published courses from ALL departments), `GET /api/users/:id/eligible-roles` (Employee -> Manager), `POST /api/users/:id/assign-course`, and `PATCH /api/users/:id/role` (with audit log + promotion notification).
+  - `app/main.py`: Registered `user_management_router`.
+  - `frontend/src/pages/Admin/UserAdminStudio.tsx`: Removed the "All Users" header tab and tab content.
+  - `frontend/src/pages/Reporting/ReportingDashboard.tsx`:
+    - Added "Manage Employee" card (Assign Course panel + Promote Role panel with confirmation modal) visible strictly to Admin/HR roles.
+    - Added "Danger Zone" / "Delete User" button and confirmation modal at the bottom of the Employee Detail page for Admin/HR roles.
+  - `scratch/tmp_verify_final.py`: Added automated API test coverage for all new user management endpoints (62/62 PASSED).
+- Migration: Yes — `f10000000001_add_enrolled_by_and_role_history.py`.
+- Tests added: Executed `scratch/tmp_verify_final.py` (62/62 PASSED, 100% green across all roles).
+
 - Problem: Needed to pull in Employee role UI pages, Employee Dashboard analytics data pipeline, and Light Mode design tokens from `sam23july` without touching Admin, Manager, or HR views, permissions, notification system, or Dark Mode tokens.
 - Changed:
   - `app/schemas/dashboard.py`: Created schema file with `EmployeeDashboardResponse` defining `exam_score_trend` and `category_progress`.
