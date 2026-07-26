@@ -353,7 +353,7 @@ def get_employee_detail_profile(
             "badge_tier_id": str(ub.badge_tier_id),
             "name": ub.badge_tier.name,
             "required_completions": getattr(ub.badge_tier, 'courses_required_cumulative', 1),
-            "awarded_at": ub.awarded_at.isoformat() if ub.awarded_at else None
+            "awarded_at": ub.earned_at.isoformat() if ub.earned_at else None
         }
         for ub in user_badges
     ]
