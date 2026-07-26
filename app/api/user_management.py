@@ -39,6 +39,62 @@ def _require_admin_or_hr(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+from app.services.otp_service import OTPService
+from app.services.email_service import EmailService
+from pydantic import EmailStr
+
+class SendVerificationOTPRequest(BaseModel):
+    email: EmailStr
+
+class VerifyVerificationOTPRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
+@router.post(
+    "/send-verification-otp",
+    summary="Send Email Verification OTP",
+    description="Generates a 6-digit OTP code, stores it, and sends it to the specified email for verification."
+)
+def send_verification_otp(
+    request: SendVerificationOTPRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_require_admin_or_hr)
+):
+    email = request.email.strip().lower()
+    # Check if a user with this email already exists
+    existing_user = db.query(User).filter(User.email == email, User.is_deleted == False).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"User with email '{email}' already exists."
+        )
+
+    # Generate OTP
+    otp_code = OTPService.generate_verification_otp(db, email=email)
+    
+    # Send verification email
+    EmailService.send_verification_otp_email(email, otp_code)
+    
+    return {"message": "Verification code has been sent to the email address.", "dev_otp": otp_code}
+
+@router.post(
+    "/verify-otp",
+    summary="Verify Email Verification OTP",
+    description="Verifies the OTP code for the email address."
+)
+def verify_verification_otp(
+    request: VerifyVerificationOTPRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_require_admin_or_hr)
+):
+    email = request.email.strip().lower()
+    otp = request.otp.strip()
+    
+    OTPService.verify_verification_otp(db, email=email, otp_code=otp)
+    
+    return {"message": "Email verification successful."}
+
+
 # ─── Schemas ──────────────────────────────────────────────────────────────────
 
 class AssignCourseRequest(BaseModel):

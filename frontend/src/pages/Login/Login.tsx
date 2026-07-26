@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Lock, Mail, Building, ShieldAlert } from 'lucide-react';
 import { Input } from '../../components/Input/Input';
 import { Button } from '../../components/Button/Button';
+import { OTPInput } from '../../components/OTPInput/OTPInput';
 import { apiCall } from '../../services/api';
 import './Login.css';
 
@@ -216,17 +217,58 @@ export const Login: React.FC = () => {
     }
   };
 
+  const validatePasswordStrength = (pwd: string): string | null => {
+    if (pwd.length < 8) {
+      return 'Password must be at least 8 characters long.';
+    }
+    if (!/[A-Z]/.test(pwd)) {
+      return 'Password must contain at least one uppercase letter.';
+    }
+    if (!/[a-z]/.test(pwd)) {
+      return 'Password must contain at least one lowercase letter.';
+    }
+    if (!/\d/.test(pwd)) {
+      return 'Password must contain at least one number.';
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':",./<>?\\|`~]/.test(pwd)) {
+      return 'Password must contain at least one special character.';
+    }
+    return null;
+  };
+
+  const handleNewPasswordChange = (val: string) => {
+    setNewPassword(val);
+    const pwdErr = validatePasswordStrength(val);
+    setErrors(prev => ({
+      ...prev,
+      newPassword: pwdErr || '',
+      confirmPassword: val !== confirmPassword && confirmPassword ? 'Passwords do not match.' : ''
+    }));
+  };
+
+  const handleConfirmPasswordChange = (val: string) => {
+    setConfirmPassword(val);
+    setErrors(prev => ({
+      ...prev,
+      confirmPassword: val !== newPassword ? 'Passwords do not match.' : ''
+    }));
+  };
+
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     const tempErrors: { [key: string]: string } = {};
+    const strengthError = validatePasswordStrength(newPassword);
+    
     if (!newPassword) {
       tempErrors.newPassword = 'New password is required.';
-    } else if (newPassword.length < 6) {
-      tempErrors.newPassword = 'Must be at least 6 characters.';
+    } else if (strengthError) {
+      tempErrors.newPassword = strengthError;
     }
+    
     if (newPassword !== confirmPassword) {
       tempErrors.confirmPassword = 'Passwords do not match.';
     }
+    
     if (Object.keys(tempErrors).length > 0) {
       setErrors(tempErrors);
       return;
@@ -444,39 +486,29 @@ export const Login: React.FC = () => {
                   </div>
                 )}
                 <form onSubmit={handleVerifyOTP} className="login-form">
-                  <Input
-                    label="6-Digit Verification Code"
-                    placeholder="Enter 123456"
+                  <OTPInput
                     value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
-                    error={errors.otpCode}
-                    leftIcon={<Lock size={18} />}
-                  />
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    <span>Didn't receive code?</span>
-                    {otpTimer > 0 ? (
-                      <span>Resend in {otpTimer}s</span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
+                    onChange={(val) => setOtpCode(val)}
+                    cooldown={otpTimer}
+                    onResend={async () => {
+                      try {
+                        const response = await apiCall('/api/auth/forgot-password', {
+                          method: 'POST',
+                          body: JSON.stringify({ email: resetEmail }),
+                        });
+                        if (response.ok) {
                           setOtpTimer(30);
-                          alert('OTP code has been resent! Enter 123456.');
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--accent-color)',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          padding: 0
-                        }}
-                      >
-                        Resend OTP
-                      </button>
-                    )}
-                  </div>
+                          alert('A new security OTP code has been dispatched to your email.');
+                        } else {
+                          const data = await response.json();
+                          setErrors({ form: data.detail || 'Failed to resend OTP.' });
+                        }
+                      } catch (err: any) {
+                        setErrors({ form: err.message || 'Connection failed.' });
+                      }
+                    }}
+                  />
+                  {errors.otpCode && <span className="input-error-msg" style={{ display: 'block', marginTop: '-8px', marginBottom: '8px' }}>{errors.otpCode}</span>}
 
                   <Button
                     type="submit"
@@ -519,9 +551,9 @@ export const Login: React.FC = () => {
                   <Input
                     label="New Password"
                     type="password"
-                    placeholder="Enter new password (min. 6 chars)"
+                    placeholder="Enter new password (min. 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special)"
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    onChange={(e) => handleNewPasswordChange(e.target.value)}
                     error={errors.newPassword}
                     leftIcon={<Lock size={18} />}
                   />
@@ -531,7 +563,7 @@ export const Login: React.FC = () => {
                     type="password"
                     placeholder="Confirm new password"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => handleConfirmPasswordChange(e.target.value)}
                     error={errors.confirmPassword}
                     leftIcon={<Lock size={18} />}
                   />

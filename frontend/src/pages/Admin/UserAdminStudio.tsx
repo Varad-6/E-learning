@@ -8,6 +8,7 @@ import {
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { apiCall } from '../../services/api';
+import { OTPInput } from '../../components/OTPInput/OTPInput';
 import { useToast } from '../../context/ToastContext';
 import { getBadgeForCompletions } from '../../services/badge';
 import './UserAdminStudio.css';
@@ -78,6 +79,30 @@ export const UserAdminStudio: React.FC = () => {
   const [newDeptDesc, setNewDeptDesc] = useState('');
   const [deptSubmitting, setDeptSubmitting] = useState(false);
 
+  // Email verification states for user creation
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [verificationOtp, setVerificationOtp] = useState('');
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
+
+  useEffect(() => {
+    let timer: any;
+    if (otpCooldown > 0) {
+      timer = setInterval(() => {
+        setOtpCooldown(prev => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [otpCooldown]);
+
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    setIsEmailVerified(false);
+    setOtpSent(false);
+    setVerificationOtp('');
+  };
+
   useEffect(() => {
     const savedRole = localStorage.getItem('isLoggedInRole');
     let rawRoles: string[] = [];
@@ -147,12 +172,71 @@ export const UserAdminStudio: React.FC = () => {
     setPassword(pass.split('').sort(() => 0.5 - Math.random()).join(''));
   };
 
+  const handleSendVerificationOtp = async () => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!email.trim() || !emailRegex.test(email)) {
+      triggerToast('Please enter a valid corporate email address first.', 'warning');
+      return;
+    }
+    setFormLoading(true);
+    try {
+      const res = await apiCall('/api/users/send-verification-otp', {
+        method: 'POST',
+        body: JSON.stringify({ email: email.trim().toLowerCase() })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setOtpSent(true);
+        setOtpCooldown(30);
+        triggerToast('Verification code sent successfully to email.', 'success');
+      } else {
+        triggerToast(data.detail || 'Failed to send verification code.', 'error');
+      }
+    } catch (err: any) {
+      console.error(err);
+      triggerToast('Error connecting to security service.', 'error');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleVerifyVerificationOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (verificationOtp.length !== 6) {
+      triggerToast('Verification code must be exactly 6 digits.', 'warning');
+      return;
+    }
+    setIsVerifyingOtp(true);
+    try {
+      const res = await apiCall('/api/users/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          otp: verificationOtp
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIsEmailVerified(true);
+        triggerToast('Email address verified successfully!', 'success');
+      } else {
+        triggerToast(data.detail || 'Verification code is invalid or has expired.', 'error');
+      }
+    } catch (err: any) {
+      console.error(err);
+      triggerToast('Error verifying code.', 'error');
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
   const validateForm = () => {
     const errors: { [key: string]: string } = {};
     if (!employeeCode.trim()) errors.employeeCode = 'Required.';
     if (!firstName.trim()) errors.firstName = 'Required.';
     if (!lastName.trim()) errors.lastName = 'Required.';
     if (!email.trim()) errors.email = 'Required.';
+    if (!isEmailVerified) errors.email = 'Email verification is mandatory.';
     if (!password) errors.password = 'Required.';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -180,6 +264,7 @@ export const UserAdminStudio: React.FC = () => {
         triggerToast(`User ${firstName} ${lastName} created successfully!`, 'success');
         setEmployeeCode(''); setFirstName(''); setLastName(''); setEmail(''); setPassword('');
         setSelectedDeptId(''); setSelectedRoles(['EMPLOYEE']); setFormErrors({});
+        setIsEmailVerified(false); setOtpSent(false); setVerificationOtp(''); setOtpCooldown(0);
         await loadData();
         setActiveTab('departments');
       } else {
@@ -579,8 +664,33 @@ export const UserAdminStudio: React.FC = () => {
                 <input className="form-input-styled" value={employeeCode} onChange={e => setEmployeeCode(e.target.value)} placeholder="e.g. EMP001" />
               </div>
               <div>
-                <label className="form-label-styled">Email Address</label>
-                <input className="form-input-styled" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="employee@company.com" />
+                <label className="form-label-styled">Email Address <span className="required-star">*</span></label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input 
+                    className="form-input-styled" 
+                    type="email" 
+                    value={email} 
+                    onChange={e => handleEmailChange(e.target.value)} 
+                    placeholder="employee@company.com" 
+                    disabled={isEmailVerified}
+                    style={{ flex: 1 }}
+                  />
+                  {isEmailVerified ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', color: '#10b981', fontWeight: 700, gap: '4px', padding: '0 8px' }}>
+                      <CheckCircle2 size={16} /> Verified
+                    </span>
+                  ) : (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={handleSendVerificationOtp} 
+                      disabled={otpCooldown > 0 || !email}
+                    >
+                      {otpSent ? 'Resend' : 'Verify Email'}
+                    </Button>
+                  )}
+                </div>
+                {formErrors.email && <span className="input-error-msg" style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{formErrors.email}</span>}
               </div>
               <div>
                 <label className="form-label-styled">First Name</label>
@@ -591,15 +701,55 @@ export const UserAdminStudio: React.FC = () => {
                 <input className="form-input-styled" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last Name" />
               </div>
             </div>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label className="form-label-styled">Password</label>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <input className="form-input-styled" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" style={{ flex: 1 }} />
-                <Button type="button" variant="outline" onClick={generateRandomPassword}>Generate</Button>
-                <Button type="button" variant="outline" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}</Button>
+
+            {otpSent && !isEmailVerified && (
+              <div style={{ marginTop: '16px', marginBottom: '20px', padding: '20px', background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.02)' }}>
+                <label className="form-label-styled" style={{ textAlign: 'center', display: 'block', fontWeight: 700, marginBottom: '8px' }}>Enter 6-Digit Email Verification Code</label>
+                <OTPInput 
+                  value={verificationOtp}
+                  onChange={val => setVerificationOtp(val)}
+                  cooldown={otpCooldown}
+                  onResend={handleSendVerificationOtp}
+                />
+                <Button 
+                  type="button" 
+                  variant="primary" 
+                  onClick={handleVerifyVerificationOtp}
+                  isLoading={isVerifyingOtp}
+                  style={{ width: '100%', marginTop: '8px' }}
+                >
+                  Confirm OTP & Verify Email
+                </Button>
               </div>
-            </div>
+            )}
+            
+            {isEmailVerified && (
+              <div style={{ marginBottom: '20px' }} className="animate-fade-in">
+                <label className="form-label-styled">Set Initial Password <span className="required-star">*</span></label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input 
+                    className="form-input-styled" 
+                    type={showPassword ? 'text' : 'password'} 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    placeholder="Enter secure initial password" 
+                    style={{ flex: 1 }} 
+                  />
+                  <Button type="button" variant="outline" onClick={generateRandomPassword}>Generate</Button>
+                  <Button type="button" variant="outline" onClick={() => setShowPassword(!showPassword)}>
+                    {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            {!isEmailVerified && (
+              <div style={{ marginBottom: '20px', padding: '16px', background: 'rgba(255,255,255,0.01)', border: '1px dashed var(--border-color)', borderRadius: '8px', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  🔒 Please complete email verification to set password and create account.
+                </span>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
               <div>
@@ -633,7 +783,12 @@ export const UserAdminStudio: React.FC = () => {
               </div>
             </div>
 
-            <Button type="submit" variant="primary" style={{ width: '100%', padding: '12px', fontSize: '1rem', marginTop: '12px' }}>
+            <Button 
+              type="submit" 
+              variant="primary" 
+              disabled={!isEmailVerified || formLoading}
+              style={{ width: '100%', padding: '12px', fontSize: '1rem', marginTop: '12px' }}
+            >
               Create Account
             </Button>
           </form>

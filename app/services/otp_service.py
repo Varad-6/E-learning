@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from uuid import UUID
 
-from app.models.otp import PasswordResetOTP
+from app.models.otp import PasswordResetOTP, EmailVerificationOTP
 from app.models.user import User
 
 class OTPService:
@@ -79,3 +79,56 @@ class OTPService:
         if db_otp:
             db_otp.is_used = True
             db.commit()
+
+    @staticmethod
+    def generate_verification_otp(db: Session, email: str) -> str:
+        """Generate a random 6-digit OTP for email verification and store it."""
+        otp_code = "".join(random.choices(string.digits, k=6))
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+        
+        db_otp = EmailVerificationOTP(
+            email=email,
+            otp_code=otp_code,
+            expires_at=expires_at,
+            is_verified=False
+        )
+        db.add(db_otp)
+        db.commit()
+        db.refresh(db_otp)
+        return otp_code
+
+    @staticmethod
+    def verify_verification_otp(db: Session, email: str, otp_code: str) -> EmailVerificationOTP:
+        """Verify the latest email verification OTP and mark it verified."""
+        db_otp = db.query(EmailVerificationOTP).filter(
+            EmailVerificationOTP.email == email,
+            EmailVerificationOTP.otp_code == otp_code
+        ).order_by(EmailVerificationOTP.created_at.desc()).first()
+
+        if not db_otp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification code",
+            )
+
+        if db_otp.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification code already used",
+            )
+
+        now = datetime.now(timezone.utc)
+        otp_expires = db_otp.expires_at
+        if otp_expires.tzinfo is None:
+            otp_expires = otp_expires.replace(tzinfo=timezone.utc)
+
+        if otp_expires < now:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification code has expired",
+            )
+
+        db_otp.is_verified = True
+        db.commit()
+        db.refresh(db_otp)
+        return db_otp

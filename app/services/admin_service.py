@@ -1,11 +1,13 @@
 from typing import List
 from uuid import UUID
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from app.models.user import User
 from app.models.role import Role
 from app.models.department import Department
+from app.models.otp import EmailVerificationOTP
 from app.schemas.admin import UserCreate, UserUpdate, RoleAssignmentRequest
 from app.core.security import get_password_hash
 
@@ -24,6 +26,28 @@ class AdminService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Email '{request.email}' already exists."
+            )
+
+        # Check if the email has been verified via OTP
+        recent_verification = db.query(EmailVerificationOTP).filter(
+            EmailVerificationOTP.email == request.email.strip().lower(),
+            EmailVerificationOTP.is_verified == True
+        ).order_by(EmailVerificationOTP.created_at.desc()).first()
+
+        if not recent_verification:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email verification required. Please verify email via OTP code first."
+            )
+        
+        now = datetime.now(timezone.utc)
+        created_time = recent_verification.created_at
+        if created_time.tzinfo is None:
+            created_time = created_time.replace(tzinfo=timezone.utc)
+        if now - created_time > timedelta(minutes=30):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email verification has expired. Please request a new code."
             )
 
         if request.department_id:
@@ -56,6 +80,7 @@ class AdminService:
             department_id=request.department_id,
             is_active=True,
             is_deleted=False,
+            email_verified=True,
             must_change_password=True,
             roles=roles_list
         )
