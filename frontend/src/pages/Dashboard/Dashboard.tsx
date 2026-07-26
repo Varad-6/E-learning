@@ -2360,74 +2360,7 @@ export const Dashboard: React.FC = () => {
                 )}
               </Modal>
 
-              <div className="roster-card glass-panel" style={{ padding: '24px' }}>
-                <div className="roster-card-header" style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', padding: 0, marginBottom: '16px' }}>
-                  <Users size={18} className="roster-icon" />
-                  <h3>Enrolled Employees</h3>
-                </div>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                  Select an employee row to view course assessment results and test scores.
-                </p>
 
-                <div className="roster-table-wrapper">
-                  <table className="roster-table">
-                    <thead>
-                      <tr>
-                        <th>Employee Name</th>
-                        <th>Employee Code</th>
-                        <th>Email Contact</th>
-                        <th>Active Course</th>
-                        <th>Courses Taken</th>
-                        <th>Badge Earned</th>
-                        <th>Current Completion</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {roster.map((emp) => {
-                        const badgeObj = getBadgeForCompletions(emp.coursesTaken);
-                        return (
-                          <tr key={emp.id} onClick={() => setSelectedAuditEmp(emp)} style={{ cursor: 'pointer' }}>
-                            <td className="emp-name-cell" style={{ color: 'var(--accent-color)' }}>{emp.name}</td>
-                            <td><code>{emp.code}</code></td>
-                            <td>{emp.email}</td>
-                            <td><span className="emp-course-badge">{emp.assignedCourse}</span></td>
-                            <td style={{ fontWeight: '600', paddingLeft: '24px' }}>{emp.coursesTaken}</td>
-                            <td>
-                              {badgeObj ? (
-                                <span className="employee-badge-tag" style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  padding: '4px 10px',
-                                  borderRadius: '12px',
-                                  background: badgeObj.color,
-                                  color: '#fff',
-                                  fontSize: '0.72rem',
-                                  fontWeight: '700',
-                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                }}>
-                                  <span>{badgeObj.icon}</span>
-                                  <span>{badgeObj.name}</span>
-                                </span>
-                              ) : (
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontStyle: 'italic' }}>None</span>
-                              )}
-                            </td>
-                            <td>
-                              <div className="roster-progress-group">
-                                <div className="mini-bar-container">
-                                  <div className="mini-bar-fill" style={{ width: `${emp.progressPercent}%` }}></div>
-                                </div>
-                                <span className="roster-percent-text">{emp.progressPercent}%</span>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
             </div>
           )}
         </div>
