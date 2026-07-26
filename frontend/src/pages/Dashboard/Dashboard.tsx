@@ -2137,27 +2137,7 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Widget 5: Department Enrollment Trend (Graphical SVG Line Chart) */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', gridColumn: '1 / -1' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                <div>
-                  <h4 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>Department Enrollment Trend ({dept})</h4>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Graphical timeline of course enrollments over recent months</span>
-                </div>
-              </div>
-              <SVGLineChart 
-                data={enrollmentTrendData && enrollmentTrendData.length > 0 ? enrollmentTrendData : [
-                  { label: 'Jan', value: 12 },
-                  { label: 'Feb', value: 18 },
-                  { label: 'Mar', value: 25 },
-                  { label: 'Apr', value: 32 },
-                  { label: 'May', value: 40 },
-                  { label: 'Jun', value: 48 }
-                ]} 
-                yAxisLabel="Enrolled Count"
-                xAxisLabel="Monthly Timeline"
-              />
-            </div>
+
 
           </div>
 
@@ -2604,15 +2584,7 @@ export const Dashboard: React.FC = () => {
           {/* BI Charts Grid Layout - 6 Core Analytics Widgets */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px', marginBottom: '32px' }}>
             
-            {/* 1. Enrollment Trend Over Time (Line Chart) */}
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Enrollment Trend</h3>
-              <SVGLineChart 
-                data={enrollmentTrendData.length > 0 ? enrollmentTrendData : [{ label: 'Baseline', value: 0 }]} 
-                yAxisLabel="Enrolled Count"
-                xAxisLabel="Monthly Timeline"
-              />
-            </div>
+
 
             {/* 2. Department-wise Performance Comparison (Bar Chart) */}
             <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
