@@ -58,49 +58,178 @@ const SVGDonutChart: React.FC<{ items: { label: string; value: number; color: st
 
 // Pure SVG Line Chart Component (Zero External Dependencies)
 const SVGLineChart: React.FC<{ data: { label: string; value: number }[] }> = ({ data }) => {
-  const maxVal = Math.max(...data.map(d => d.value)) * 1.2 || 100;
-  const width = 300;
-  const height = 130;
-  const points = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * width;
-    const y = height - (d.value / maxVal) * height;
-    return `${x},${y}`;
-  }).join(' ');
+  if (!data || data.length === 0) return <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', padding: '16px 0' }}>No trend data available.</p>;
+
+  // Dimensions & Padding
+  const width = 500;
+  const height = 220;
+  const paddingLeft = 45;
+  const paddingRight = 15;
+  const paddingTop = 15;
+  const paddingBottom = 35;
+
+  const chartWidth = width - paddingLeft - paddingRight;
+  const chartHeight = height - paddingTop - paddingBottom;
+
+  // Max value calculation with fallback minimum
+  const rawMax = Math.max(...data.map(d => d.value));
+  const maxVal = rawMax === 0 ? 10 : Math.ceil(rawMax * 1.1);
+
+  // Generate 4 nice Y-axis ticks
+  const yTicks = [
+    0,
+    Math.round(maxVal * 0.33),
+    Math.round(maxVal * 0.66),
+    maxVal
+  ];
+
+  // Coordinates Mapping
+  const pts = data.map((d, i) => {
+    const x = paddingLeft + (data.length > 1 ? (i / (data.length - 1)) * chartWidth : chartWidth / 2);
+    const y = paddingTop + chartHeight - (d.value / maxVal) * chartHeight;
+    return { x, y };
+  });
+
+  // Construct Cubic Bezier Spline Path
+  const getBezierPath = (points: { x: number; y: number }[]) => {
+    if (points.length === 0) return '';
+    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+    let path = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i];
+      const p1 = points[i + 1];
+      const cpX1 = p0.x + (p1.x - p0.x) / 3;
+      const cpY1 = p0.y;
+      const cpX2 = p0.x + 2 * (p1.x - p0.x) / 3;
+      const cpY2 = p1.y;
+      path += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${p1.x} ${p1.y}`;
+    }
+    return path;
+  };
+
+  const bezierPath = getBezierPath(pts);
+  const xStart = pts[0]?.x || paddingLeft;
+  const xEnd = pts[pts.length - 1]?.x || (width - paddingRight);
+  const yBottom = paddingTop + chartHeight;
 
   return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: '140px', overflow: 'visible' }}>
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+      <svg 
+        viewBox={`0 0 ${width} ${height}`} 
+        style={{ width: '100%', height: 'auto', overflow: 'visible' }}
+      >
         <defs>
-          <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#00f2fe" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#00f2fe" stopOpacity="0.0" />
+          {/* Subtle area gradient matching the accent color theme */}
+          <linearGradient id="chartAreaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent-color)" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="var(--accent-color)" stopOpacity="0.0" />
           </linearGradient>
         </defs>
-        <polygon
-          points={`0,${height} ${points} ${width},${height}`}
-          fill="url(#lineGrad)"
+
+        {/* Dashboard Grid Lines (Horizontal) */}
+        {yTicks.map((tick, i) => {
+          const y = paddingTop + chartHeight - (tick / maxVal) * chartHeight;
+          return (
+            <g key={i}>
+              <line 
+                x1={paddingLeft} 
+                y1={y} 
+                x2={width - paddingRight} 
+                y2={y} 
+                stroke="var(--border-color)" 
+                strokeWidth="1" 
+                strokeDasharray="4 4" 
+                opacity="0.6"
+              />
+              <text 
+                x={paddingLeft - 10} 
+                y={y + 4} 
+                textAnchor="end" 
+                fill="var(--text-secondary)" 
+                style={{ fontSize: '10px', fontWeight: '700' }}
+              >
+                {tick}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Y Axis Line */}
+        <line 
+          x1={paddingLeft} 
+          y1={paddingTop} 
+          x2={paddingLeft} 
+          y2={yBottom} 
+          stroke="var(--border-color)" 
+          strokeWidth="1.5" 
         />
-        <polyline
+
+        {/* X Axis Line */}
+        <line 
+          x1={paddingLeft} 
+          y1={yBottom} 
+          x2={width - paddingRight} 
+          y2={yBottom} 
+          stroke="var(--border-color)" 
+          strokeWidth="1.5" 
+        />
+
+        {/* Area Fill */}
+        {pts.length > 1 && (
+          <path
+            d={`${bezierPath} L ${xEnd} ${yBottom} L ${xStart} ${yBottom} Z`}
+            fill="url(#chartAreaGrad)"
+          />
+        )}
+
+        {/* Main Line Stroke */}
+        <path
+          d={bezierPath}
           fill="none"
-          stroke="#00f2fe"
-          strokeWidth="3"
-          points={points}
+          stroke="var(--accent-color)"
+          strokeWidth="3.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+
+        {/* Data Point Dots & Pulsing Highlights */}
+        {pts.map((pt, i) => (
+          <g key={i}>
+            <circle 
+              cx={pt.x} 
+              cy={pt.y} 
+              r="6" 
+              fill="var(--accent-color)" 
+              opacity="0.18" 
+            />
+            <circle 
+              cx={pt.x} 
+              cy={pt.y} 
+              r="3.5" 
+              fill="var(--accent-color)" 
+              stroke="var(--bg-card)" 
+              strokeWidth="2" 
+            />
+          </g>
+        ))}
+
+        {/* X-Axis Labels */}
         {data.map((d, i) => {
-          const x = (i / (data.length - 1)) * width;
-          const y = height - (d.value / maxVal) * height;
+          const x = paddingLeft + (data.length > 1 ? (i / (data.length - 1)) * chartWidth : chartWidth / 2);
           return (
-            <circle key={i} cx={x} cy={y} r="4" fill="#00f2fe" stroke="var(--bg-card)" strokeWidth="2" />
+            <text 
+              key={i}
+              x={x} 
+              y={height - 12} 
+              textAnchor="middle" 
+              fill="var(--text-secondary)" 
+              style={{ fontSize: '10px', fontWeight: '700' }}
+            >
+              {d.label}
+            </text>
           );
         })}
       </svg>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-secondary)', paddingTop: '4px' }}>
-        {data.map((d, i) => (
-          <span key={i}>{d.label}</span>
-        ))}
-      </div>
     </div>
   );
 };
