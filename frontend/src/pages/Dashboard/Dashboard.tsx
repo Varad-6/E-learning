@@ -113,7 +113,7 @@ const SVGLineChart: React.FC<{ data: { label: string; value: number }[] }> = ({ 
   const yBottom = paddingTop + chartHeight;
 
   return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ width: '100%', maxWidth: '640px', margin: '0 auto', padding: '8px 0' }}>
       <svg 
         viewBox={`0 0 ${width} ${height}`} 
         style={{ width: '100%', height: 'auto', overflow: 'visible' }}
