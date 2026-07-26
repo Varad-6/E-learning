@@ -29,7 +29,9 @@ interface ExamDetails {
   questions: {
     id: string;
     question_text: string;
-    question_type: 'short_answer' | 'descriptive' | 'file_upload';
+    question_type: 'mcq' | 'msq' | 'short_answer' | 'descriptive' | 'file_upload';
+    options?: string[];
+    correct_answer?: any;
   }[];
 }
 
@@ -44,7 +46,7 @@ export const ExamsCenter: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'toAttempt' | 'awaitingEvaluation' | 'evaluated'>('toAttempt');
 
   // Exam Player Workspace States
-  const [answers, setAnswers] = useState<{ [qId: string]: string }>({});
+  const [answers, setAnswers] = useState<{ [qId: string]: any }>({});
   const [uploadedFiles, setUploadedFiles] = useState<{ [qId: string]: { name: string; url: string } }>({});
   const [uploadingQId, setUploadingQId] = useState<string | null>(null);
   
@@ -59,7 +61,7 @@ export const ExamsCenter: React.FC = () => {
   const fetchCategorizedExams = async () => {
     try {
       setLoading(true);
-      const res = await apiCall('/api/employee/exams');
+      const res = await apiCall('/api/exams/employee/exams');
       if (res.ok) {
         const data = await res.json();
         setToAttempt(data.toAttempt || []);
@@ -154,8 +156,8 @@ export const ExamsCenter: React.FC = () => {
     timerRef.current = setInterval(tick, 1000);
   };
 
-  const handleAnswerChange = (qId: string, text: string) => {
-    setAnswers({ ...answers, [qId]: text });
+  const handleAnswerChange = (qId: string, value: any) => {
+    setAnswers({ ...answers, [qId]: value });
   };
 
   const handleFileUpload = async (qId: string, file: File) => {
@@ -223,7 +225,11 @@ export const ExamsCenter: React.FC = () => {
       if (q.question_type === 'file_upload') {
         return !uploadedFiles[q.id];
       }
-      return !answers[q.id] || !answers[q.id].trim();
+      if (Array.isArray(answers[q.id])) {
+        return answers[q.id].length === 0;
+      }
+      const ansVal = answers[q.id];
+      return ansVal === undefined || ansVal === null || String(ansVal).trim() === '';
     });
 
     if (unanswered.length > 0) {
@@ -327,6 +333,84 @@ export const ExamsCenter: React.FC = () => {
               <h4 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', lineHeight: '1.4' }}>
                 {q.question_text}
               </h4>
+
+              {q.question_type === 'mcq' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {(q.options || []).map((opt: string, optIdx: number) => {
+                    const isSelected = String(answers[q.id]) === String(optIdx);
+                    return (
+                      <label 
+                        key={optIdx} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '12px', 
+                          padding: '12px 16px', 
+                          borderRadius: '8px', 
+                          background: isSelected ? 'var(--accent-glow)' : 'var(--bg-main)', 
+                          border: isSelected ? '1px solid var(--accent-color)' : '1px solid var(--border-color)', 
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        <input 
+                          type="radio" 
+                          name={`mcq_${q.id}`} 
+                          checked={isSelected}
+                          onChange={() => handleAnswerChange(q.id, String(optIdx))}
+                          style={{ accentColor: 'var(--accent-color)', width: '18px', height: '18px' }}
+                        />
+                        <span style={{ fontSize: '0.92rem', color: 'var(--text-primary)' }}>{opt}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+              {q.question_type === 'msq' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {(q.options || []).map((opt: string, optIdx: number) => {
+                    const selectedArr = Array.isArray(answers[q.id]) ? answers[q.id] : (answers[q.id] ? [answers[q.id]] : []);
+                    const isChecked = selectedArr.map(String).includes(String(optIdx));
+                    
+                    const toggleOption = () => {
+                      const strIdx = String(optIdx);
+                      let updated: string[];
+                      if (isChecked) {
+                        updated = selectedArr.map(String).filter((item: string) => item !== strIdx);
+                      } else {
+                        updated = [...selectedArr.map(String), strIdx];
+                      }
+                      handleAnswerChange(q.id, updated);
+                    };
+
+                    return (
+                      <label 
+                        key={optIdx} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '12px', 
+                          padding: '12px 16px', 
+                          borderRadius: '8px', 
+                          background: isChecked ? 'var(--accent-glow)' : 'var(--bg-main)', 
+                          border: isChecked ? '1px solid var(--accent-color)' : '1px solid var(--border-color)', 
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        <input 
+                          type="checkbox" 
+                          checked={isChecked}
+                          onChange={toggleOption}
+                          style={{ accentColor: 'var(--accent-color)', width: '18px', height: '18px' }}
+                        />
+                        <span style={{ fontSize: '0.92rem', color: 'var(--text-primary)' }}>{opt}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
 
               {q.question_type === 'short_answer' && (
                 <input 

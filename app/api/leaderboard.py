@@ -33,14 +33,9 @@ def get_leaderboard(
     is_manager = "COURSE_MANAGER" in user_roles and not is_admin_or_hr
     is_employee_only = "EMPLOYEE" in user_roles and not (is_admin_or_hr or is_manager)
 
-    if is_employee_only:
-        raise HTTPException(
-            status_code=403,
-            detail="Employees are restricted from accessing leaderboard rankings."
-        )
-
-    if is_manager:
-        scope = "department"
+    if is_employee_only or is_manager:
+        if scope != "exam":
+            scope = "department"
         department_id = current_user.department_id
 
     # Fetch lists for dropdown selectors and department summary cards
@@ -255,7 +250,8 @@ def get_leaderboard(
         )
 
         rows = query.all()
-        sorted_rows = sorted(rows, key=lambda x: -float(x.avg_score))
+        # Sort by score DESC, then first_name ASC, last_name ASC
+        sorted_rows = sorted(rows, key=lambda x: (-float(x.avg_score), (x.first_name or '').lower(), (x.last_name or '').lower()))
 
         # Query historical data (before 30 days ago) for delta
         prev_query = db.query(
@@ -277,14 +273,15 @@ def get_leaderboard(
             
         prev_rows = prev_query.group_by(
             ExamSubmission.user_id
-        ).having(
-            func.count(ExamSubmission.id) >= min_exams
         ).all()
         
         sorted_prev = sorted(prev_rows, key=lambda x: -float(x.avg_score))
         prev_ranks = {str(row.user_id): idx + 1 for idx, row in enumerate(sorted_prev)}
 
+        already_ranked_ids = set()
+
         for idx, r in enumerate(sorted_rows):
+            already_ranked_ids.add(str(r.user_id))
             curr_rank = idx + 1
             prev_rank = prev_ranks.get(str(r.user_id))
             if prev_rank is not None:
@@ -315,6 +312,34 @@ def get_leaderboard(
                 "delta": delta,
                 "badge_name": badge_name
             })
+
+        # Also append 0-score / unattempted employees for department scope
+        if scope == "department" and target_dept_id:
+            dept_users = db.query(User).outerjoin(
+                Department, User.department_id == Department.id
+            ).filter(
+                User.department_id == target_dept_id,
+                User.is_active == True,
+                User.is_deleted == False
+            ).all()
+
+            unranked_users = [u for u in dept_users if str(u.id) not in already_ranked_ids]
+            unranked_users.sort(key=lambda u: ((u.first_name or '').lower(), (u.last_name or '').lower()))
+
+            current_next_rank = len(rankings) + 1
+            for u in unranked_users:
+                rankings.append({
+                    "rank": current_next_rank,
+                    "user_id": str(u.id),
+                    "user_name": f"{u.first_name} {u.last_name}",
+                    "employee_code": u.employee_code,
+                    "department_name": u.department.name if u.department else "General",
+                    "exams_completed": 0,
+                    "score": 0.0,
+                    "delta": "New",
+                    "badge_name": None
+                })
+                current_next_rank += 1
 
     # Compute current user rank
     current_user_rank = None

@@ -80,7 +80,12 @@ export const UserAdminStudio: React.FC = () => {
 
   useEffect(() => {
     const savedRole = localStorage.getItem('isLoggedInRole');
-    if (savedRole !== 'Admin' && savedRole !== 'HR Admin' && savedRole !== 'HR Manager' && savedRole !== 'HR') {
+    let rawRoles: string[] = [];
+    try { rawRoles = JSON.parse(localStorage.getItem('rawRoles') || '[]'); } catch {}
+    
+    const isAdmin = savedRole === 'Admin' || savedRole === 'HR Admin' || savedRole === 'HR Manager' || savedRole === 'HR' || rawRoles.includes('SYSTEM_ADMIN') || rawRoles.includes('HR_ADMIN');
+    
+    if (!isAdmin) {
       navigate('/dashboard');
     } else {
       loadData();
@@ -172,15 +177,18 @@ export const UserAdminStudio: React.FC = () => {
         body: JSON.stringify(payload)
       });
       if (res.ok) {
+        triggerToast(`User ${firstName} ${lastName} created successfully!`, 'success');
         setEmployeeCode(''); setFirstName(''); setLastName(''); setEmail(''); setPassword('');
         setSelectedDeptId(''); setSelectedRoles(['EMPLOYEE']); setFormErrors({});
         await loadData();
         setActiveTab('departments');
       } else {
-        alert("Failed to create user");
+        const errData = await res.json().catch(() => ({}));
+        triggerToast(errData.detail || 'Failed to create user.', 'error');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      triggerToast('Error creating user.', 'error');
     } finally {
       setFormLoading(false);
     }
@@ -271,7 +279,7 @@ export const UserAdminStudio: React.FC = () => {
           <Button variant={activeTab === 'create_department' ? 'primary' : 'outline'} leftIcon={<Plus size={16} />} onClick={() => { setActiveTab('create_department'); setSelectedDept(null); }}>
             Create Department
           </Button>
-          <Button variant={activeTab === 'create_user' ? 'primary' : 'outline'} leftIcon={<Plus size={16} />} onClick={() => { setActiveTab('create_user'); setSelectedDept(null); }}>
+          <Button id="btn-nav-add-user" variant={activeTab === 'create_user' ? 'primary' : 'outline'} leftIcon={<Plus size={16} />} onClick={() => { setActiveTab('create_user'); setSelectedDept(null); }}>
             Add User
           </Button>
         </div>
@@ -327,16 +335,13 @@ export const UserAdminStudio: React.FC = () => {
               </div>
             ) : (
               activeUsersToDisplay.map(user => (
-                <div key={user.id} className="personnel-card" onClick={() => handleOpenUserModal(user)}>
+                <div key={user.id} className="personnel-card" style={{ cursor: 'default' }}>
                   <div className="person-info">
                     <div className="person-avatar">{user.first_name[0]}{user.last_name[0]}</div>
                     <div>
                       <h4 className="person-name">{user.first_name} {user.last_name}</h4>
                       <span className="person-role">{user.employee_code} • {user.email}</span>
                     </div>
-                  </div>
-                  <div style={{ color: 'var(--text-muted)' }}>
-                    <BarChart3 size={20} />
                   </div>
                 </div>
               ))
@@ -579,32 +584,56 @@ export const UserAdminStudio: React.FC = () => {
               </div>
               <div>
                 <label className="form-label-styled">First Name</label>
-                <input className="form-input-styled" value={firstName} onChange={e => setFirstName(e.target.value)} />
+                <input className="form-input-styled" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First Name" />
               </div>
               <div>
                 <label className="form-label-styled">Last Name</label>
-                <input className="form-input-styled" value={lastName} onChange={e => setLastName(e.target.value)} />
+                <input className="form-input-styled" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last Name" />
               </div>
             </div>
             
             <div style={{ marginBottom: '20px' }}>
               <label className="form-label-styled">Password</label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <input className="form-input-styled" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} style={{ flex: 1 }} />
+                <input className="form-input-styled" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" style={{ flex: 1 }} />
                 <Button type="button" variant="outline" onClick={generateRandomPassword}>Generate</Button>
                 <Button type="button" variant="outline" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}</Button>
               </div>
             </div>
 
-            <div style={{ marginBottom: '32px' }}>
-              <label className="form-label-styled">Department Assignment</label>
-              <select className="form-input-styled" value={selectedDeptId} onChange={e => setSelectedDeptId(e.target.value)}>
-                <option value="">-- No Department --</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <label className="form-label-styled">User Role <span className="required-star">*</span></label>
+                <select 
+                  id="select-user-role"
+                  className="form-input-styled" 
+                  value={selectedRoles[0] || 'EMPLOYEE'} 
+                  onChange={e => setSelectedRoles([e.target.value])}
+                >
+                  <option value="EMPLOYEE">Employee (Learner)</option>
+                  <option value="COURSE_MANAGER">Department Manager</option>
+                  <option value="HR_ADMIN">HR Administrator</option>
+                  <option value="SYSTEM_ADMIN">System Administrator</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label-styled">
+                  Department Assignment {selectedRoles[0] === 'COURSE_MANAGER' ? <span className="required-star">*</span> : '(Optional)'}
+                </label>
+                <select 
+                  id="select-user-dept"
+                  className="form-input-styled" 
+                  value={selectedDeptId} 
+                  onChange={e => setSelectedDeptId(e.target.value)}
+                >
+                  <option value="">-- No Department (Unscoped) --</option>
+                  {departments.map(d => <option key={d.id} value={d.id}>{d.name} ({d.code})</option>)}
+                </select>
+              </div>
             </div>
 
-            <Button type="submit" variant="primary" style={{ width: '100%', padding: '12px', fontSize: '1rem' }}>
+            <Button type="submit" variant="primary" style={{ width: '100%', padding: '12px', fontSize: '1rem', marginTop: '12px' }}>
               Create Account
             </Button>
           </form>

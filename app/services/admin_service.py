@@ -62,6 +62,10 @@ class AdminService:
         db.add(user)
         db.commit()
         db.refresh(user)
+
+        from app.services.enrollment_service import EnrollmentService
+        EnrollmentService.auto_enroll_user_in_mandatory_courses(db, user.id)
+
         return user
 
     @staticmethod

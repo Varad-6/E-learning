@@ -91,10 +91,12 @@ export const Leaderboard: React.FC = () => {
         setDepartments(data.departments || []);
         setExams(data.exams || []);
         
-        if (isManager && data.departments && data.departments.length > 0) {
-          const mgrDept = data.departments[0];
-          setSelectedDept(mgrDept);
-          loadRankings(mgrDept.id, null);
+        if (data.departments && data.departments.length > 0) {
+          if (isManager || savedRole === 'Employee' || data.departments.length === 1) {
+            const userDept = data.departments[0];
+            setSelectedDept(userDept);
+            loadRankings(userDept.id, null);
+          }
         }
       } else {
         triggerToast('Failed to load department summaries.', 'error');
@@ -574,38 +576,57 @@ export const Leaderboard: React.FC = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {filteredRankings.map((user) => (
-                              <tr key={user.user_id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s ease' }} className="table-row-hover">
-                                <td style={{ padding: '14px 16px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {getRankBadge(user.rank)}
-                                    <span style={{ fontSize: '1.1rem' }} title={user.badge_name || "Bronze I"}>
-                                      {getBadgeEmoji(user.badge_name)}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '14px 16px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div style={{ 
-                                      width: '32px', 
-                                      height: '32px', 
-                                      borderRadius: '50%', 
-                                      background: 'var(--accent-glow)', 
-                                      color: 'var(--accent-color)', 
-                                      display: 'flex', 
-                                      alignItems: 'center', 
-                                      justifyContent: 'center', 
-                                      fontWeight: 800, 
-                                      fontSize: '0.8rem' 
-                                    }}>
-                                      {user.user_name.split(' ').map(n => n[0]).join('')}
+                            {filteredRankings.map((user) => {
+                              const profileEmpId = localStorage.getItem('profileEmpId');
+                              const profileName = localStorage.getItem('profileName');
+                              const isSelf = (profileEmpId && user.employee_code === profileEmpId) || (profileName && user.user_name.toLowerCase() === profileName.toLowerCase());
+
+                              return (
+                                <tr 
+                                  key={user.user_id} 
+                                  style={{ 
+                                    borderBottom: '1px solid var(--border-color)', 
+                                    transition: 'background 0.2s ease',
+                                    background: isSelf ? 'rgba(59, 130, 246, 0.08)' : undefined,
+                                    borderLeft: isSelf ? '4px solid var(--accent-color)' : undefined
+                                  }} 
+                                  className="table-row-hover"
+                                >
+                                  <td style={{ padding: '14px 16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      {getRankBadge(user.rank)}
+                                      <span style={{ fontSize: '1.1rem' }} title={user.badge_name || "Bronze I"}>
+                                        {getBadgeEmoji(user.badge_name)}
+                                      </span>
                                     </div>
-                                    <div>
-                                      <strong style={{ color: 'var(--text-primary)', display: 'block', fontSize: '0.88rem' }}>{user.user_name}</strong>
-                                      <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{user.employee_code} &bull; {user.department_name} &bull; <strong style={{ color: 'var(--accent-color)' }}>{user.badge_name || "Bronze I"}</strong></span>
+                                  </td>
+                                  <td style={{ padding: '14px 16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                      <div style={{ 
+                                        width: '32px', 
+                                        height: '32px', 
+                                        borderRadius: '50%', 
+                                        background: isSelf ? 'var(--accent-color)' : 'var(--accent-glow)', 
+                                        color: isSelf ? '#fff' : 'var(--accent-color)', 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center', 
+                                        fontWeight: 800, 
+                                        fontSize: '0.8rem' 
+                                      }}>
+                                        {user.user_name.split(' ').map(n => n[0]).join('')}
+                                      </div>
+                                      <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <strong style={{ color: 'var(--text-primary)', fontSize: '0.88rem' }}>{user.user_name}</strong>
+                                          {isSelf && (
+                                            <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'var(--accent-color)', color: '#fff', fontWeight: 800 }}>YOU</span>
+                                          )}
+                                        </div>
+                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{user.employee_code} &bull; {user.department_name} &bull; <strong style={{ color: 'var(--accent-color)' }}>{user.badge_name || "Bronze I"}</strong></span>
+                                      </div>
                                     </div>
-                                  </div>
-                                </td>
+                                  </td>
                                 <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                                   <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--accent-color)', padding: '4px 10px', borderRadius: '6px', background: 'var(--accent-glow)' }}>
                                     {user.score} / 10
@@ -620,8 +641,9 @@ export const Leaderboard: React.FC = () => {
                                 <td style={{ padding: '14px 16px', textAlign: 'right', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
                                   {user.time_taken ? `Duration: ${user.time_taken}` : 'Department Ranks'}
                                 </td>
-                              </tr>
-                            ))}
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

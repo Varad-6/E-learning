@@ -18,6 +18,7 @@ interface CourseData {
   creatorName: string;
   creatorRole: string;
   departmentName: string;
+  is_mandatory?: boolean;
   department_id?: string;
   createdDate: string;
 }
@@ -34,15 +35,18 @@ export const ViewCourses: React.FC = () => {
   const fetchDBCourses = async () => {
     try {
       setLoading(true);
-      const response = await apiCall('/api/courses');
-      if (response.ok) {
-        const data = await response.json();
+
+      // Fetch available courses for the employee's department via dedicated available endpoint
+      // This correctly returns only published courses scoped to the employee's department.
+      const availRes = await apiCall('/api/courses/available');
+      if (availRes.ok) {
+        const data = await availRes.json();
         const dbCourses = data.courses || [];
         const mapped = dbCourses.map((c: any) => {
           let frontendStatus: 'Draft' | 'Pending' | 'Approved' | 'Rejected' = 'Draft';
           const backendStatus = c.status?.toLowerCase();
           if (backendStatus === 'pending') frontendStatus = 'Pending';
-          else if (backendStatus === 'approved') frontendStatus = 'Approved';
+          else if (backendStatus === 'approved' || backendStatus === 'published') frontendStatus = 'Approved';
           else if (backendStatus === 'rejected') frontendStatus = 'Rejected';
           
           return {
@@ -54,9 +58,10 @@ export const ViewCourses: React.FC = () => {
             duration: c.duration || '10 hours',
             is_published: c.is_published,
             status: frontendStatus,
-            creatorName: c.creator_name || 'John Doe',
-            creatorRole: c.creator_role || 'Employee',
-            departmentName: c.department_name || 'AI',
+            creatorName: c.creator_name || '',
+            creatorRole: c.creator_role || '',
+            departmentName: c.department_name || '',
+            is_mandatory: c.is_mandatory || false,
             department_id: c.department_id,
             createdDate: c.created_at ? c.created_at.split('T')[0] : new Date().toISOString().split('T')[0]
           };
@@ -64,7 +69,7 @@ export const ViewCourses: React.FC = () => {
         setCourses(mapped);
       }
 
-      // Fetch enrollments
+      // Fetch enrollments (In Progress & Completed)
       const enrollRes = await apiCall('/api/enrollments/my-courses');
       if (enrollRes.ok) {
         const enrollData = await enrollRes.json();
@@ -75,7 +80,7 @@ export const ViewCourses: React.FC = () => {
           return {
             id: e.id,
             courseId: e.course_id,
-            courseCode: e.course_code || 'AI-101',
+            courseCode: e.course_code || '',
             title: e.course_title || 'Enrolled Course',
             progressPercent: progress,
             difficulty: 'Beginner' as const
@@ -89,6 +94,7 @@ export const ViewCourses: React.FC = () => {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchDBCourses();
@@ -259,7 +265,7 @@ export const ViewCourses: React.FC = () => {
                         onClick={() => handleLaunchPlayer(item.id)}
                         style={{ width: '100%', height: '40px', fontWeight: '700' }}
                       >
-                        {item.progressPercent > 0 ? 'Resume Course' : 'Start Course'}
+                        {item.progressPercent > 0 ? 'Continue Course' : 'Start Course'}
                       </Button>
                     </div>
                   </div>
@@ -365,20 +371,37 @@ export const ViewCourses: React.FC = () => {
                     }}
                   >
                     <div>
-                      <span 
-                        className="course-code-tag" 
-                        style={{ 
-                          padding: '2px 8px', 
-                          borderRadius: '12px', 
-                          background: 'var(--accent-glow)', 
-                          color: 'var(--accent-color)', 
-                          fontSize: '0.7rem', 
-                          fontWeight: '800',
-                          textTransform: 'uppercase'
-                        }}
-                      >
-                        {course.course_code}
-                      </span>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <span 
+                          className="course-code-tag" 
+                          style={{ 
+                            padding: '2px 8px', 
+                            borderRadius: '12px', 
+                            background: 'var(--accent-glow)', 
+                            color: 'var(--accent-color)', 
+                            fontSize: '0.7rem', 
+                            fontWeight: '800',
+                            textTransform: 'uppercase'
+                          }}
+                        >
+                          {course.course_code}
+                        </span>
+                        {course.is_mandatory && (
+                          <span 
+                            style={{ 
+                              padding: '2px 8px', 
+                              borderRadius: '12px', 
+                              background: 'rgba(239, 68, 68, 0.1)', 
+                              color: '#ef4444', 
+                              fontSize: '0.7rem', 
+                              fontWeight: '800',
+                              border: '1px solid rgba(239, 68, 68, 0.2)'
+                            }}
+                          >
+                            Mandatory
+                          </span>
+                        )}
+                      </div>
                       <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
                         {course.title}
                       </h4>

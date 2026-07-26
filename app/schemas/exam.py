@@ -5,7 +5,9 @@ from datetime import datetime
 
 class ExamQuestionBase(BaseModel):
     question_text: str
-    question_type: str  # short_answer, descriptive, file_upload
+    question_type: str  # mcq, msq, short_answer, descriptive, file_upload
+    options: Optional[List[Any]] = None
+    correct_answer: Optional[Any] = None
 
 class ExamQuestionCreate(ExamQuestionBase):
     pass
@@ -38,7 +40,7 @@ class ExamResponse(ExamBase):
         from_attributes = True
 
 class ExamSubmissionCreate(BaseModel):
-    answers: Dict[str, str]  # maps question_id to text response
+    answers: Dict[str, Any]  # maps question_id to text response, option index, array of indices, or file path
 
 class ExamGradeCreate(BaseModel):
     scores: Dict[str, int]  # maps question_id to score 0-10

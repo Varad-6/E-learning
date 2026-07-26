@@ -6,6 +6,7 @@ import {
   FileText, Download, Menu, X, Lock, Unlock, Clock, CheckCircle
 } from 'lucide-react';
 import { apiCall } from '../../services/api';
+import { Button } from '../../components/Button/Button';
 import './CoursePlayer.css';
 
 interface ContentItem {
@@ -540,6 +541,13 @@ export const CoursePlayer: React.FC = () => {
 
   const handleNextSection = async () => {
     const currentItem = flatContents[activeContentIndex];
+    
+    // Graded quiz lock enforcement: cannot bypass quiz without submitting answers
+    if (currentItem && currentItem.type === 'quiz' && !quizSubmitted) {
+      alert('Module Test Locked: You must answer all questions and submit the assessment before advancing to the next module!');
+      return;
+    }
+
     if (currentItem && !completedContentIds.has(currentItem.id)) {
       await handleMarkContentComplete(currentItem.id);
     }
@@ -751,7 +759,7 @@ export const CoursePlayer: React.FC = () => {
               </div>
             </div>
 
-            {/* Launch Study Player CTA Button */}
+            {/* Dynamic Launch CTA Button */}
             <div style={{ marginTop: '12px' }}>
               <Button 
                 variant="primary" 
@@ -759,7 +767,11 @@ export const CoursePlayer: React.FC = () => {
                 onClick={() => setShowLanding(false)} 
                 style={{ width: '100%', height: '54px', fontSize: '1.05rem', fontWeight: 'bold' }}
               >
-                Launch Study Player
+                {enrollment?.status === 'completed' || (enrollment?.progress_percent || 0) >= 100
+                  ? 'Review Course' 
+                  : (enrollment?.progress_percent || 0) > 0 
+                  ? 'Continue Course' 
+                  : 'Start Course'}
               </Button>
             </div>
           </div>

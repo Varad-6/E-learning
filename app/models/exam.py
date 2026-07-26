@@ -54,7 +54,9 @@ class ExamQuestion(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     exam_id = Column(UUID(as_uuid=True), ForeignKey("exams.id", ondelete="CASCADE"), nullable=False)
     question_text = Column(String, nullable=False)
-    question_type = Column(String, nullable=False)  # short_answer, descriptive, file_upload
+    question_type = Column(String, nullable=False)  # mcq, msq, short_answer, descriptive, file_upload
+    options = Column(JSON, nullable=True)  # List of options for MCQ/MSQ
+    correct_answer = Column(JSON, nullable=True)  # Single value for MCQ, List of values for MSQ
 
     # Relationships
     exam = relationship("Exam", back_populates="questions")
@@ -111,4 +113,19 @@ class ExamReview(Base):
     submitter = relationship("User", foreign_keys=[submitted_by])
     reviewer = relationship("User", foreign_keys=[reviewer_id])
     department = relationship("Department")
+
+
+class PendingAIQuestion(Base):
+    __tablename__ = "pending_ai_questions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    batch_id = Column(UUID(as_uuid=True), nullable=False, default=uuid.uuid4)
+    exam_id = Column(UUID(as_uuid=True), ForeignKey("exams.id", ondelete="CASCADE"), nullable=True)
+    question_text = Column(String, nullable=False)
+    question_type = Column(String, nullable=False)  # mcq, msq, short_answer, descriptive
+    options = Column(JSON, nullable=True)
+    correct_answer = Column(JSON, nullable=True)
+    difficulty_level = Column(String, nullable=True, default="intermediate")
+    status = Column(String, nullable=False, default="pending_review")  # pending_review, approved, discarded
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

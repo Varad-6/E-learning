@@ -44,6 +44,9 @@ class CourseService:
         db.add(db_course)
         db.commit()
         db.refresh(db_course)
+        if db_course.is_mandatory:
+            from app.services.enrollment_service import EnrollmentService
+            EnrollmentService.auto_enroll_mandatory_course(db, db_course.id)
         return db_course
 
     @staticmethod
@@ -141,20 +144,28 @@ class CourseService:
         
         # Extract user roles
         roles = [r.name for r in current_user.roles]
-        
-        if "SYSTEM_ADMIN" not in roles:
+        is_global_admin = any(r in roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN"]) or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
+        is_manager = any(r in roles for r in ["MANAGER", "COURSE_MANAGER"])
+
+        if not is_global_admin:
             from sqlalchemy import or_, and_
-            # Learners should only see published courses belonging to their department,
-            # or any courses they created themselves (drafts, pending, rejected, approved).
-            query = query.filter(
-                or_(
-                    Course.created_by == current_user.id,
-                    and_(
-                        Course.status == "published",
+            if is_manager:
+                query = query.filter(
+                    or_(
+                        Course.created_by == current_user.id,
                         Course.department_id == current_user.department_id
                     )
                 )
-            )
+            else:
+                query = query.filter(
+                    or_(
+                        Course.created_by == current_user.id,
+                        and_(
+                            Course.status.in_(["approved", "published"]),
+                            Course.department_id == current_user.department_id
+                        )
+                    )
+                )
             
         if status_filter:
             query = query.filter(Course.status == status_filter)
@@ -190,6 +201,10 @@ class CourseService:
         db_course.published_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_course)
+
+        from app.services.enrollment_service import EnrollmentService
+        EnrollmentService.auto_enroll_mandatory_course(db, db_course.id)
+
         return db_course
 
     @staticmethod

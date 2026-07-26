@@ -119,7 +119,7 @@ def get_employee_dashboard(
 
     available_query = db.query(Course).filter(
         Course.is_published == True,
-        Course.status == "approved",
+        Course.status.in_(["approved", "published"]),
         Course.id.notin_(enrolled_course_ids)
     )
 
@@ -159,13 +159,17 @@ def get_employee_dashboard(
         courses_remaining=courses_remaining
     )
 
-    # 5. Upcoming Exams
-    exams = db.query(Exam).join(
-        CourseEnrollment, CourseEnrollment.course_id == Exam.course_id
-    ).filter(
-        CourseEnrollment.user_id == current_user.id,
-        Exam.is_published == True
-    ).all()
+    # 5. Upcoming Exams — query published exams for the employee's department directly,
+    # not joined through enrollments (exams are assigned department-wide, independent of enrollment).
+    from sqlalchemy import or_ as sql_or
+    exam_query = db.query(Exam).filter(
+        Exam.is_published == True,
+        sql_or(
+            Exam.department_id == current_user.department_id,
+            Exam.department_id.is_(None)
+        )
+    )
+    exams = exam_query.all()
 
     upcoming_exams = []
     for exam in exams:
@@ -186,11 +190,14 @@ def get_employee_dashboard(
             db.refresh(sub)
 
         if sub.status in ["assigned", "in_progress"]:
-            enrollment = db.query(CourseEnrollment).filter(
-                CourseEnrollment.user_id == current_user.id,
-                CourseEnrollment.course_id == exam.course_id
-            ).first()
-            due_date = enrollment.expires_at if enrollment else None
+            due_date = None
+            # Try to find a related enrollment for deadline info
+            if exam.course_id:
+                enrollment = db.query(CourseEnrollment).filter(
+                    CourseEnrollment.user_id == current_user.id,
+                    CourseEnrollment.course_id == exam.course_id
+                ).first()
+                due_date = enrollment.expires_at if enrollment else None
 
             upcoming_exams.append(
                 DashboardExamItem(
@@ -283,7 +290,7 @@ def get_employee_dashboard(
         course_count = db.query(Course).filter(
             Course.department_id == d.id,
             Course.is_published == True,
-            Course.status == "approved"
+            Course.status.in_(["approved", "published"])
         ).count()
 
         color = DEPT_COLORS.get(d.code, "#6b7280")

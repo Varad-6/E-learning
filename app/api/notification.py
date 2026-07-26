@@ -82,6 +82,38 @@ def mark_all_read(
     count = NotificationService.mark_all_as_read(db, user_id=current_user.id)
     return {"message": "All notifications marked as read", "count": count}
 
+@router.delete(
+    "/clear-all",
+    status_code=status.HTTP_200_OK,
+    summary="Clear All Notifications (DELETE)"
+)
+@router.post(
+    "/clear-all",
+    status_code=status.HTTP_200_OK,
+    summary="Clear All Notifications (POST)"
+)
+def clear_all_notifications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    count = NotificationService.clear_all_notifications(db, user_id=current_user.id)
+    return {"message": "All notifications cleared", "count": count}
+
+@router.delete(
+    "/{notification_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Delete Single Notification"
+)
+def delete_notification(
+    notification_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    success = NotificationService.delete_notification(db, user_id=current_user.id, notification_id=notification_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return {"message": "Notification deleted"}
+
 @router.post(
     "/jobs/check-locks",
     status_code=status.HTTP_200_OK,

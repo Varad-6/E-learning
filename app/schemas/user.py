@@ -22,6 +22,7 @@ class UserResponse(BaseModel):
     must_change_password: bool
     created_at: datetime
     updated_at: datetime
+    roles: Optional[list[RoleResponse]] = []
 
     class Config:
         from_attributes = True

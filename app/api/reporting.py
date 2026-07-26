@@ -26,7 +26,7 @@ def get_departments_summary(
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
-    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
+    is_global_admin = any(r in user_roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN"]) or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
 
     # Scoping: Admin/HR sees all departments; Manager/Employee sees their own assigned department
     query = db.query(Department)
@@ -112,7 +112,7 @@ def get_department_employees(
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
-    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
+    is_global_admin = any(r in user_roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN"]) or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
 
     # Scoping check: Manager/Employee can only view their assigned department
     if not is_global_admin and current_user.department_id != department_id:
@@ -236,7 +236,7 @@ def get_employee_detail_profile(
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
-    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
+    is_global_admin = any(r in user_roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN"]) or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
 
     emp = db.query(User).filter(User.id == user_id).first()
     if not emp:
@@ -244,15 +244,16 @@ def get_employee_detail_profile(
 
     # Scoping check: users can view own profile; Admins/HR can view any; Managers/Employees can view within their department
     if current_user.id != user_id and not is_global_admin:
-        if current_user.department_id != emp.department_id:
+        if current_user.department_id and emp.department_id and current_user.department_id != emp.department_id:
             raise HTTPException(status_code=403, detail="Personnel can only view profiles within their department.")
 
-    # 1. Enrolled Courses (published only)
+    # 1. Enrolled Courses (published or approved)
+    from sqlalchemy import or_
     enrollments = db.query(CourseEnrollment).join(
         Course, CourseEnrollment.course_id == Course.id
     ).filter(
         CourseEnrollment.user_id == emp.id,
-        Course.status == "published"
+        or_(Course.status == "published", Course.status == "approved", Course.is_published == True)
     ).all()
     courses_data = []
     for enr in enrollments:
@@ -351,7 +352,7 @@ def get_employee_detail_profile(
             "id": str(ub.id),
             "badge_tier_id": str(ub.badge_tier_id),
             "name": ub.badge_tier.name,
-            "required_completions": ub.badge_tier.required_completions,
+            "required_completions": getattr(ub.badge_tier, 'courses_required_cumulative', 1),
             "awarded_at": ub.awarded_at.isoformat() if ub.awarded_at else None
         }
         for ub in user_badges

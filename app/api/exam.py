@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, HTTPException, File, UploadFile
+from fastapi import APIRouter, Depends, status, HTTPException, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List, Dict, Any
@@ -58,49 +58,128 @@ def create_exam(
         # Managers must create exams for their own department
         exam_in.department_id = current_user.department_id
 
-    # Create Exam starting as unpublished pending approval
+    # Create Exam — directly published vs. submitted for approval are two distinct paths
+    if exam_in.is_published:
+        # "Publish Directly" path: immediately live, no approval workflow
+        exam_status = "published"
+    else:
+        # "Submit for Approval" path: goes into review queue
+        exam_status = "pending"
+
     new_exam = Exam(
         course_id=exam_in.course_id,
         department_id=exam_in.department_id,
         title=exam_in.title,
         duration_minutes=exam_in.duration_minutes,
-        is_published=False,
-        status="pending",
+        is_published=exam_in.is_published,
+        status=exam_status,
         created_by=current_user.id
     )
     db.add(new_exam)
     db.flush()  # Get ID
 
     # Create corresponding ExamAssignment record (relational link for department targeting)
-    # Retroactive inclusion rule: All employees currently in target department (or all departments if NULL)
-    # automatically receive this exam when active.
     assignment = ExamAssignment(
         exam_id=new_exam.id,
         department_id=new_exam.department_id
     )
     db.add(assignment)
 
-    # Create corresponding ExamReview record
-    new_review = ExamReview(
-        exam_id=new_exam.id,
-        submitted_by=current_user.id,
-        status="pending",
-        department_id=new_exam.department_id
-    )
-    db.add(new_review)
+    # Only create ExamReview when submitting for approval — NOT when publishing directly.
+    # Directly published exams are already live and require no further approval step.
+    if not exam_in.is_published:
+        new_review = ExamReview(
+            exam_id=new_exam.id,
+            submitted_by=current_user.id,
+            status="pending",
+            department_id=new_exam.department_id
+        )
+        db.add(new_review)
 
     # Add questions
     for q in exam_in.questions:
         db_q = ExamQuestion(
             exam_id=new_exam.id,
             question_text=q.question_text,
-            question_type=q.question_type
+            question_type=q.question_type,
+            options=q.options,
+            correct_answer=q.correct_answer
         )
         db.add(db_q)
 
     db.commit()
     db.refresh(new_exam)
     return new_exam
+
+@router.get(
+    "/employee/exams",
+    summary="Get Categorized Employee Exams (toAttempt, awaitingEvaluation, evaluated)"
+)
+@router.get(
+    "/employees/me/exams",
+    summary="Get Categorized Employee Exams Alias"
+)
+def get_employee_categorized_exams(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    published_exams = db.query(Exam).filter(
+        Exam.is_published == True,
+        (Exam.department_id == current_user.department_id) | (Exam.department_id == None)
+    ).all()
+
+    to_attempt = []
+    awaiting_eval = []
+    evaluated = []
+
+    for exam in published_exams:
+        sub = db.query(ExamSubmission).filter(
+            ExamSubmission.exam_id == exam.id,
+            ExamSubmission.user_id == current_user.id
+        ).first()
+
+        if not sub:
+            sub = ExamSubmission(
+                exam_id=exam.id,
+                user_id=current_user.id,
+                status="assigned",
+                answers={}
+            )
+            db.add(sub)
+            db.commit()
+            db.refresh(sub)
+
+        course_title = exam.course.title if exam.course else "General Certification"
+        course_code = exam.course.course_code if exam.course else "GEN-101"
+        q_count = len(exam.questions) if exam.questions else 0
+
+        item = {
+            "id": str(sub.id),
+            "exam_id": str(exam.id),
+            "exam_title": exam.title,
+            "course_title": course_title,
+            "course_code": course_code,
+            "duration_minutes": exam.duration_minutes or 30,
+            "question_count": q_count,
+            "status": sub.status,
+            "started_at": sub.started_at.isoformat() if sub.started_at else None,
+            "submitted_at": sub.submitted_at.isoformat() if sub.submitted_at else None,
+            "overall_score": sub.grade.overall_score if (sub.status == "graded" and sub.grade) else None,
+            "overall_feedback": sub.grade.overall_feedback if (sub.status == "graded" and sub.grade) else None,
+        }
+
+        if sub.status in ["assigned", "in_progress"]:
+            to_attempt.append(item)
+        elif sub.status == "submitted":
+            awaiting_eval.append(item)
+        elif sub.status == "graded":
+            evaluated.append(item)
+
+    return {
+        "toAttempt": to_attempt,
+        "awaitingEvaluation": awaiting_eval,
+        "evaluated": evaluated
+    }
 
 @router.get(
     "/assigned",
@@ -166,6 +245,92 @@ def get_assigned_exams(
 
     return response_list
 
+@router.post(
+    "/{exam_id}/publish",
+    response_model=ExamResponse,
+    summary="Directly Publish an Exam",
+    description="Mark an exam as published and immediately live. Works on pending, approved, or draft exams. Does NOT create an ExamReview entry."
+)
+def publish_exam_directly(
+    exam_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user_roles = [r.name for r in current_user.roles]
+    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+        raise HTTPException(status_code=403, detail="Only Admins or Course Managers can publish exams.")
+
+    exam = db.query(Exam).filter(Exam.id == exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    exam.is_published = True
+    exam.status = "published"
+    db.commit()
+    db.refresh(exam)
+    return exam
+
+
+@router.get(
+    "/submissions",
+    response_model=List[ExamSubmissionResponse],
+    summary="Get Submissions List for Review"
+)
+def get_submissions(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user_roles = [r.name for r in current_user.roles]
+    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+        raise HTTPException(status_code=403, detail="Unauthorized role access.")
+
+    query = db.query(ExamSubmission).join(Exam, ExamSubmission.exam_id == Exam.id).filter(
+        ExamSubmission.status.in_(["submitted", "graded"])
+    )
+
+    if "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles:
+        pass
+    else:
+        from sqlalchemy import or_ as sql_or
+        from app.models.user import User as DBUser
+        query = query.join(DBUser, ExamSubmission.user_id == DBUser.id).filter(
+            sql_or(
+                Exam.created_by == current_user.id,
+                Exam.department_id == current_user.department_id,
+                DBUser.department_id == current_user.department_id
+            )
+        )
+
+    subs = query.all()
+
+    res = []
+    for s in subs:
+        dept_name = s.user.department.name if s.user and s.user.department else "General"
+        overall_score = s.grade.overall_score if s.grade else None
+        overall_feedback = s.grade.overall_feedback if s.grade else None
+        scores_dict = s.grade.scores if s.grade else None
+
+        res.append(
+            ExamSubmissionResponse(
+                id=s.id,
+                exam_id=s.exam_id,
+                user_id=s.user_id,
+                status=s.status,
+                started_at=s.started_at,
+                submitted_at=s.submitted_at,
+                answers=s.answers or {},
+                user_name=f"{s.user.first_name} {s.user.last_name}" if s.user else "Learner",
+                user_email=s.user.email if s.user else "",
+                department_name=dept_name,
+                exam_title=s.exam.title if s.exam else "Untitled Exam",
+                overall_score=overall_score,
+                overall_feedback=overall_feedback,
+                scores=scores_dict
+            )
+        )
+    return res
+
+
 @router.get(
     "/{exam_id}",
     response_model=ExamResponse,
@@ -197,7 +362,24 @@ def start_exam(
     ).first()
 
     if not sub:
-        raise HTTPException(status_code=404, detail="Assigned exam not found")
+        # Check if the exam is published and targets the user's department (or company-wide)
+        exam = db.query(Exam).filter(
+            Exam.id == exam_id,
+            Exam.is_published == True,
+            (Exam.department_id == current_user.department_id) | (Exam.department_id.is_(None))
+        ).first()
+        if not exam:
+            raise HTTPException(status_code=404, detail="Assigned exam not found")
+            
+        sub = ExamSubmission(
+            exam_id=exam_id,
+            user_id=current_user.id,
+            status="assigned",
+            answers={}
+        )
+        db.add(sub)
+        db.commit()
+        db.refresh(sub)
 
     if sub.status != "assigned":
         return ExamSubmissionResponse(
@@ -235,7 +417,7 @@ def start_exam(
 )
 def submit_exam(
     exam_id: UUID,
-    answers_in: Dict[str, str],
+    answers_in: Dict[str, Any],
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -262,8 +444,47 @@ def submit_exam(
             raise HTTPException(status_code=400, detail="Time limit exceeded. Exam has been locked and auto-submitted.")
 
     sub.answers = answers_in
-    sub.status = "submitted"
     sub.submitted_at = datetime.datetime.now(datetime.timezone.utc)
+    
+    # Auto-grade MCQ and MSQ questions
+    questions = db.query(ExamQuestion).filter(ExamQuestion.exam_id == sub.exam_id).all()
+    has_subjective = False
+    auto_scores = {}
+
+    for q in questions:
+        q_id_str = str(q.id)
+        user_ans = answers_in.get(q_id_str)
+        if q.question_type == "mcq":
+            if user_ans is not None and q.correct_answer is not None and str(user_ans).strip() == str(q.correct_answer).strip():
+                auto_scores[q_id_str] = 10
+            else:
+                auto_scores[q_id_str] = 0
+        elif q.question_type == "msq":
+            corr = q.correct_answer if isinstance(q.correct_answer, list) else ([q.correct_answer] if q.correct_answer is not None else [])
+            ans_list = user_ans if isinstance(user_ans, list) else ([user_ans] if user_ans is not None else [])
+            corr_set = set(str(x).strip() for x in corr)
+            ans_set = set(str(x).strip() for x in ans_list)
+            if corr_set and ans_set == corr_set:
+                auto_scores[q_id_str] = 10
+            else:
+                auto_scores[q_id_str] = 0
+        else:
+            has_subjective = True
+
+    if not has_subjective and questions:
+        sub.status = "graded"
+        overall = (sum(auto_scores.values()) / (len(questions) * 10)) * 10 if questions else 0.0
+        grade = ExamGrade(
+            submission_id=sub.id,
+            scores=auto_scores,
+            overall_score=round(overall, 1),
+            overall_feedback="Auto-graded objective assessment",
+            graded_by=None
+        )
+        db.add(grade)
+    else:
+        sub.status = "submitted"
+
     db.commit()
     db.refresh(sub)
 
@@ -345,64 +566,6 @@ def upload_submission_file(
 
     relative_url = f"/uploads/{safe_filename}"
     return {"file_url": relative_url, "original_name": filename}
-
-@router.get(
-    "/submissions",
-    response_model=List[ExamSubmissionResponse],
-    summary="Get Submissions List for Review"
-)
-def get_submissions(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    # Ensure current user is Admin or Manager
-    user_roles = [r.name for r in current_user.roles]
-    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
-        raise HTTPException(status_code=403, detail="Unauthorized role access.")
-
-    # Get submissions in submitted or graded state
-    query = db.query(ExamSubmission).join(Exam, ExamSubmission.exam_id == Exam.id).filter(
-        ExamSubmission.status.in_(["submitted", "graded"])
-    )
-
-    # CRITICAL BUSINESS RULE B: Submission Routing — Manager vs Admin Reviewer Logic
-    # 1. If Admin created exam -> routes to Admin's review queue only.
-    # 2. If Manager created exam -> routes to Manager's review queue only.
-    if "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles:
-        admin_user_ids = [u.id for u in db.query(User.id).join(User.roles).filter(Role.name.in_(["SYSTEM_ADMIN", "HR_ADMIN"])).all()]
-        query = query.filter(Exam.created_by.in_(admin_user_ids))
-    else:
-        # Manager sees ONLY submissions for exams created by themselves
-        query = query.filter(Exam.created_by == current_user.id)
-
-    subs = query.all()
-
-    res = []
-    for s in subs:
-        dept_name = s.user.department.name if s.user and s.user.department else "General"
-        overall_score = s.grade.overall_score if s.grade else None
-        overall_feedback = s.grade.overall_feedback if s.grade else None
-        scores_dict = s.grade.scores if s.grade else None
-
-        res.append(
-            ExamSubmissionResponse(
-                id=s.id,
-                exam_id=s.exam_id,
-                user_id=s.user_id,
-                status=s.status,
-                started_at=s.started_at,
-                submitted_at=s.submitted_at,
-                answers=s.answers or {},
-                user_name=f"{s.user.first_name} {s.user.last_name}" if s.user else "Learner",
-                user_email=s.user.email if s.user else "",
-                department_name=dept_name,
-                exam_title=s.exam.title if s.exam else "Untitled Exam",
-                overall_score=overall_score,
-                overall_feedback=overall_feedback,
-                scores=scores_dict
-            )
-        )
-    return res
 
 @router.post(
     "/submissions/{submission_id}/grade",
@@ -703,16 +866,14 @@ def reject_exam_review(
         review.exam.is_published = False
 
     db.commit()
-    db.refresh(review)
-
-    # 🟢 Trigger notification
+       # 🟢 Trigger notification
     if review.submitted_by:
         NotificationService.create_notification(
             db,
             user_id=review.submitted_by,
             type="exam_rejected",
-            title="Exam Syllabus Rejected ❌",
-            message=f"Your exam syllabus '{review.exam.title if review.exam else 'Untitled Exam'}' was rejected. Reason: {rejection_reason}",
+            title="Exam Syllabus Update Requested ⚠️",
+            message=f"Your exam syllabus '{review.exam.title if review.exam else 'Untitled Exam'}' was reviewed with feedback: {rejection_reason}",
             related_entity_id=review.exam_id
         )
 
@@ -721,6 +882,49 @@ def reject_exam_review(
     review.department_name = review.department.name if review.department else "General"
 
     return review
+
+
+@router.post(
+    "/generate-from-pdf",
+    summary="AI Exam Question Generation from PDF or Excel Upload"
+)
+async def generate_questions_from_pdf(
+    file: UploadFile = File(...),
+    exam_id: Optional[UUID] = Form(None),
+    target_count: int = Form(5),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    roles = [r.name for r in current_user.roles]
+    if not any(r in roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN", "MANAGER", "COURSE_MANAGER"]):
+        raise HTTPException(status_code=403, detail="Permission denied.")
+
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty document file uploaded.")
+
+    filename = (file.filename or "").lower()
+
+    from app.services.ai_exam_service import AIExamService
+    if filename.endswith(".xlsx") or filename.endswith(".xls"):
+        res = AIExamService.process_excel_and_stage(db, excel_bytes=contents, exam_id=exam_id)
+    else:
+        res = AIExamService.process_pdf_and_stage(db, pdf_bytes=contents, exam_id=exam_id, target_count=target_count)
+    return res
+
+
+@router.get(
+    "/ai-staging/{batch_id}",
+    summary="Get Pending AI Staged Questions for Human Review"
+)
+def get_ai_staged_questions(
+    batch_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from app.models.exam import PendingAIQuestion
+    staged = db.query(PendingAIQuestion).filter(PendingAIQuestion.batch_id == batch_id).all()
+    return staged
 
 
 @router.get(
@@ -735,12 +939,26 @@ def get_all_exams(
     user_roles = [r.name for r in current_user.roles]
     query = db.query(Exam)
 
-    # Scoping filter
-    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" in user_roles:
-        query = query.filter(Exam.department_id == current_user.department_id)
-    elif "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+    if "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles:
+        # Admins & HR see all exams
+        pass
+    elif "COURSE_MANAGER" in user_roles:
+        # Managers see exams for their department, general exams, or exams created by them
         query = query.filter(
-            (Exam.created_by == current_user.id) | (Exam.is_published == True)
+            or_(
+                Exam.department_id == current_user.department_id,
+                Exam.department_id == None,
+                Exam.created_by == current_user.id
+            )
+        )
+    else:
+        # Employees see published exams for their department or general exams
+        query = query.filter(
+            Exam.is_published == True,
+            or_(
+                Exam.department_id == current_user.department_id,
+                Exam.department_id == None
+            )
         )
 
-    return query.all()
+    return query.order_by(Exam.created_at.desc()).all()

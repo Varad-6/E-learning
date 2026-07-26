@@ -220,15 +220,11 @@ def promote_user_role(
     current_emp_roles = [r.name for r in emp.roles]
 
     # Validate this is an eligible promotion
-    if request.new_role not in ["COURSE_MANAGER"]:
+    allowed_target_roles = ["COURSE_MANAGER", "HR_ADMIN", "SYSTEM_ADMIN", "EMPLOYEE"]
+    if request.new_role not in allowed_target_roles:
         raise HTTPException(
             status_code=400,
-            detail=f"Role promotion to '{request.new_role}' is not permitted through this endpoint."
-        )
-    if "EMPLOYEE" not in current_emp_roles:
-        raise HTTPException(
-            status_code=400,
-            detail="Only users with the EMPLOYEE role can be promoted to Manager via this endpoint."
+            detail=f"Role promotion to '{request.new_role}' is not permitted."
         )
     if request.new_role in current_emp_roles:
         raise HTTPException(
@@ -238,13 +234,8 @@ def promote_user_role(
 
     previous_role = current_emp_roles[0] if current_emp_roles else "EMPLOYEE"
 
-    # Remove EMPLOYEE role, add new role
-    employee_role = db.query(Role).filter(Role.name == "EMPLOYEE").first()
-    if employee_role:
-        db.query(UserRole).filter(
-            UserRole.user_id == user_id,
-            UserRole.role_id == employee_role.id
-        ).delete()
+    # Remove existing role mappings for this user
+    db.query(UserRole).filter(UserRole.user_id == user_id).delete()
 
     new_user_role = UserRole(
         id=uuid.uuid4(),

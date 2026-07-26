@@ -5,6 +5,7 @@ import jwt
 
 from app.models.user import User
 from app.models.role import Role
+from app.models.otp import PasswordResetOTP
 from app.schemas.auth import (
     LoginRequest, LoginResponse, ChangePasswordRequest, 
     ForgotPasswordRequest, VerifyOTPRequest, ResetPasswordRequest,
@@ -154,6 +155,17 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User account is inactive"
+            )
+
+        # Rate limit: allow 1 OTP request per 60 seconds
+        recent_otp = db.query(PasswordResetOTP).filter(
+            PasswordResetOTP.user_id == user.id,
+            PasswordResetOTP.created_at >= datetime.now(timezone.utc) - timedelta(seconds=60)
+        ).first()
+        if recent_otp:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Please wait 60 seconds before requesting another OTP."
             )
 
         # Generate and save OTP

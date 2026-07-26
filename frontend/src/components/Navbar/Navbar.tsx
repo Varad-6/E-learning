@@ -44,15 +44,18 @@ export const Navbar: React.FC = () => {
 
       if (resNotifs.ok) {
         const data = await resNotifs.json();
-        const mapped: AppNotification[] = data.map((n: any) => ({
-          id: n.id,
-          message: n.message,
-          title: n.title,
-          type: n.type,
-          relatedEntityId: n.related_entity_id,
-          isRead: n.is_read,
-          timestamp: n.created_at
-        }));
+        const clearedAt = parseInt(localStorage.getItem('kaizen_notifications_cleared_at') || '0', 10);
+        const mapped: AppNotification[] = data
+          .filter((n: any) => !clearedAt || (n.created_at && new Date(n.created_at).getTime() > clearedAt))
+          .map((n: any) => ({
+            id: n.id,
+            message: n.message,
+            title: n.title,
+            type: n.type,
+            relatedEntityId: n.related_entity_id,
+            isRead: n.is_read,
+            timestamp: n.created_at
+          }));
         setNotifications(mapped);
       }
 
@@ -65,11 +68,11 @@ export const Navbar: React.FC = () => {
     }
   };
 
-  const loadNotificationsAndProfile = () => {
+  const loadNotificationsAndProfile = async () => {
     const email = localStorage.getItem('isLoggedInEmail');
-    const role = localStorage.getItem('isLoggedInRole') || 'Employee';
+    let role = localStorage.getItem('isLoggedInRole') || 'Employee';
     const dept = localStorage.getItem('isLoggedInDept') || 'AI';
-    const name = localStorage.getItem('profileName') || (email ? email.split('@')[0] : '');
+    let name = localStorage.getItem('profileName') || (email ? email.split('@')[0] : '');
 
     setUserEmail(email);
     setUserRole(role);
@@ -78,6 +81,32 @@ export const Navbar: React.FC = () => {
 
     if (email) {
       fetchNotificationsBackend();
+      // Sync user profile & role from database
+      try {
+        const res = await apiCall('/api/auth/profile');
+        if (res.ok) {
+          const user = await res.json();
+          const roles: string[] = user.roles ? user.roles.map((r: any) => r.name) : [];
+          localStorage.setItem('rawRoles', JSON.stringify(roles));
+          
+          let mappedRole = 'Employee';
+          if (roles.includes('SYSTEM_ADMIN')) mappedRole = 'Admin';
+          else if (roles.includes('HR_ADMIN')) mappedRole = 'HR Admin';
+          else if (roles.includes('COURSE_MANAGER')) mappedRole = 'Manager';
+
+          if (mappedRole !== role) {
+            localStorage.setItem('isLoggedInRole', mappedRole);
+            setUserRole(mappedRole);
+          }
+          if (user.first_name) {
+            const fullName = `${user.first_name} ${user.last_name}`.trim();
+            localStorage.setItem('profileName', fullName);
+            setProfileName(fullName);
+          }
+        }
+      } catch {
+        // Silently ignore network hiccup
+      }
     }
   };
 
@@ -96,8 +125,10 @@ export const Navbar: React.FC = () => {
     };
 
     window.addEventListener('kaizen_notifications_changed', handleNotifChange);
+    window.addEventListener('kaizen_role_updated', handleNotifChange);
     return () => {
       window.removeEventListener('kaizen_notifications_changed', handleNotifChange);
+      window.removeEventListener('kaizen_role_updated', handleNotifChange);
       if (intervalId) clearInterval(intervalId);
     };
   }, [location]);
@@ -182,7 +213,7 @@ export const Navbar: React.FC = () => {
   };
 
   const filteredNotifs = notifications;
-  const unreadCount = unreadBadgeCount || filteredNotifs.filter(n => !n.isRead).length;
+  const unreadCount = typeof unreadBadgeCount === 'number' ? unreadBadgeCount : filteredNotifs.filter(n => !n.isRead).length;
 
   const handleNotifClick = async (notif: AppNotification) => {
     try {
@@ -218,8 +249,8 @@ export const Navbar: React.FC = () => {
   const handleDismissNotif = async (notifId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await apiCall(`/api/notifications/${notifId}/read`, { method: 'PATCH' });
-      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true } : n));
+      await apiCall(`/api/notifications/${notifId}`, { method: 'DELETE' });
+      setNotifications(prev => prev.filter(n => n.id !== notifId));
       setUnreadBadgeCount(prev => Math.max(0, prev - 1));
     } catch (err) {
       console.error(err);
@@ -237,12 +268,27 @@ export const Navbar: React.FC = () => {
   };
 
   const handleClearAllNotifs = async () => {
+    localStorage.setItem('kaizen_notifications_cleared_at', Date.now().toString());
     try {
-      await apiCall('/api/notifications/read-all', { method: 'POST' });
+      await apiCall('/api/notifications/clear-all', { method: 'DELETE' });
     } catch (err) {
       console.error('Failed to clear notifications on backend', err);
     }
     setNotifications([]);
+    setUnreadBadgeCount(0);
+  };
+  const handleToggleNotifDropdown = async () => {
+    const nextState = !isNotifOpen;
+    setIsNotifOpen(nextState);
+    if (nextState) {
+      setUnreadBadgeCount(0);
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      try {
+        await apiCall('/api/notifications/read-all', { method: 'PATCH' });
+      } catch (err) {
+        console.error('Failed auto-marking notifications read on dropdown open:', err);
+      }
+    }
   };
 
   return (
@@ -292,7 +338,7 @@ export const Navbar: React.FC = () => {
                     style={{ cursor: 'pointer' }}
                     role="button"
                   >
-                    Exams
+                    Attempt Exam
                   </div>
                 </>
               )}
@@ -314,16 +360,23 @@ export const Navbar: React.FC = () => {
               </div>
             );
           })()}
-          {userEmail && (userRole === 'Admin' || userRole === 'HR Admin' || userRole === 'HR Manager' || userRole === 'HR') && (
-            <div 
-              onClick={() => navigate('/admin/users')} 
-              className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`} 
-              style={{ cursor: 'pointer' }}
-              role="button"
-            >
-              User Studio
-            </div>
-          )}
+          {userEmail && (() => {
+            const rawRolesStr = localStorage.getItem('rawRoles') || '[]';
+            let rawRoles: string[] = [];
+            try { rawRoles = JSON.parse(rawRolesStr); } catch {}
+            const isAdminRole = userRole === 'Admin' || userRole === 'HR Admin' || userRole === 'HR Manager' || userRole === 'HR' || rawRoles.includes('SYSTEM_ADMIN') || rawRoles.includes('HR_ADMIN');
+            if (!isAdminRole) return null;
+            return (
+              <div 
+                onClick={() => navigate('/admin/users')} 
+                className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`} 
+                style={{ cursor: 'pointer' }}
+                role="button"
+              >
+                User Studio
+              </div>
+            );
+          })()}
           {userEmail && (userRole === 'Admin' || userRole === 'HR Admin' || userRole === 'HR Manager' || userRole === 'HR' || userRole === 'Manager') && (
             <div 
               onClick={() => navigate('/reporting')} 
@@ -334,7 +387,7 @@ export const Navbar: React.FC = () => {
               Reporting
             </div>
           )}
-          {userEmail && userRole !== 'Employee' && (
+          {userEmail && (
             <div 
               onClick={() => navigate('/leaderboard')} 
               className={`nav-link ${location.pathname.startsWith('/leaderboard') ? 'active' : ''}`} 
@@ -352,7 +405,7 @@ export const Navbar: React.FC = () => {
             <div className="notif-badge-trigger-wrapper">
               <button 
                 className={`notif-bell-btn ${unreadCount > 0 ? 'bell-active' : ''}`}
-                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                onClick={handleToggleNotifDropdown}
               >
                 <Bell size={18} />
                 {unreadCount > 0 && (

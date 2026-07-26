@@ -34,23 +34,60 @@ def list_courses(
     
     # Apply the same scope filtering to total count for correct pagination metadata
     roles = [r.name for r in current_user.roles]
+    is_global_admin = any(r in roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN"]) or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
+    is_manager = any(r in roles for r in ["MANAGER", "COURSE_MANAGER"])
+
     total_count = db.query(Course)
-    if "SYSTEM_ADMIN" not in roles:
+    if not is_global_admin:
         from sqlalchemy import or_, and_
-        total_count = total_count.filter(
-            or_(
-                Course.created_by == current_user.id,
-                and_(
-                    Course.status.in_(["approved", "published"]),
+        if is_manager:
+            total_count = total_count.filter(
+                or_(
+                    Course.created_by == current_user.id,
                     Course.department_id == current_user.department_id
                 )
             )
-        )
+        else:
+            total_count = total_count.filter(
+                or_(
+                    Course.created_by == current_user.id,
+                    and_(
+                        Course.status.in_(["approved", "published"]),
+                        Course.department_id == current_user.department_id
+                    )
+                )
+            )
         
     if status_filter:
         total_count = total_count.filter(Course.status == status_filter)
     total = total_count.count()
     return CourseListResponse(courses=courses, total=total)
+
+@router.get(
+    "/available",
+    response_model=CourseListResponse,
+    status_code=200,
+    summary="Get Available Courses for Current Employee",
+    description="Returns all published courses visible to the current user in their department, regardless of enrollment status. This is the correct 'Available Courses' browse endpoint."
+)
+def get_available_courses(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from sqlalchemy import or_, and_
+    # Return all published courses accessible to the current user's department
+    # (or company-wide courses with no department restriction)
+    query = db.query(Course).filter(
+        Course.is_published == True,
+        Course.status.in_(["approved", "published"]),
+        or_(
+            Course.department_id == current_user.department_id,
+            Course.department_id.is_(None)
+        )
+    )
+    courses = query.all()
+    return CourseListResponse(courses=courses, total=len(courses))
+
 
 @router.get(
     "/{course_id}",

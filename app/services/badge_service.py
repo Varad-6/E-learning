@@ -20,9 +20,18 @@ class BadgeService:
             Course.status == "published"
         ).count()
 
+        # Also count graded exam submissions
+        from app.models.exam import ExamSubmission
+        graded_exams = db.query(ExamSubmission).filter(
+            ExamSubmission.user_id == user_id,
+            ExamSubmission.status == "graded"
+        ).count()
+
+        total_milestones = completed_count + graded_exams
+
         # Fetch all eligible tiers
         eligible_tiers = db.query(BadgeTier).filter(
-            BadgeTier.courses_required_cumulative <= completed_count
+            BadgeTier.courses_required_cumulative <= total_milestones
         ).all()
 
         awarded = []

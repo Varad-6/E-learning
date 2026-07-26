@@ -40,7 +40,7 @@ export const Login: React.FC = () => {
   React.useEffect(() => {
     const fetchDepts = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8080/api/departments');
+        const response = await apiCall('/api/departments');
         if (response.ok) {
           const data = await response.json();
           setDepartmentsList(data);
@@ -106,18 +106,23 @@ export const Login: React.FC = () => {
       const selectedDept = departmentsList.find(d => d.id === data.user.department_id);
       const isHRDept = Boolean(selectedDept && (selectedDept.code === 'HR' || selectedDept.name.toLowerCase().includes('hr')));
 
-      const backendRole = data.roles[0] || 'EMPLOYEE';
+      const rawRolesList = data.roles || [];
+      const roleNames: string[] = rawRolesList.map((r: any) => 
+        (typeof r === 'object' && r !== null && 'name' in r) ? r.name : String(r)
+      );
+      const primaryRole = roleNames[0] || 'EMPLOYEE';
+
       let mappedRole = 'Employee';
-      if (backendRole === 'HR_ADMIN') {
-        mappedRole = 'HR Admin';
-      } else if (backendRole === 'SYSTEM_ADMIN') {
+      if (roleNames.includes('SYSTEM_ADMIN') || primaryRole === 'SYSTEM_ADMIN') {
         mappedRole = 'Admin';
-      } else if (backendRole === 'COURSE_MANAGER') {
+      } else if (roleNames.includes('HR_ADMIN') || primaryRole === 'HR_ADMIN') {
+        mappedRole = 'HR Admin';
+      } else if (roleNames.includes('COURSE_MANAGER') || primaryRole === 'COURSE_MANAGER') {
         mappedRole = isHRDept ? 'HR Manager' : 'Manager';
       }
       
       localStorage.setItem('isLoggedInRole', mappedRole);
-      localStorage.setItem('rawRoles', JSON.stringify(data.roles || [backendRole]));
+      localStorage.setItem('rawRoles', JSON.stringify(roleNames.length > 0 ? roleNames : [primaryRole]));
       
       // Sync department info
       if (selectedDept) {

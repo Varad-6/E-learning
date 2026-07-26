@@ -69,7 +69,7 @@ export const CreatorDashboard: React.FC = () => {
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
 
   // Navigation states
-  const [activeTab, setActiveTab] = useState<'my_courses' | 'approvals' | 'auditing' | 'departments'>('my_courses');
+  const [activeTab, setActiveTab] = useState<'my_courses' | 'exams' | 'approvals' | 'auditing' | 'departments'>('my_courses');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Draft' | 'Pending' | 'Approved' | 'Rejected' | 'Published'>('All');
   
   // Admin departments state
@@ -100,6 +100,7 @@ export const CreatorDashboard: React.FC = () => {
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [creatorNameInput, setCreatorNameInput] = useState('');
   const [targetDeptInput, setTargetDeptInput] = useState('AI');
+  const [isMandatory, setIsMandatory] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const fetchDBCourses = async () => {
@@ -137,17 +138,29 @@ export const CreatorDashboard: React.FC = () => {
         setCourses(mapped);
         localStorage.setItem('creator_courses', JSON.stringify(mapped));
       }
-
-      // Done fetching courses
     } catch (err) {
       console.error('Failed to load courses from DB:', err);
+    }
+  };
+
+  const [examsList, setExamsList] = useState<any[]>([]);
+
+  const fetchExams = async () => {
+    try {
+      const res = await apiCall('/api/exams');
+      if (res.ok) {
+        const data = await res.json();
+        setExamsList(data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch exams:', err);
     }
   };
 
   useEffect(() => {
     const rawRolesStr = localStorage.getItem('rawRoles');
     const rawRoles = rawRolesStr ? JSON.parse(rawRolesStr) : [];
-    const hasAccess = rawRoles.includes('SYSTEM_ADMIN') || rawRoles.includes('COURSE_MANAGER');
+    const hasAccess = rawRoles.includes('SYSTEM_ADMIN') || rawRoles.includes('COURSE_MANAGER') || rawRoles.includes('HR_ADMIN');
     if (!hasAccess) {
       navigate('/dashboard');
       return;
@@ -191,6 +204,7 @@ export const CreatorDashboard: React.FC = () => {
     
     // Sync with database
     fetchDBCourses();
+    fetchExams();
   }, []);
 
   useEffect(() => {
@@ -391,7 +405,8 @@ export const CreatorDashboard: React.FC = () => {
         difficulty_level: 'Beginner',
         department_id: departmentId,
         duration: durationStr,
-        priority: priority
+        priority: priority,
+        is_mandatory: isMandatory
       };
 
       const res = await apiCall('/api/courses', {
@@ -597,15 +612,83 @@ export const CreatorDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs Layout (If Dept Head or Admin) */}
-      {(isDeptHead || isAdmin) && (
-        <div className="sidebar-tabs-header" style={{ marginBottom: '30px' }}>
-          <button 
-            className={`sidebar-tab-btn ${activeTab === 'my_courses' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('my_courses'); setSelectedCreatorDept(null); }}
-          >
-            {isAdmin ? 'All Courses' : 'My Created Courses'}
-          </button>
+      {/* Tabs Layout */}
+      <div className="sidebar-tabs-header" style={{ marginBottom: '30px' }}>
+        <button 
+          className={`sidebar-tab-btn ${activeTab === 'my_courses' ? 'active' : ''}`}
+          onClick={() => { setActiveTab('my_courses'); setSelectedCreatorDept(null); }}
+        >
+          {isAdmin ? 'All Courses' : 'My Created Courses'}
+        </button>
+        <button 
+          className={`sidebar-tab-btn ${activeTab === 'exams' ? 'active' : ''}`}
+          onClick={() => { setActiveTab('exams'); fetchExams(); }}
+        >
+          Exams Catalog ({examsList.length})
+        </button>
+      </div>
+
+      {/* Tab: Exams Catalog */}
+      {activeTab === 'exams' && (
+        <div className="animate-fade-in" style={{ marginBottom: '40px' }}>
+          <div className="course-grid-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Exams Catalog</h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                All active, published, and pending assessment modules created across departments.
+              </p>
+            </div>
+            <Button variant="primary" onClick={() => navigate('/creator/exams/create')} leftIcon={<Plus size={16} />}>
+              Create New Exam
+            </Button>
+          </div>
+
+          {examsList.length === 0 ? (
+            <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)' }}>
+              <p style={{ color: 'var(--text-secondary)' }}>No exams created yet. Click "Create New Exam" above to build your first assessment!</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+              {examsList.map((ex: any) => (
+                <div key={ex.id} className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, padding: '4px 10px', borderRadius: '12px',
+                        background: (ex.is_published || ex.status === 'published') ? 'rgba(16, 185, 129, 0.15)' : ex.status === 'pending' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(107, 114, 128, 0.15)',
+                        color: (ex.is_published || ex.status === 'published') ? '#10b981' : ex.status === 'pending' ? '#f59e0b' : '#9ca3af'
+                      }}>
+                        {(ex.is_published || ex.status === 'published') ? 'Live / Published' : ex.status === 'pending' ? 'Pending Approval' : 'Draft'}
+                      </span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>⏱️ {ex.duration_minutes || 30} mins</span>
+                    </div>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '8px' }}>{ex.title}</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                      Questions: {ex.questions ? ex.questions.length : 0} | Target: {ex.department_id ? 'Department Scoped' : 'All Departments'}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                    <Button variant="outline" size="sm" onClick={() => navigate('/creator/exams/review')} style={{ flex: 1 }}>
+                      Review Attempts
+                    </Button>
+                    {!(ex.is_published || ex.status === 'published') && (
+                      <Button variant="primary" size="sm" onClick={async () => {
+                        const res = await apiCall(`/api/exams/${ex.id}/publish`, { method: 'POST' });
+                        if (res.ok) {
+                          triggerToast('Exam published successfully! Now live for employees.', 'success');
+                          fetchExams();
+                        } else {
+                          const err = await res.json();
+                          triggerToast(err.detail || 'Failed to publish exam', 'error');
+                        }
+                      }} style={{ flex: 1 }}>
+                        Publish Now
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1446,60 +1529,25 @@ export const CreatorDashboard: React.FC = () => {
               </select>
             </div>
 
+            {/* Mandatory Course Toggle */}
+            <div className="form-group-spaced" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '28px' }}>
+              <input 
+                type="checkbox" 
+                id="is_mandatory_checkbox"
+                checked={isMandatory} 
+                onChange={(e) => setIsMandatory(e.target.checked)}
+                style={{ accentColor: 'var(--accent-color)', width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <label htmlFor="is_mandatory_checkbox" style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', cursor: 'pointer', margin: 0 }}>
+                Mark as Mandatory Course
+              </label>
+            </div>
+
             {/* Duration */}
             <div className="form-group-spaced">
               <label className="form-label-styled">
                 Course Duration <span className="required-star">*</span>
               </label>
-
-              {/* Date Range Helper Picker */}
-              <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '12px' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '8px' }}>
-                  📅 Auto-calculate from Start & End Date:
-                </span>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Start Date:</span>
-                    <input 
-                      type="date" 
-                      className="form-input-styled" 
-                      style={{ fontSize: '0.82rem', padding: '6px' }}
-                      onChange={(e) => {
-                        const start = new Date(e.target.value);
-                        const endInput = document.getElementById('duration-end-date') as HTMLInputElement;
-                        if (endInput && endInput.value) {
-                          const end = new Date(endInput.value);
-                          const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24));
-                          if (diffDays > 0) setDurationDays(diffDays);
-                        }
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>End Date:</span>
-                    <input 
-                      id="duration-end-date"
-                      type="date" 
-                      className="form-input-styled" 
-                      style={{ fontSize: '0.82rem', padding: '6px' }}
-                      onChange={(e) => {
-                        const end = new Date(e.target.value);
-                        const startVal = (document.querySelector('input[type="date"]') as HTMLInputElement)?.value;
-                        if (startVal) {
-                          const start = new Date(startVal);
-                          const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24));
-                          if (diffDays > 0) setDurationDays(diffDays);
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Structured Duration Inputs */}
-              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: '6px' }}>
-                Structured Duration Fields:
-              </span>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                 <div>
                   <input 

@@ -23,38 +23,68 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
+    import uuid
+    from app.models.role_history import RoleHistory
+
+    # Server-side role authorization check
+    caller_roles = [r.name for r in current_user.roles]
+    requested_roles = [r.upper() for r in (request.roles or ["EMPLOYEE"])]
+    
+    # If caller is not SYSTEM_ADMIN/HR_ADMIN, deny non-employee role assignment
+    if "SYSTEM_ADMIN" not in caller_roles and "HR_ADMIN" not in caller_roles:
+        if any(r in ["SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"] for r in requested_roles):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only System Admins and HR Admins can assign Manager or Admin roles."
+            )
+
     user = AdminService.create_user(db, request=request)
+    
+    # Record initial role history entry
+    primary_role = requested_roles[0] if requested_roles else "EMPLOYEE"
+    history = RoleHistory(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        previous_role="NONE",
+        new_role=primary_role,
+        changed_by=current_user.id,
+        reason="Initial account provisioning"
+    )
+    db.add(history)
+    db.commit()
+
     AuditService.create_entry(
         db=db,
         actor=current_user.email,
         action="USER_CREATE",
         target=user.employee_code,
-        details=f"Created user {user.first_name} {user.last_name} ({user.email}) in department {user.department_id or 'none'}"
+        details=f"Created user {user.first_name} {user.last_name} ({user.email}) with role '{primary_role}' in department {user.department_id or 'none'}"
     )
     
-    # 🟢 Trigger provisioning notification for the new user
+    # Trigger provisioning notification for the new user
     NotificationService.create_notification(
         db,
         user_id=user.id,
         type="provisioning",
         title="Welcome to Kaizen LMS! 👋",
-        message="Your corporate e-learning profile has been successfully provisioned. Please complete your profile and checklist.",
+        message="Your corporate e-learning profile has been successfully provisioned.",
         related_entity_type="user",
         related_entity_id=user.id
     )
 
-    # 🟢 Trigger notification for Department Manager & HR
-    NotificationService.notify_department_managers_and_hr(
-        db=db,
-        department_id=user.department_id,
-        type="user_created",
-        title="New Team Member Joined",
-        message=f"New user provisioned: {user.first_name} {user.last_name} ({user.employee_code}).",
-        related_entity_type="user",
-        related_entity_id=user.id
-    )
+    # Trigger notification for Department Manager & HR (only if user has a department)
+    if user.department_id:
+        NotificationService.notify_department_managers_and_hr(
+            db=db,
+            department_id=user.department_id,
+            type="user_created",
+            title="New Team Member Joined",
+            message=f"New user provisioned: {user.first_name} {user.last_name} ({user.employee_code}).",
+            related_entity_type="user",
+            related_entity_id=user.id
+        )
 
-    # 🟢 Trigger notification for System Admins
+    # Trigger notification for System Admins
     NotificationService.notify_system_admins(
         db=db,
         type="user_created",

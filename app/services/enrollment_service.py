@@ -54,6 +54,73 @@ def parse_duration(duration_str: str) -> timedelta:
 
 class EnrollmentService:
     @staticmethod
+    def auto_enroll_mandatory_course(db: Session, course_id: UUID) -> None:
+        """Auto enroll all matching employees in a published course."""
+        course = db.query(Course).filter(
+            Course.id == course_id,
+            Course.status.in_(["approved", "published"])
+        ).first()
+        if not course:
+            return
+        query = db.query(User).filter(User.is_active == True, User.is_deleted == False)
+        if course.department_id:
+            query = query.filter(User.department_id == course.department_id)
+        users = query.all()
+        for u in users:
+            existing = db.query(CourseEnrollment).filter(
+                CourseEnrollment.user_id == u.id,
+                CourseEnrollment.course_id == course.id
+            ).first()
+            if not existing:
+                base_time = course.published_at if course.published_at is not None else datetime.now(timezone.utc)
+                expires_at = base_time + parse_duration(course.duration)
+                new_enr = CourseEnrollment(
+                    user_id=u.id,
+                    course_id=course.id,
+                    status="in_progress",
+                    progress_percent=0.0,
+                    enrolled_at=datetime.now(timezone.utc),
+                    expires_at=expires_at,
+                    is_locked=False
+                )
+                db.add(new_enr)
+        db.commit()
+
+    @staticmethod
+    def auto_enroll_user_in_mandatory_courses(db: Session, user_id: UUID) -> None:
+        """Auto enroll user in all applicable department / company-wide published courses."""
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return
+        from sqlalchemy import or_
+        courses = db.query(Course).filter(
+            Course.status.in_(["approved", "published"]),
+            or_(
+                Course.department_id.is_(None),
+                Course.department_id == user.department_id
+            )
+        ).all()
+        for c in courses:
+            existing = db.query(CourseEnrollment).filter(
+                CourseEnrollment.user_id == user.id,
+                CourseEnrollment.course_id == c.id
+            ).first()
+            if not existing:
+                base_time = c.published_at if c.published_at is not None else datetime.now(timezone.utc)
+                expires_at = base_time + parse_duration(c.duration)
+                new_enr = CourseEnrollment(
+                    user_id=user.id,
+                    course_id=c.id,
+                    status="in_progress",
+                    progress_percent=0.0,
+                    enrolled_at=datetime.now(timezone.utc),
+                    expires_at=expires_at,
+                    is_locked=False
+                )
+                db.add(new_enr)
+        db.commit()
+
+    @staticmethod
     def enroll_user(db: Session, user_id: UUID, course_id: UUID, enrolled_by: UUID = None) -> CourseEnrollment:
         # Check course exists and is published
         course = db.query(Course).filter(Course.id == course_id).first()
@@ -118,11 +185,13 @@ class EnrollmentService:
 
     @staticmethod
     def get_user_enrollments(db: Session, user_id: UUID) -> List[CourseEnrollment]:
+        from sqlalchemy import or_
+        EnrollmentService.auto_enroll_user_in_mandatory_courses(db, user_id)
         return db.query(CourseEnrollment).join(
             Course, CourseEnrollment.course_id == Course.id
         ).filter(
             CourseEnrollment.user_id == user_id,
-            Course.status == "published"
+            or_(Course.status == "published", Course.status == "approved", Course.is_published == True)
         ).all()
 
     @staticmethod

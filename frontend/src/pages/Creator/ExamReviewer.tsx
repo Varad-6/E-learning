@@ -12,11 +12,12 @@ interface Submission {
   status: 'submitted' | 'graded';
   started_at: string | null;
   submitted_at: string | null;
-  answers: { [key: string]: string };
+  answers: { [key: string]: any };
   user_name: string;
   user_email: string;
   department_name: string;
   exam_title: string;
+  scores?: { [qId: string]: number } | null;
 }
 
 interface ExamDetails {
@@ -25,7 +26,9 @@ interface ExamDetails {
   questions: {
     id: string;
     question_text: string;
-    question_type: 'short_answer' | 'descriptive' | 'file_upload';
+    question_type: 'mcq' | 'msq' | 'short_answer' | 'descriptive' | 'file_upload';
+    options?: string[];
+    correct_answer?: any;
   }[];
 }
 
@@ -96,7 +99,7 @@ export const ExamReviewer: React.FC = () => {
       setSelectedSub(sub);
       setSelectedReview(null);
       setFeedback('');
-      setScores({});
+      setScores(sub.scores || {});
       
       const res = await apiCall(`/api/exams/${sub.exam_id}`);
       if (res.ok) {
@@ -222,8 +225,10 @@ export const ExamReviewer: React.FC = () => {
     }
   };
 
-  const renderAnswer = (q: any, rawAnswer: string) => {
-    if (!rawAnswer) return <p style={{ fontStyle: 'italic', color: '#ef4444' }}>No answer submitted.</p>;
+  const renderAnswer = (q: any, rawAnswer: any) => {
+    if (rawAnswer === undefined || rawAnswer === null || rawAnswer === '') {
+      return <p style={{ fontStyle: 'italic', color: '#ef4444' }}>No answer submitted.</p>;
+    }
 
     if (q.question_type === 'file_upload') {
       try {
@@ -253,9 +258,89 @@ export const ExamReviewer: React.FC = () => {
       }
     }
 
+    if (q.question_type === 'mcq') {
+      const selectedIdx = rawAnswer ? String(rawAnswer).trim() : '';
+      const correctIdx = q.correct_answer ? String(q.correct_answer).trim() : '';
+      return (
+        <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {q.options?.map((opt: string, oIdx: number) => {
+            const isSelected = String(oIdx) === selectedIdx;
+            const isCorrect = String(oIdx) === correctIdx;
+            return (
+              <div 
+                key={oIdx} 
+                style={{ 
+                  padding: '8px 12px', 
+                  borderRadius: '6px', 
+                  border: isCorrect ? '1px solid #10b981' : isSelected ? '1px solid #ef4444' : '1px solid var(--border-color)',
+                  background: isCorrect ? 'rgba(16, 185, 129, 0.08)' : isSelected ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+                  fontSize: '0.88rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}
+              >
+                <span>{opt}</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                  {isCorrect && '✅ Correct answer'}
+                  {!isCorrect && isSelected && '❌ User selected'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (q.question_type === 'msq') {
+      let selectedArr: string[] = [];
+      try {
+        selectedArr = Array.isArray(rawAnswer) ? rawAnswer.map(String) : (typeof rawAnswer === 'string' && rawAnswer.startsWith('[') ? JSON.parse(rawAnswer).map(String) : [String(rawAnswer)]);
+      } catch {
+        selectedArr = [String(rawAnswer)];
+      }
+      
+      let correctArr: string[] = [];
+      try {
+        correctArr = Array.isArray(q.correct_answer) ? q.correct_answer.map(String) : (typeof q.correct_answer === 'string' && q.correct_answer.startsWith('[') ? JSON.parse(q.correct_answer).map(String) : [String(q.correct_answer)]);
+      } catch {
+        correctArr = [String(q.correct_answer)];
+      }
+
+      return (
+        <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {q.options?.map((opt: string, oIdx: number) => {
+            const isSelected = selectedArr.includes(String(oIdx));
+            const isCorrect = correctArr.includes(String(oIdx));
+            return (
+              <div 
+                key={oIdx} 
+                style={{ 
+                  padding: '8px 12px', 
+                  borderRadius: '6px', 
+                  border: isCorrect ? '1px solid #10b981' : isSelected ? '1px solid #ef4444' : '1px solid var(--border-color)',
+                  background: isCorrect ? 'rgba(16, 185, 129, 0.08)' : isSelected ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+                  fontSize: '0.88rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}
+              >
+                <span>{opt}</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                  {isCorrect && '✅ Correct answer'}
+                  {!isCorrect && isSelected && '❌ User selected'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
     return (
       <p style={{ fontSize: '0.92rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.5', margin: 0, padding: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-        {rawAnswer}
+        {String(rawAnswer)}
       </p>
     );
   };
@@ -378,100 +463,221 @@ export const ExamReviewer: React.FC = () => {
             </div>
 
             {/* Active submission grading panel */}
-            {selectedSub && examDetails && (
-              <div className="glass-panel animate-fade-in" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-                
-                <div style={{ padding: '16px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', marginBottom: '24px' }}>
-                  <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', fontWeight: 700 }}>Learner Workspace Details</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem' }}>
+            {selectedSub && examDetails && (() => {
+              const totalQ = examDetails.questions.length;
+              const gradedQ = examDetails.questions.filter(q => scores[q.id] !== undefined).length;
+              const totalScore = examDetails.questions.reduce((acc, q) => acc + (scores[q.id] || 0), 0);
+              const averageScore = totalQ > 0 ? (totalScore / totalQ).toFixed(1) : '0.0';
+
+              return (
+                <div className="glass-panel animate-fade-in" style={{ 
+                  padding: '28px', 
+                  borderRadius: 'var(--border-radius-lg)', 
+                  background: 'var(--bg-card)', 
+                  border: '1px solid var(--border-color)',
+                  boxShadow: 'var(--shadow-lg)'
+                }}>
+                  
+                  {/* Top Header Row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
                     <div>
-                      <span style={{ color: 'var(--text-secondary)' }}>Employee Name:</span>
-                      <strong style={{ color: 'var(--text-primary)', marginLeft: '6px' }}>{selectedSub.user_name}</strong>
+                      <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>Grade Assessment Workspace</h3>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Review answers, check auto-graded scoring, and grade descriptive tasks.</p>
+                    </div>
+                    {/* Premium Live Score Badge */}
+                    <div style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center',
+                      background: 'var(--accent-glow)', 
+                      border: '1px solid var(--accent-color)', 
+                      borderRadius: '12px',
+                      padding: '10px 20px',
+                      minWidth: '120px'
+                    }}>
+                      <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>Current Grade</span>
+                      <div style={{ display: 'flex', alignItems: 'baseline', marginTop: '2px' }}>
+                        <span style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--accent-color)' }}>{averageScore}</span>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginLeft: '2px' }}>/ 10</span>
+                      </div>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px', fontWeight: 600 }}>{gradedQ} of {totalQ} graded</span>
+                    </div>
+                  </div>
+
+                  {/* Profile / Context Panel */}
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                    gap: '16px',
+                    padding: '18px', 
+                    borderRadius: '10px', 
+                    background: 'rgba(255,255,255,0.015)', 
+                    border: '1px solid var(--border-color)', 
+                    marginBottom: '28px' 
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--accent-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-color)' }}>
+                        <User size={18} />
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', fontWeight: 700 }}>Learner Name</span>
+                        <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>{selectedSub.user_name}</strong>
+                      </div>
                     </div>
                     <div>
-                      <span style={{ color: 'var(--text-secondary)' }}>Department Team:</span>
-                      <strong style={{ color: 'var(--text-primary)', marginLeft: '6px' }}>{selectedSub.department_name}</strong>
+                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', fontWeight: 700 }}>Department / Team</span>
+                      <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem', display: 'block', marginTop: '2px' }}>{selectedSub.department_name}</strong>
                     </div>
                     <div>
-                      <span style={{ color: 'var(--text-secondary)' }}>Learner Email:</span>
-                      <strong style={{ color: 'var(--text-primary)', marginLeft: '6px' }}>{selectedSub.user_email}</strong>
-                    </div>
-                    <div>
-                      <span style={{ color: 'var(--text-secondary)' }}>Submitted Date:</span>
-                      <strong style={{ color: 'var(--text-primary)', marginLeft: '6px' }}>
+                      <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', fontWeight: 700 }}>Submitted Timestamp</span>
+                      <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem', display: 'block', marginTop: '2px' }}>
                         {selectedSub.submitted_at ? new Date(selectedSub.submitted_at).toLocaleString() : 'N/A'}
                       </strong>
                     </div>
                   </div>
-                </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '32px' }}>
-                  {examDetails.questions.map((q, idx) => {
-                    const rawAns = selectedSub.answers[q.id];
-                    return (
-                      <div key={q.id} style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.68rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: 'var(--accent-glow)', color: 'var(--accent-color)', textTransform: 'uppercase' }}>
-                              {q.question_type.replace('_', ' ')}
-                            </span>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Question {idx + 1}</span>
+                  {/* Questions Grid */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', marginBottom: '36px' }}>
+                    {examDetails.questions.map((q, idx) => {
+                      const rawAns = selectedSub.answers[q.id];
+                      const isObjective = q.question_type === 'mcq' || q.question_type === 'msq';
+                      const qTypeColors: { [key: string]: string } = {
+                        mcq: '#0ea5e9',
+                        msq: '#6366f1',
+                        short_answer: '#f97316',
+                        descriptive: '#8b5cf6',
+                        file_upload: '#3b82f6'
+                      };
+                      const qColor = qTypeColors[q.question_type] || 'var(--accent-color)';
+
+                      return (
+                        <div key={q.id} style={{ 
+                          padding: '20px', 
+                          borderRadius: '12px', 
+                          background: 'rgba(255,255,255,0.01)', 
+                          border: '1px solid var(--border-color)',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                        }}>
+                          {/* Top row of question card */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '14px' }}>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <span style={{ 
+                                fontSize: '0.65rem', 
+                                fontWeight: '900', 
+                                padding: '3px 8px', 
+                                borderRadius: '6px', 
+                                background: `${qColor}1a`, 
+                                color: qColor, 
+                                textTransform: 'uppercase',
+                                border: `1px solid ${qColor}33`,
+                                letterSpacing: '0.03em'
+                              }}>
+                                {q.question_type.replace('_', ' ')}
+                              </span>
+                              <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', fontWeight: '700' }}>Question {idx + 1}</span>
+                            </div>
+                            
+                            {/* Score selector */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Score:</span>
+                              {isObjective ? (
+                                <div style={{ 
+                                  padding: '6px 14px', 
+                                  borderRadius: '20px', 
+                                  background: scores[q.id] === 10 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                  color: scores[q.id] === 10 ? '#10b981' : '#ef4444',
+                                  border: scores[q.id] === 10 ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 800,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                                }}>
+                                  <span>{scores[q.id] === 10 ? '🎯 Auto: 10' : '❌ Auto: 0'}</span>
+                                  <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>/ 10</span>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <input 
+                                    type="number" 
+                                    className="form-input-styled" 
+                                    min="0" 
+                                    max="10" 
+                                    placeholder="0-10"
+                                    value={scores[q.id] === undefined ? '' : scores[q.id]}
+                                    onChange={(e) => handleScoreChange(q.id, parseInt(e.target.value) ?? 0)}
+                                    style={{ width: '80px', height: '36px', textAlign: 'center', fontWeight: '800', fontSize: '0.95rem' }}
+                                    required
+                                  />
+                                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>/ 10</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
+
+                          {/* Question text */}
+                          <p style={{ fontSize: '1.02rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '16px', lineHeight: '1.4' }}>{q.question_text}</p>
                           
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Score:</span>
-                            <input 
-                              type="number" 
-                              className="form-input-styled" 
-                              min="0" 
-                              max="10" 
-                              placeholder="0-10"
-                              value={scores[q.id] === undefined ? '' : scores[q.id]}
-                              onChange={(e) => handleScoreChange(q.id, parseInt(e.target.value) ?? 0)}
-                              style={{ width: '80px', height: '36px', textAlign: 'center' }}
-                              required
-                            />
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>/ 10</span>
+                          {/* Answer view block */}
+                          <div style={{ 
+                            background: 'rgba(255,255,255,0.015)', 
+                            border: '1px solid var(--border-color)', 
+                            borderRadius: '8px', 
+                            padding: '16px',
+                            marginTop: '12px'
+                          }}>
+                            <span style={{ 
+                              fontSize: '0.68rem', 
+                              textTransform: 'uppercase', 
+                              color: 'var(--text-secondary)', 
+                              display: 'block', 
+                              marginBottom: '10px', 
+                              fontWeight: 800,
+                              letterSpacing: '0.04em'
+                            }}>
+                              Learner Submission
+                            </span>
+                            {renderAnswer(q, rawAns)}
                           </div>
+
                         </div>
-
-                        <p style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '12px' }}>{q.question_text}</p>
-                        {renderAnswer(q, rawAns)}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="form-group-spaced" style={{ margin: 0 }}>
-                    <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Overall Evaluation Feedback</label>
-                    <textarea 
-                      className="form-input-styled" 
-                      placeholder="Provide constructive feedback summarizing subject mastery, compliance, and recommendations..."
-                      value={feedback}
-                      onChange={(e) => setFeedback(e.target.value)}
-                      style={{ width: '100%', minHeight: '100px', resize: 'vertical', padding: '12px' }}
-                    />
+                      );
+                    })}
                   </div>
 
-                  <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end' }}>
-                    <Button variant="outline" onClick={() => { setSelectedSub(null); setExamDetails(null); }}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      variant="primary" 
-                      onClick={handleSubmitGrade} 
-                      disabled={saving}
-                      style={{ fontWeight: '700', padding: '0 24px', height: '42px' }}
-                      leftIcon={<Award size={16} />}
-                    >
-                      {saving ? 'Saving...' : 'Confirm & Complete Grading'}
-                    </Button>
-                  </div>
-                </div>
+                  {/* Feedback Form and Actions */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '24px' }}>
+                    <div className="form-group-spaced" style={{ margin: 0 }}>
+                      <label className="form-label-styled" style={{ fontSize: '0.8rem', fontWeight: '700' }}>Overall Evaluation Feedback</label>
+                      <textarea 
+                        className="form-input-styled" 
+                        placeholder="Provide constructive feedback summarizing subject mastery, compliance, and recommendations..."
+                        value={feedback}
+                        onChange={(e) => setFeedback(e.target.value)}
+                        style={{ width: '100%', minHeight: '120px', resize: 'vertical', padding: '14px', fontSize: '0.9rem', lineHeight: '1.5' }}
+                      />
+                    </div>
 
-              </div>
-            )}
+                    <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end', marginTop: '8px' }}>
+                      <Button variant="outline" onClick={() => { setSelectedSub(null); setExamDetails(null); }} style={{ height: '44px', padding: '0 24px' }}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        variant="primary" 
+                        onClick={handleSubmitGrade} 
+                        disabled={saving}
+                        style={{ fontWeight: '700', padding: '0 28px', height: '44px' }}
+                        leftIcon={<Award size={16} />}
+                      >
+                        {saving ? 'Submitting...' : 'Confirm & Complete Grading'}
+                      </Button>
+                    </div>
+                  </div>
+
+                </div>
+              );
+            })()}
           </div>
         )
       ) : (

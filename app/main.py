@@ -42,6 +42,10 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+@app.get("/health", tags=["Health"])
+def health_check():
+    return {"status": "healthy", "service": "Kaizen LMS Core"}
+
 # Enable CORS for frontend flexibility across origins and dev servers
 origins = [
     "http://localhost:5173",

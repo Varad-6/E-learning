@@ -85,6 +85,26 @@ class NotificationService:
         return len(unread)
 
     @staticmethod
+    def delete_notification(db: Session, user_id: UUID, notification_id: UUID) -> bool:
+        notif = db.query(Notification).filter(
+            Notification.id == notification_id,
+            Notification.user_id == user_id
+        ).first()
+        if notif:
+            db.delete(notif)
+            db.commit()
+            return True
+        return False
+
+    @staticmethod
+    def clear_all_notifications(db: Session, user_id: UUID) -> int:
+        deleted = db.query(Notification).filter(
+            Notification.user_id == user_id
+        ).delete(synchronize_session=False)
+        db.commit()
+        return deleted
+
+    @staticmethod
     def notify_department_managers_and_hr(
         db: Session,
         department_id: Optional[UUID],

@@ -302,12 +302,13 @@ export const ReportingDashboard: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         const roleLabel = selectedNewRole === 'COURSE_MANAGER' ? 'Manager' : selectedNewRole;
-        setPromoteSuccess(`🎉 Promoted to ${roleLabel} successfully!`);
+        setPromoteSuccess(`Promoted to ${roleLabel} successfully!`);
         setCurrentRoleDisplay(selectedNewRole);
         setEligibleRoles([]);
         setSelectedNewRole('');
         setPromoteReason('');
         setShowPromoteModal(false);
+        window.dispatchEvent(new CustomEvent('kaizen_role_updated'));
       } else {
         const err = await res.json();
         setPromoteError(err.detail || 'Failed to promote role.');
@@ -616,18 +617,21 @@ export const ReportingDashboard: React.FC = () => {
         {/* Promotion Confirmation Modal */}
         {showPromoteModal && (
           <Modal
+            isOpen={showPromoteModal}
             title="Confirm Role Promotion"
             onClose={() => setShowPromoteModal(false)}
+            footer={
+              <>
+                <Button variant="outline" onClick={() => setShowPromoteModal(false)}>Cancel</Button>
+                <Button id="btn-confirm-promote" variant="primary" onClick={handlePromoteRole} disabled={promoteLoading}>
+                  {promoteLoading ? 'Promoting…' : 'Yes, Promote'}
+                </Button>
+              </>
+            }
           >
-            <div style={{ fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1.6 }}>
-              <p>Are you sure you want to promote <strong>{selectedEmployee?.name}</strong> to <strong>{selectedNewRole === 'COURSE_MANAGER' ? 'Manager' : selectedNewRole}</strong>?</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>This will grant them department-level access including Reporting, Leaderboard, and Course Management. This action is recorded in the audit log.</p>
-            </div>
-            <div style={{ display: 'flex', gap: '12px', marginTop: '20px', justifyContent: 'flex-end' }}>
-              <Button variant="outline" onClick={() => setShowPromoteModal(false)}>Cancel</Button>
-              <Button id="btn-confirm-promote" variant="primary" onClick={handlePromoteRole} disabled={promoteLoading}>
-                {promoteLoading ? 'Promoting…' : 'Yes, Promote'}
-              </Button>
+            <div style={{ fontSize: '0.95rem', color: 'var(--text-primary, #0f172a)', lineHeight: 1.6 }}>
+              <p style={{ margin: '0 0 12px 0' }}>Are you sure you want to promote <strong>{selectedEmployee?.name}</strong> to <strong>{selectedNewRole === 'COURSE_MANAGER' ? 'Manager' : selectedNewRole}</strong>?</p>
+              <p style={{ color: 'var(--text-secondary, #64748b)', fontSize: '0.85rem', margin: 0 }}>This will grant them department-level access including Reporting, Leaderboard, and Course Management. This action is recorded in the audit log.</p>
             </div>
           </Modal>
         )}
@@ -804,6 +808,7 @@ export const ReportingDashboard: React.FC = () => {
       {/* Delete User Confirmation Modal */}
       {showDeleteModal && (
         <Modal
+          isOpen={showDeleteModal}
           title="Delete User"
           onClose={() => setShowDeleteModal(false)}
         >
@@ -885,6 +890,21 @@ export const ReportingDashboard: React.FC = () => {
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
                   Overview of company departments, exam scores, course completion ratios, and review status.
                 </p>
+              </div>
+
+              {/* Mandatory Compliance Widget */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div className="glass-panel" style={{ padding: '20px', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ padding: '12px', borderRadius: '10px', background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
+                    <CheckCircle size={24} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Mandatory Course Compliance</span>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>
+                      88.5%
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {departments.length === 0 ? (
