@@ -81,15 +81,29 @@ const SVGLineChart: React.FC<SVGLineChartProps> = ({
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
 
-  // Max value calculation with fallback minimum
+  // Max value calculation with snapping thresholds (10, 20, 50, 100)
   const rawMax = Math.max(...data.map(d => d.value));
-  const maxVal = rawMax === 0 ? 10 : Math.ceil(rawMax * 1.1);
+  let maxVal = 10;
+  if (rawMax > 0) {
+    if (rawMax <= 10) {
+      maxVal = 10;
+    } else if (rawMax <= 20) {
+      maxVal = 20;
+    } else if (rawMax <= 50) {
+      maxVal = 50;
+    } else if (rawMax <= 100) {
+      maxVal = 100;
+    } else {
+      maxVal = Math.ceil(rawMax / 50) * 50;
+    }
+  }
 
-  // Generate 4 nice Y-axis ticks
+  // Generate 5 nice Y-axis ticks for perfect divisions (0%, 25%, 50%, 75%, 100%)
   const yTicks = [
     0,
-    Math.round(maxVal * 0.33),
-    Math.round(maxVal * 0.66),
+    Math.round(maxVal * 0.25),
+    Math.round(maxVal * 0.50),
+    Math.round(maxVal * 0.75),
     maxVal
   ];
 
@@ -125,7 +139,7 @@ const SVGLineChart: React.FC<SVGLineChartProps> = ({
   return (
     <div style={{ 
       width: '100%', 
-      maxWidth: '640px', 
+      maxWidth: '100%', 
       margin: '0 auto', 
       padding: '20px',
       borderRadius: '12px',
