@@ -1867,26 +1867,7 @@ export const Dashboard: React.FC = () => {
                   )}
                 </div>
 
-                {/* 4. MY EXAM SCORE TREND */}
-                <div className="widget-card widget-exam-trend" style={{ gridColumn: '1 / -1', background: 'var(--bg-card)', padding: '24px', borderRadius: 'var(--border-radius-lg)', border: '1px solid var(--border-color)' }}>
-                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>
-                    <Target size={18} style={{ color: 'var(--accent-color)' }} />
-                    My Exam Score Trend
-                  </h4>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '180px' }}>
-                    {empDashboardData.exam_score_trend && empDashboardData.exam_score_trend.length > 0 && empDashboardData.exam_score_trend[0].label !== 'Baseline' ? (
-                      <SVGLineChart 
-                        data={empDashboardData.exam_score_trend} 
-                        yAxisLabel="Exam Score (0-10)" 
-                        xAxisLabel="Attempts History"
-                      />
-                    ) : (
-                      <div className="empty-state-container" style={{ padding: '32px 0', textAlign: 'center' }}>
-                        <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.88rem', margin: 0 }}>No graded exam score history available yet. Complete assigned exams to view your score trend line!</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+
 
               </div>
             )}
