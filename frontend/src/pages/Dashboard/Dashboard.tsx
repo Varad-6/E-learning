@@ -56,17 +56,27 @@ const SVGDonutChart: React.FC<{ items: { label: string; value: number; color: st
   );
 };
 
+interface SVGLineChartProps {
+  data: { label: string; value: number }[];
+  xAxisLabel?: string;
+  yAxisLabel?: string;
+}
+
 // Pure SVG Line Chart Component (Zero External Dependencies)
-const SVGLineChart: React.FC<{ data: { label: string; value: number }[] }> = ({ data }) => {
+const SVGLineChart: React.FC<SVGLineChartProps> = ({ 
+  data, 
+  xAxisLabel = "Timeline", 
+  yAxisLabel = "Values" 
+}) => {
   if (!data || data.length === 0) return <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', padding: '16px 0' }}>No trend data available.</p>;
 
   // Dimensions & Padding
   const width = 500;
-  const height = 220;
-  const paddingLeft = 45;
+  const height = 240;
+  const paddingLeft = 58;
   const paddingRight = 15;
-  const paddingTop = 15;
-  const paddingBottom = 35;
+  const paddingTop = 20;
+  const paddingBottom = 45;
 
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
@@ -113,7 +123,16 @@ const SVGLineChart: React.FC<{ data: { label: string; value: number }[] }> = ({ 
   const yBottom = paddingTop + chartHeight;
 
   return (
-    <div style={{ width: '100%', maxWidth: '640px', margin: '0 auto', padding: '8px 0' }}>
+    <div style={{ 
+      width: '100%', 
+      maxWidth: '640px', 
+      margin: '0 auto', 
+      padding: '20px',
+      borderRadius: '12px',
+      background: 'rgba(255,255,255,0.015)',
+      border: '1px solid var(--border-color)',
+      boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.02)'
+    }}>
       <svg 
         viewBox={`0 0 ${width} ${height}`} 
         style={{ width: '100%', height: 'auto', overflow: 'visible' }}
@@ -220,7 +239,7 @@ const SVGLineChart: React.FC<{ data: { label: string; value: number }[] }> = ({ 
             <text 
               key={i}
               x={x} 
-              y={height - 12} 
+              y={height - 24} 
               textAnchor="middle" 
               fill="var(--text-secondary)" 
               style={{ fontSize: '10px', fontWeight: '700' }}
@@ -229,6 +248,29 @@ const SVGLineChart: React.FC<{ data: { label: string; value: number }[] }> = ({ 
             </text>
           );
         })}
+
+        {/* Y-Axis Name (Rotated) */}
+        <text 
+          transform="rotate(-90)" 
+          x={-((paddingTop + chartHeight) / 2)} 
+          y={15} 
+          textAnchor="middle" 
+          fill="var(--text-secondary)" 
+          style={{ fontSize: '9px', fontWeight: '800', letterSpacing: '0.06em', textTransform: 'uppercase' }}
+        >
+          {yAxisLabel}
+        </text>
+
+        {/* X-Axis Name */}
+        <text 
+          x={paddingLeft + chartWidth / 2} 
+          y={height - 6} 
+          textAnchor="middle" 
+          fill="var(--text-secondary)" 
+          style={{ fontSize: '9px', fontWeight: '800', letterSpacing: '0.06em', textTransform: 'uppercase' }}
+        >
+          {xAxisLabel}
+        </text>
       </svg>
     </div>
   );
@@ -1819,7 +1861,11 @@ export const Dashboard: React.FC = () => {
                   </h4>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '180px' }}>
                     {empDashboardData.exam_score_trend && empDashboardData.exam_score_trend.length > 0 && empDashboardData.exam_score_trend[0].label !== 'Baseline' ? (
-                      <SVGLineChart data={empDashboardData.exam_score_trend} />
+                      <SVGLineChart 
+                        data={empDashboardData.exam_score_trend} 
+                        yAxisLabel="Exam Score (0-10)" 
+                        xAxisLabel="Attempts History"
+                      />
                     ) : (
                       <div className="empty-state-container" style={{ padding: '32px 0', textAlign: 'center' }}>
                         <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.88rem', margin: 0 }}>No graded exam score history available yet. Complete assigned exams to view your score trend line!</p>
@@ -2085,14 +2131,18 @@ export const Dashboard: React.FC = () => {
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Graphical timeline of course enrollments over recent months</span>
                 </div>
               </div>
-              <SVGLineChart data={enrollmentTrendData && enrollmentTrendData.length > 0 ? enrollmentTrendData : [
-                { label: 'Jan', value: 12 },
-                { label: 'Feb', value: 18 },
-                { label: 'Mar', value: 25 },
-                { label: 'Apr', value: 32 },
-                { label: 'May', value: 40 },
-                { label: 'Jun', value: 48 }
-              ]} />
+              <SVGLineChart 
+                data={enrollmentTrendData && enrollmentTrendData.length > 0 ? enrollmentTrendData : [
+                  { label: 'Jan', value: 12 },
+                  { label: 'Feb', value: 18 },
+                  { label: 'Mar', value: 25 },
+                  { label: 'Apr', value: 32 },
+                  { label: 'May', value: 40 },
+                  { label: 'Jun', value: 48 }
+                ]} 
+                yAxisLabel="Enrolled Count"
+                xAxisLabel="Monthly Timeline"
+              />
             </div>
 
           </div>
@@ -2543,7 +2593,11 @@ export const Dashboard: React.FC = () => {
             {/* 1. Enrollment Trend Over Time (Line Chart) */}
             <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
               <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Enrollment Trend</h3>
-              <SVGLineChart data={enrollmentTrendData.length > 0 ? enrollmentTrendData : [{ label: 'Baseline', value: 0 }]} />
+              <SVGLineChart 
+                data={enrollmentTrendData.length > 0 ? enrollmentTrendData : [{ label: 'Baseline', value: 0 }]} 
+                yAxisLabel="Enrolled Count"
+                xAxisLabel="Monthly Timeline"
+              />
             </div>
 
             {/* 2. Department-wise Performance Comparison (Bar Chart) */}
