@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, status, HTTPException, File, UploadFile, Form
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from uuid import UUID
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import datetime
 import os
 import shutil
 import uuid
+import io
 
 from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
@@ -329,6 +331,48 @@ def get_submissions(
             )
         )
     return res
+
+
+@router.get(
+    "/download-template",
+    summary="Download Kaizen Question Template (.txt)"
+)
+def download_question_template(
+    current_user: User = Depends(get_current_user)
+):
+    """Returns the blank question template as a plain .txt file — opens in any editor."""
+    from app.services.template_service import generate_template_txt
+    txt_bytes = generate_template_txt()
+    return StreamingResponse(
+        io.BytesIO(txt_bytes),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=kaizen_question_template.txt"}
+    )
+
+
+@router.post(
+    "/export-questions",
+    summary="Export current question list as a filled Kaizen template DOCX"
+)
+def export_questions_as_template(
+    payload: Dict[str, Any],
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Accepts { "questions": [...] } and returns a filled .docx template file.
+    Allows users to download their current exam questions as a reusable template.
+    """
+    from app.services.template_service import export_questions_to_docx
+    questions = payload.get("questions", [])
+    if not questions:
+        raise HTTPException(status_code=400, detail="No questions provided to export.")
+    docx_bytes = export_questions_to_docx(questions)
+    filename = f"kaizen_questions_{len(questions)}q.docx"
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 
 @router.get(
@@ -891,7 +935,7 @@ def reject_exam_review(
 async def generate_questions_from_pdf(
     file: UploadFile = File(...),
     exam_id: Optional[UUID] = Form(None),
-    target_count: int = Form(5),
+    target_count: int = Form(9999),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -908,7 +952,17 @@ async def generate_questions_from_pdf(
     from app.services.ai_exam_service import AIExamService
     if filename.endswith(".xlsx") or filename.endswith(".xls"):
         res = AIExamService.process_excel_and_stage(db, excel_bytes=contents, exam_id=exam_id)
+    elif filename.endswith(".docx"):
+        res = AIExamService.process_docx_and_stage(db, docx_bytes=contents, exam_id=exam_id, target_count=target_count)
+    elif filename.endswith(".txt"):
+        # Plain text template — fastest path, direct structured parse
+        try:
+            text = contents.decode("utf-8")
+        except UnicodeDecodeError:
+            text = contents.decode("latin-1", errors="replace")
+        res = AIExamService._stage_from_text(db, text=text, exam_id=exam_id, target_count=target_count)
     else:
+        # PDF and any other binary format
         res = AIExamService.process_pdf_and_stage(db, pdf_bytes=contents, exam_id=exam_id, target_count=target_count)
     return res
 

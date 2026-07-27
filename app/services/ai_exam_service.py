@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 import pypdf
 
 from app.models.exam import PendingAIQuestion
+from app.services.template_service import parse_template_text, extract_text_from_docx
 
 logger = logging.getLogger("app.ai_exam_service")
 
@@ -214,18 +215,80 @@ class AIExamService:
         exam_id: Optional[UUID] = None, 
         target_count: int = 5
     ) -> Dict[str, Any]:
-        """Parse PDF, extract AI questions, save to pending_ai_questions staging table."""
+        """Parse PDF, attempt structured template parse first, fall back to AI extraction."""
         text = AIExamService.parse_pdf_bytes(pdf_bytes)
-        if not text.trim():
+        if not text.strip():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Uploaded PDF contains no extractable text content."
             )
+        return AIExamService._stage_from_text(db, text, exam_id, target_count)
 
-        extracted_questions = AIExamService.extract_structured_questions(text, target_count=target_count)
+    @staticmethod
+    def process_docx_and_stage(
+        db: Session,
+        docx_bytes: bytes,
+        exam_id: Optional[UUID] = None,
+        target_count: int = 5
+    ) -> Dict[str, Any]:
+        """Extract text from DOCX, attempt structured template parse first, fall back to AI."""
+        try:
+            text = extract_text_from_docx(docx_bytes)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to read DOCX: {str(e)}")
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="Uploaded DOCX contains no extractable text.")
+        return AIExamService._stage_from_text(db, text, exam_id, target_count)
+
+    @staticmethod
+    def _stage_from_text(
+        db: Session,
+        text: str,
+        exam_id: Optional[UUID],
+        target_count: int
+    ) -> Dict[str, Any]:
+        """
+        Primary logic:
+          1. Try structured template parser (fast, deterministic).
+          2. If it fully succeeds → skip LLM entirely.
+          3. If partial → keep structured ones, send failed blocks to LLM.
+          4. If completely failed → send full text to LLM.
+        """
+        parse_result = parse_template_text(text)
+        extracted_questions = []
+        parse_method = "ai_extraction"
+
+        if parse_result["success"]:
+            # 100% structured — no LLM needed at all
+            extracted_questions = parse_result["questions"]
+            parse_method = "template_structured"
+            logger.info(f"Structured parse: {len(extracted_questions)} questions parsed — LLM skipped.")
+
+        elif parse_result["partial"]:
+            # Keep structured ones; run LLM only on failed blocks
+            extracted_questions = parse_result["questions"]
+            logger.info(f"Partial template parse: {parse_result['parsed_count']} structured, {parse_result['failed_count']} sent to LLM fallback.")
+            if parse_result["unparsed_text"].strip():
+                ai_qs = AIExamService.extract_structured_questions(
+                    parse_result["unparsed_text"],
+                    target_count=max(1, target_count - len(extracted_questions))
+                )
+                for q in ai_qs:
+                    q["source"] = "ai_extraction"
+                extracted_questions += ai_qs
+            parse_method = "template_partial"
+
+        else:
+            # No template tags at all — full LLM fallback
+            logger.info("No template structure found — using LLM/heuristic extraction.")
+            extracted_questions = AIExamService.extract_structured_questions(text, target_count=target_count)
+            for q in extracted_questions:
+                q["source"] = "ai_extraction"
+            parse_method = "ai_extraction"
+
+        # Stage to DB
         batch_id = uuid.uuid4()
         staged_records = []
-
         for q_data in extracted_questions:
             pending_q = PendingAIQuestion(
                 batch_id=batch_id,
@@ -238,13 +301,14 @@ class AIExamService:
                 status="pending_review"
             )
             db.add(pending_q)
-            staged_records.append(pending_q)
+            staged_records.append((pending_q, q_data.get("source", "ai_extraction")))
 
         db.commit()
-        
+
         return {
             "batch_id": str(batch_id),
             "staged_count": len(staged_records),
+            "parse_method": parse_method,
             "questions": [
                 {
                     "id": str(r.id),
@@ -254,9 +318,10 @@ class AIExamService:
                     "options": r.options,
                     "correct_answer": r.correct_answer,
                     "difficulty_level": r.difficulty_level,
-                    "status": r.status
+                    "status": r.status,
+                    "source": src,
                 }
-                for r in staged_records
+                for r, src in staged_records
             ]
         }
 

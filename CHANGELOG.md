@@ -2,6 +2,12 @@
 
 All notable changes to the Kaizen LMS project will be documented in this file.
 
+### [2026-07-27] Kaizen LMS — Exam Settings Course Selector & Standalone Exam Sprint
+- **Item 1 (Course Selector in Exam Settings Panel)**: Added a **"Course (Optional)"** dropdown selector to the Exam Settings panel in `ExamCreator.tsx`, positioned directly below "Department" and above "Duration (minutes)".
+- **Item 2 (Department-Filtered Options & Auto-Reset)**: The Course dropdown is dynamically populated with courses belonging to the selected department via `apiCall('/api/courses')`. Changing the department automatically resets the Course selection to `"None (Standalone Exam)"` and repopulated options for the new department.
+- **Item 3 (Standalone Exam & Nullable FK Verification)**: The first option is always `"None (Standalone Exam)"` (`value="none"`), which sends `course_id = null`. Confirmed `exams.course_id` is `nullable=True` in DB models (`app/models/exam.py`) and schema (`app/schemas/exam.py`). Standalone exams cleanly fall back in Attempt Exam, Reporting, Leaderboard, and Dashboard views without breaking.
+- **Item 4 (Long Course Code & Title Truncation)**: Applied `text-overflow: ellipsis` and `title` hover tooltips for long course titles (e.g. `[AI-101] Artificial Intelligence Foundations`).
+
 ### [2026-07-26] Kaizen LMS — Direct Role Selection at Creation + Immediate Role Promotion Re-Scoping Sprint
 - **Item 1 (Direct Role Selection at Account Creation)**: Added a **"User Role"** dropdown selector to the Add User form in `UserAdminStudio.tsx` allowing Admin & HR creators to provision accounts directly with `EMPLOYEE` (Employee), `COURSE_MANAGER` (Department Manager), `HR_ADMIN` (HR Administrator), or `SYSTEM_ADMIN` (System Administrator) roles at creation time.
 - **Item 2 (Server-Side Role Authorization & Role History Audit)**: Enforced server-side role validation in `create_user` (`app/api/admin.py`) restricting non-Admin users from creating escalated roles. Added automated `RoleHistory` audit table logging (`previous_role="NONE"`) upon initial account provisioning.
