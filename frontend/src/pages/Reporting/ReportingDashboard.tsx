@@ -592,7 +592,7 @@ export const ReportingDashboard: React.FC = () => {
                     <Button
                       id="btn-promote-role"
                       variant="primary"
-                      onClick={() => setShowPromoteModal(true)}
+                      onClick={handlePromoteRole}
                       disabled={!selectedNewRole || promoteLoading}
                       style={{ alignSelf: 'flex-start', fontSize: '0.875rem' }}
                     >
@@ -614,27 +614,7 @@ export const ReportingDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Promotion Confirmation Modal */}
-        {showPromoteModal && (
-          <Modal
-            isOpen={showPromoteModal}
-            title="Confirm Role Promotion"
-            onClose={() => setShowPromoteModal(false)}
-            footer={
-              <>
-                <Button variant="outline" onClick={() => setShowPromoteModal(false)}>Cancel</Button>
-                <Button id="btn-confirm-promote" variant="primary" onClick={handlePromoteRole} disabled={promoteLoading}>
-                  {promoteLoading ? 'Promoting…' : 'Yes, Promote'}
-                </Button>
-              </>
-            }
-          >
-            <div style={{ fontSize: '0.95rem', color: 'var(--text-primary, #0f172a)', lineHeight: 1.6 }}>
-              <p style={{ margin: '0 0 12px 0' }}>Are you sure you want to promote <strong>{selectedEmployee?.name}</strong> to <strong>{selectedNewRole === 'COURSE_MANAGER' ? 'Manager' : selectedNewRole}</strong>?</p>
-              <p style={{ color: 'var(--text-secondary, #64748b)', fontSize: '0.85rem', margin: 0 }}>This will grant them department-level access including Reporting, Leaderboard, and Course Management. This action is recorded in the audit log.</p>
-            </div>
-          </Modal>
-        )}
+
 
         {/* Summary stats row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
