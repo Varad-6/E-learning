@@ -1772,8 +1772,8 @@ export const Dashboard: React.FC = () => {
                 {/* Card 1: Average Exam Score */}
                 <div className="metric-nav-card" style={{
                   gridColumn: 'span 3',
-                  background: 'linear-gradient(135deg, rgba(20, 168, 0, 0.08) 0%, rgba(20, 168, 0, 0.02) 100%)',
-                  border: '1px solid rgba(20, 168, 0, 0.2)',
+                  background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.09) 0%, rgba(217, 119, 6, 0.02) 100%)',
+                  border: '1px solid rgba(217, 119, 6, 0.25)',
                   color: 'var(--text-primary)',
                   padding: '20px',
                   borderRadius: 'var(--border-radius-lg)',
@@ -1782,13 +1782,13 @@ export const Dashboard: React.FC = () => {
                   justifyContent: 'space-between',
                   minHeight: '130px',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(20, 168, 0, 0.05)'
+                  boxShadow: '0 4px 15px rgba(217, 119, 6, 0.05)'
                 }} onClick={() => navigate('/exams')}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
                       Average Exam Score
                     </span>
-                    <Award size={20} style={{ color: 'var(--accent-color)' }} />
+                    <Award size={20} style={{ color: '#d97706' }} />
                   </div>
                   <div>
                     <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
@@ -1805,8 +1805,8 @@ export const Dashboard: React.FC = () => {
                 {/* Card 2: Courses Available */}
                 <div className="metric-nav-card" style={{
                   gridColumn: 'span 3',
-                  background: 'linear-gradient(135deg, rgba(20, 168, 0, 0.08) 0%, rgba(20, 168, 0, 0.02) 100%)',
-                  border: '1px solid rgba(20, 168, 0, 0.2)',
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.09) 0%, rgba(16, 185, 129, 0.02) 100%)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
                   color: 'var(--text-primary)',
                   padding: '20px',
                   borderRadius: 'var(--border-radius-lg)',
@@ -1815,13 +1815,13 @@ export const Dashboard: React.FC = () => {
                   justifyContent: 'space-between',
                   minHeight: '130px',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(20, 168, 0, 0.05)'
+                  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.05)'
                 }} onClick={() => navigate('/dashboard?tab=my-courses&sub=available')}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
                       Available Courses
                     </span>
-                    <BookOpen size={20} style={{ color: 'var(--accent-color)' }} />
+                    <BookOpen size={20} style={{ color: '#10b981' }} />
                   </div>
                   <div>
                     <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
@@ -1839,8 +1839,8 @@ export const Dashboard: React.FC = () => {
                 {/* Card 3: Upcoming Exams */}
                 <div className="metric-nav-card" style={{
                   gridColumn: 'span 3',
-                  background: 'linear-gradient(135deg, rgba(20, 168, 0, 0.08) 0%, rgba(20, 168, 0, 0.02) 100%)',
-                  border: '1px solid rgba(20, 168, 0, 0.2)',
+                  background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.09) 0%, rgba(124, 58, 237, 0.02) 100%)',
+                  border: '1px solid rgba(124, 58, 237, 0.25)',
                   color: 'var(--text-primary)',
                   padding: '20px',
                   borderRadius: 'var(--border-radius-lg)',
@@ -1849,13 +1849,13 @@ export const Dashboard: React.FC = () => {
                   justifyContent: 'space-between',
                   minHeight: '130px',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(20, 168, 0, 0.05)'
+                  boxShadow: '0 4px 15px rgba(124, 58, 237, 0.05)'
                 }} onClick={() => navigate('/exams')}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
                       Upcoming Exams
                     </span>
-                    <Clock size={20} style={{ color: 'var(--accent-color)' }} />
+                    <Clock size={20} style={{ color: '#7c3aed' }} />
                   </div>
                   <div>
                     <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
@@ -1870,8 +1870,8 @@ export const Dashboard: React.FC = () => {
                 {/* Card 4: Learning Progress */}
                 <div className="metric-nav-card" style={{
                   gridColumn: 'span 3',
-                  background: 'linear-gradient(135deg, rgba(20, 168, 0, 0.08) 0%, rgba(20, 168, 0, 0.02) 100%)',
-                  border: '1px solid rgba(20, 168, 0, 0.2)',
+                  background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.09) 0%, rgba(59, 130, 246, 0.02) 100%)',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
                   color: 'var(--text-primary)',
                   padding: '20px',
                   borderRadius: 'var(--border-radius-lg)',
@@ -1880,13 +1880,13 @@ export const Dashboard: React.FC = () => {
                   justifyContent: 'space-between',
                   minHeight: '130px',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(20, 168, 0, 0.05)'
+                  boxShadow: '0 4px 15px rgba(59, 130, 246, 0.05)'
                 }} onClick={() => navigate('/dashboard?tab=my-courses&sub=completed')}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
                       Courses Completed
                     </span>
-                    <CheckCircle size={20} style={{ color: 'var(--accent-color)' }} />
+                    <CheckCircle size={20} style={{ color: '#3b82f6' }} />
                   </div>
                   <div>
                     <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
