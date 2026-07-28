@@ -1,4 +1,5 @@
 import uuid
+import sys
 from app.database.session import SessionLocal
 from app.models.user import User
 from app.models.role import Role
@@ -23,6 +24,16 @@ from app.core.security import get_password_hash
 
 db = SessionLocal()
 try:
+    force_reset = "--reset" in sys.argv
+    if not force_reset:
+        try:
+            user_count = db.query(User).count()
+            if user_count > 0:
+                print("🌱 Database already seeded. Skipping seeder to preserve existing test data.")
+                sys.exit(0)
+        except Exception as e:
+            print(f"Database tables not ready or uninitialized ({str(e)}). Proceeding with clean seeding...")
+
     print("Clearing database tables for clean seed...")
     # Delete in child-to-parent order to respect FK constraints
     db.query(AuditLog).delete()

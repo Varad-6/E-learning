@@ -9,6 +9,9 @@
   - Updated `/api/exams/submissions` endpoint in `app/api/exam.py` to auto-calculate MCQ/MSQ scores on-the-fly for ungraded submissions, ensuring the frontend receives them immediately.
   - Added a client-side fallback `getAutoScore` inside `ExamReviewer.tsx` to ensure MCQ/MSQ questions are pre-populated even if the backend returns them as undefined.
   - Redesigned the descriptive question score input UI in `ExamReviewer.tsx` into a row of interactive numeric pill buttons (0 to 10) with premium active status glow and hover effects.
+- **Task 3 (Conditional Seeding & Legacy Container Cleanup)**:
+  - Modified `seed_db.py` to check for active records inside the `users` table on startup. If data is present, the script skips execution and exits with `0` to prevent wipes of dynamic QA test progress. Added the `--reset` command line flag to force clearing if needed.
+  - Successfully deleted stopped legacy database containers (`elearning-db`, `planpilot_db`, `planpilot_backend`, `planpilot_frontend`) to clean up environment overlaps.
 - Tests added: Production build compiled successfully (`npm run build` 100% green).
 - Migration: No
 
