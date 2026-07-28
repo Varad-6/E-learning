@@ -407,10 +407,16 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
+    const sub = params.get('sub');
     if (tab === 'profile') {
       setActiveMainView('profile');
     } else if (tab === 'my-courses') {
       setActiveMainView('my-courses');
+      if (sub === 'mandatory' || sub === 'available' || sub === 'in_progress' || sub === 'completed') {
+        setActiveMyCoursesTab(sub);
+      } else {
+        setActiveMyCoursesTab('in_progress');
+      }
     } else {
       setActiveMainView('dashboard');
     }
@@ -457,7 +463,7 @@ export const Dashboard: React.FC = () => {
   // Manager Managed Courses state (to allow dynamic edits/creation)
   const [managedCourses, setManagedCourses] = useState<Course[]>(DEFAULT_COURSES);
   const [activeCatalogTab, setActiveCatalogTab] = useState<'mandatory' | 'available'>('available');
-  const [activeMyCoursesTab, setActiveMyCoursesTab] = useState<'in_progress' | 'completed'>('in_progress');
+  const [activeMyCoursesTab, setActiveMyCoursesTab] = useState<'mandatory' | 'available' | 'in_progress' | 'completed'>('in_progress');
 
   // Redesigned Employee Dashboard states
   const [empDashboardData, setEmpDashboardData] = useState<any | null>(null);
@@ -1758,7 +1764,7 @@ export const Dashboard: React.FC = () => {
                       Check your progress, complete upcoming exams, and browse new courses to keep leveling up.
                     </p>
                   </div>
-                  <Button variant="primary" onClick={() => setShowCatalogOnly(true)}>Browse All Courses →</Button>
+                  <Button variant="primary" onClick={() => navigate('/dashboard?tab=my-courses&sub=available')}>Browse All Courses →</Button>
                 </div>
 
                 {/* 4 COLORFUL METRIC CARDS SECTION */}
@@ -1810,7 +1816,7 @@ export const Dashboard: React.FC = () => {
                   minHeight: '130px',
                   cursor: 'pointer',
                   boxShadow: '0 4px 15px rgba(20, 168, 0, 0.05)'
-                }} onClick={() => setShowCatalogOnly(true)}>
+                }} onClick={() => navigate('/dashboard?tab=my-courses&sub=available')}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
                       Available Courses
@@ -1872,7 +1878,7 @@ export const Dashboard: React.FC = () => {
                   minHeight: '130px',
                   cursor: 'pointer',
                   boxShadow: '0 4px 15px rgba(20, 168, 0, 0.05)'
-                }} onClick={() => setActiveMainView('my-courses')}>
+                }} onClick={() => navigate('/dashboard?tab=my-courses&sub=completed')}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
                       Courses Completed
@@ -1961,7 +1967,7 @@ export const Dashboard: React.FC = () => {
                         <BookOpen size={18} style={{ color: '#059669' }} />
                         Recommended Available Courses
                       </h4>
-                      <button onClick={() => setShowCatalogOnly(true)} style={{ background: 'none', border: 'none', color: 'var(--accent-color)', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
+                      <button onClick={() => navigate('/dashboard?tab=my-courses&sub=available')} style={{ background: 'none', border: 'none', color: 'var(--accent-color)', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
                         View All
                       </button>
                     </div>
@@ -2139,8 +2145,40 @@ export const Dashboard: React.FC = () => {
           <div className="employee-learning-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
             <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
               
-              {/* Sub-tabs for In Progress & Completed */}
+              {/* Sub-tabs for Mandatory, Available, In Progress & Completed */}
               <div className="catalog-tabs-container" style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveMyCoursesTab('mandatory')}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    fontSize: '1.05rem',
+                    fontWeight: 700,
+                    color: activeMyCoursesTab === 'mandatory' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                    borderBottom: activeMyCoursesTab === 'mandatory' ? '2px solid var(--accent-color)' : 'none',
+                    paddingBottom: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Mandatory
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveMyCoursesTab('available')}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    fontSize: '1.05rem',
+                    fontWeight: 700,
+                    color: activeMyCoursesTab === 'available' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                    borderBottom: activeMyCoursesTab === 'available' ? '2px solid var(--accent-color)' : 'none',
+                    paddingBottom: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Available
+                </button>
                 <button
                   type="button"
                   onClick={() => setActiveMyCoursesTab('in_progress')}
@@ -2175,87 +2213,167 @@ export const Dashboard: React.FC = () => {
                 </button>
               </div>
 
-              {/* Enrolled Courses */}
+              {/* Enrolled/Catalog Courses */}
               <div className="enrolled-courses-section" style={{ width: '100%' }}>
                 {(() => {
-                  const shownCourses = myProgress.filter(p => {
-                    return activeMyCoursesTab === 'completed' ? p.progressPercent === 100 : p.progressPercent < 100;
-                  });
-
-                  if (shownCourses.length === 0) {
+                  if (activeMyCoursesTab === 'mandatory' || activeMyCoursesTab === 'available') {
+                    const filtered = managedCourses.filter((c: any) => {
+                      const isPublished = c.status === 'published' || c.status === 'approved' || c.is_published;
+                      if (!isPublished) return false;
+                      return activeMyCoursesTab === 'mandatory' ? c.is_mandatory : !c.is_mandatory;
+                    });
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)', width: '100%' }}>
+                          <BookOpen size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
+                          <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No courses match your active filters.</p>
+                        </div>
+                      );
+                    }
                     return (
-                      <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)' }}>
-                        <Bookmark size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
-                        <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                          {activeMyCoursesTab === 'completed' 
-                            ? 'No completed courses yet. Work through your module lessons to earn certification!' 
-                            : 'No active course enrollments. Enroll in a course from the Dashboard catalog to start!'}
-                        </p>
+                      <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
+                        {filtered.map((course) => {
+                          const enrollmentItem = myProgress.find((p: any) => p.courseId === course.id);
+                          const isEnrolled = !!enrollmentItem;
+                          return (
+                            <div 
+                              key={course.id} 
+                              className="course-lobby-card glass-panel glow-hover" 
+                              style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                borderRadius: 'var(--border-radius-lg)', 
+                                overflow: 'hidden', 
+                                background: 'var(--bg-card)', 
+                                border: '1px solid var(--border-color)',
+                                transition: 'all 0.3s ease',
+                                padding: '20px',
+                                justifyContent: 'space-between',
+                                minHeight: '180px'
+                              }}
+                            >
+                              <div>
+                                <span 
+                                  className="course-code-tag" 
+                                  style={{ 
+                                    padding: '2px 8px', 
+                                    borderRadius: '12px', 
+                                    background: 'var(--accent-glow)', 
+                                    color: 'var(--accent-color)', 
+                                    fontSize: '0.7rem', 
+                                    fontWeight: '800',
+                                    textTransform: 'uppercase'
+                                  }}
+                                >
+                                  {course.course_code}
+                                </span>
+                                <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
+                                  {course.title}
+                                </h4>
+                              </div>
+                              <div style={{ marginTop: '16px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                  <span>Duration:</span>
+                                  <strong>{course.duration || '10 hours'}</strong>
+                                </div>
+                                <Button
+                                  variant={isEnrolled ? "outline" : "primary"}
+                                  disabled={isEnrolled}
+                                  onClick={() => {
+                                    if (!isEnrolled) {
+                                      handleEnrollCourse(course.id);
+                                    }
+                                  }}
+                                  style={{ width: '100%', height: '40px', fontWeight: '700' }}
+                                >
+                                  {isEnrolled ? 'Already Enrolled' : 'Start Course'}
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  } else {
+                    const shownCourses = myProgress.filter(p => {
+                      return activeMyCoursesTab === 'completed' ? p.progressPercent === 100 : p.progressPercent < 100;
+                    });
+
+                    if (shownCourses.length === 0) {
+                      return (
+                        <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)', width: '100%' }}>
+                          <Bookmark size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
+                          <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                            {activeMyCoursesTab === 'completed' 
+                              ? 'No completed courses yet. Work through your module lessons to earn certification!' 
+                              : 'No active course enrollments. Enroll in a course from the Dashboard catalog to start!'}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
+                        {shownCourses.map((item) => (
+                          <div 
+                            key={item.id} 
+                            className="course-lobby-card glass-panel glow-hover" 
+                            style={{ 
+                              display: 'flex', 
+                              flexDirection: 'column', 
+                              borderRadius: 'var(--border-radius-lg)', 
+                              overflow: 'hidden', 
+                              background: 'var(--bg-card)', 
+                              border: '1px solid var(--border-color)',
+                              transition: 'all 0.3s ease',
+                              padding: '20px',
+                              justifyContent: 'space-between',
+                              minHeight: '180px'
+                            }}
+                          >
+                            <div>
+                              <span 
+                                className="course-code-tag" 
+                                style={{ 
+                                  padding: '2px 8px', 
+                                  borderRadius: '12px', 
+                                  background: 'var(--accent-glow)', 
+                                  color: 'var(--accent-color)', 
+                                  fontSize: '0.7rem', 
+                                  fontWeight: '800',
+                                  textTransform: 'uppercase'
+                                }}
+                              >
+                                {item.courseCode}
+                              </span>
+                              <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
+                                {item.title}
+                              </h4>
+                            </div>
+
+                            <div style={{ marginTop: '16px' }}>
+                              <div className="progress-bar-group" style={{ marginBottom: '12px' }}>
+                                <div className="progress-bar-container" style={{ height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                                  <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-color), var(--accent-color-hover))' }}></div>
+                                </div>
+                                <div className="progress-label-row" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                  <span>{item.progressPercent}% Completed</span>
+                                </div>
+                              </div>
+
+                              <Button
+                                variant="primary"
+                                onClick={() => navigate(`/course-player/${item.id}`)}
+                                style={{ width: '100%', height: '40px', fontWeight: '700' }}
+                              >
+                                {item.progressPercent === 100 ? 'Review Course' : (item.progressPercent > 0 ? 'Resume Course' : 'Start Course')}
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     );
                   }
-
-                  return (
-                    <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
-                      {shownCourses.map((item) => (
-                        <div 
-                          key={item.id} 
-                          className="course-lobby-card glass-panel glow-hover" 
-                          style={{ 
-                            display: 'flex', 
-                            flexDirection: 'column', 
-                            borderRadius: 'var(--border-radius-lg)', 
-                            overflow: 'hidden', 
-                            background: 'var(--bg-card)', 
-                            border: '1px solid var(--border-color)',
-                            transition: 'all 0.3s ease',
-                            padding: '20px',
-                            justifyContent: 'space-between',
-                            minHeight: '180px'
-                          }}
-                        >
-                          <div>
-                            <span 
-                              className="course-code-tag" 
-                              style={{ 
-                                padding: '2px 8px', 
-                                borderRadius: '12px', 
-                                background: 'var(--accent-glow)', 
-                                color: 'var(--accent-color)', 
-                                fontSize: '0.7rem', 
-                                fontWeight: '800',
-                                textTransform: 'uppercase'
-                              }}
-                            >
-                              {item.courseCode}
-                            </span>
-                            <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
-                              {item.title}
-                            </h4>
-                          </div>
-
-                          <div style={{ marginTop: '16px' }}>
-                            <div className="progress-bar-group" style={{ marginBottom: '12px' }}>
-                              <div className="progress-bar-container" style={{ height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                                <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-color), var(--accent-color-hover))' }}></div>
-                              </div>
-                              <div className="progress-label-row" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                                <span>{item.progressPercent}% Completed</span>
-                              </div>
-                            </div>
-
-                            <Button
-                              variant="primary"
-                              onClick={() => navigate(`/course-player/${item.id}`)}
-                              style={{ width: '100%', height: '40px', fontWeight: '700' }}
-                            >
-                              {item.progressPercent === 100 ? 'Review Course' : (item.progressPercent > 0 ? 'Resume Course' : 'Start Course')}
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
                 })()}
               </div>
             </div>
