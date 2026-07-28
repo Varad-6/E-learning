@@ -1898,8 +1898,8 @@ export const Dashboard: React.FC = () => {
 
                 {/* ROW 2: DETAILED WIDGETS */}
                 
-                {/* 1. MY DEPARTMENT RANK CARD (Span 4) */}
-                <div className="widget-card" style={{ gridColumn: 'span 4', border: '1px solid var(--border-color)', background: 'var(--bg-card)', alignItems: 'center' }}>
+                {/* 1. MY DEPARTMENT RANK CARD (Span 6) */}
+                <div className="widget-card" style={{ gridColumn: 'span 6', border: '1px solid var(--border-color)', background: 'var(--bg-card)', alignItems: 'center' }}>
                   <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, width: '100%', margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)' }}>
                     <Trophy size={18} style={{ color: '#d97706' }} />
                     My Department Rank
@@ -1918,8 +1918,8 @@ export const Dashboard: React.FC = () => {
                   </Button>
                 </div>
 
-                {/* 2. LEARNING JOURNEY PROGRESS RING (Span 4) */}
-                <div className="widget-card" style={{ gridColumn: 'span 4', border: '1px solid var(--border-color)', background: 'var(--bg-card)', alignItems: 'center' }}>
+                {/* 2. LEARNING JOURNEY PROGRESS RING (Span 6) */}
+                <div className="widget-card" style={{ gridColumn: 'span 6', border: '1px solid var(--border-color)', background: 'var(--bg-card)', alignItems: 'center' }}>
                   <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, width: '100%', margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)' }}>
                     <Target size={18} style={{ color: 'var(--accent-color)' }} />
                     Learning Journey
@@ -1944,7 +1944,27 @@ export const Dashboard: React.FC = () => {
                   )}
                 </div>
 
-                {/* 3. COURSE ENROLLMENT STATUS BAR CHART (Span 4) */}
+                {/* ROW 3: DETAILED CHARTS */}
+
+                {/* 3. SCORE TREND LINE CHART (Span 8) */}
+                <div className="widget-card" style={{ gridColumn: 'span 8', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)', marginBottom: '14px' }}>
+                    <TrendingUp size={18} style={{ color: 'var(--accent-color)' }} />
+                    Exam Score Performance Trend
+                  </h4>
+                  <p style={{ margin: '0 0 16px 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                    Track your grades over time (latest exam scores out of 10).
+                  </p>
+                  <div style={{ flex: 1 }}>
+                    <SVGLineChart 
+                      data={empDashboardData.exam_score_trend && empDashboardData.exam_score_trend.length > 0 ? empDashboardData.exam_score_trend : [{ label: 'Baseline', value: 0 }]} 
+                      xAxisLabel="Exams Taken" 
+                      yAxisLabel="Score (max 10)" 
+                    />
+                  </div>
+                </div>
+
+                {/* 4. COURSE ENROLLMENT STATUS BAR CHART (Span 4) */}
                 <div className="widget-card" style={{ gridColumn: 'span 4', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
                   <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)', marginBottom: '14px' }}>
                     <Layers size={18} style={{ color: '#00f2fe' }} />
@@ -1972,24 +1992,6 @@ export const Dashboard: React.FC = () => {
                           { label: 'Enrolled', value: 0, color: '#f59e0b' }
                         ]
                     } />
-                  </div>
-                </div>
-
-                {/* ROW 3: SCORE TREND LINE CHART (Span 12) */}
-                <div className="widget-card" style={{ gridColumn: 'span 12', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
-                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)', marginBottom: '14px' }}>
-                    <TrendingUp size={18} style={{ color: 'var(--accent-color)' }} />
-                    Exam Score Performance Trend
-                  </h4>
-                  <p style={{ margin: '0 0 16px 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    Track your grades over time (latest exam scores out of 10).
-                  </p>
-                  <div style={{ flex: 1 }}>
-                    <SVGLineChart 
-                      data={empDashboardData.exam_score_trend && empDashboardData.exam_score_trend.length > 0 ? empDashboardData.exam_score_trend : [{ label: 'Baseline', value: 0 }]} 
-                      xAxisLabel="Exams Taken" 
-                      yAxisLabel="Score (max 10)" 
-                    />
                   </div>
                 </div>
 
