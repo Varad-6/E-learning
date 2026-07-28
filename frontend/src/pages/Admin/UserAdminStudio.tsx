@@ -236,7 +236,6 @@ export const UserAdminStudio: React.FC = () => {
     if (!firstName.trim()) errors.firstName = 'Required.';
     if (!lastName.trim()) errors.lastName = 'Required.';
     if (!email.trim()) errors.email = 'Required.';
-    if (!isEmailVerified) errors.email = 'Email verification is mandatory.';
     if (!password) errors.password = 'Required.';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -660,96 +659,56 @@ export const UserAdminStudio: React.FC = () => {
           <form onSubmit={handleCreateUserSubmit}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
               <div>
-                <label className="form-label-styled">Employee Code</label>
-                <input className="form-input-styled" value={employeeCode} onChange={e => setEmployeeCode(e.target.value)} placeholder="e.g. EMP001" />
+                <label className="form-label-styled">Employee Code <span className="required-star">*</span></label>
+                <input 
+                  className="form-input-styled" 
+                  value={employeeCode} 
+                  onChange={e => setEmployeeCode(e.target.value)} 
+                  placeholder="e.g. EMP001" 
+                />
+                {formErrors.employeeCode && <span className="input-error-msg" style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{formErrors.employeeCode}</span>}
               </div>
               <div>
                 <label className="form-label-styled">Email Address <span className="required-star">*</span></label>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <input 
-                    className="form-input-styled" 
-                    type="email" 
-                    value={email} 
-                    onChange={e => handleEmailChange(e.target.value)} 
-                    placeholder="employee@company.com" 
-                    disabled={isEmailVerified}
-                    style={{ flex: 1 }}
-                  />
-                  {isEmailVerified ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', color: '#10b981', fontWeight: 700, gap: '4px', padding: '0 8px' }}>
-                      <CheckCircle2 size={16} /> Verified
-                    </span>
-                  ) : (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={handleSendVerificationOtp} 
-                      disabled={otpCooldown > 0 || !email}
-                    >
-                      {otpSent ? 'Resend' : 'Verify Email'}
-                    </Button>
-                  )}
-                </div>
+                <input 
+                  className="form-input-styled" 
+                  type="email" 
+                  value={email} 
+                  onChange={e => handleEmailChange(e.target.value)} 
+                  placeholder="employee@company.com" 
+                />
                 {formErrors.email && <span className="input-error-msg" style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{formErrors.email}</span>}
               </div>
               <div>
-                <label className="form-label-styled">First Name</label>
+                <label className="form-label-styled">First Name <span className="required-star">*</span></label>
                 <input className="form-input-styled" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First Name" />
+                {formErrors.firstName && <span className="input-error-msg" style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{formErrors.firstName}</span>}
               </div>
               <div>
-                <label className="form-label-styled">Last Name</label>
+                <label className="form-label-styled">Last Name <span className="required-star">*</span></label>
                 <input className="form-input-styled" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last Name" />
+                {formErrors.lastName && <span className="input-error-msg" style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{formErrors.lastName}</span>}
               </div>
             </div>
 
-            {otpSent && !isEmailVerified && (
-              <div style={{ marginTop: '16px', marginBottom: '20px', padding: '20px', background: 'rgba(255,255,255,0.015)', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.02)' }}>
-                <label className="form-label-styled" style={{ textAlign: 'center', display: 'block', fontWeight: 700, marginBottom: '8px' }}>Enter 6-Digit Email Verification Code</label>
-                <OTPInput 
-                  value={verificationOtp}
-                  onChange={val => setVerificationOtp(val)}
-                  cooldown={otpCooldown}
-                  onResend={handleSendVerificationOtp}
+            <div style={{ marginBottom: '20px' }}>
+              <label className="form-label-styled">Set Initial Password <span className="required-star">*</span></label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  className="form-input-styled" 
+                  type={showPassword ? 'text' : 'password'} 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  placeholder="Enter initial password (or click Generate)" 
+                  style={{ flex: 1 }} 
                 />
-                <Button 
-                  type="button" 
-                  variant="primary" 
-                  onClick={handleVerifyVerificationOtp}
-                  isLoading={isVerifyingOtp}
-                  style={{ width: '100%', marginTop: '8px' }}
-                >
-                  Confirm OTP & Verify Email
+                <Button type="button" variant="outline" onClick={generateRandomPassword}>Generate</Button>
+                <Button type="button" variant="outline" onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
                 </Button>
               </div>
-            )}
-            
-            {isEmailVerified && (
-              <div style={{ marginBottom: '20px' }} className="animate-fade-in">
-                <label className="form-label-styled">Set Initial Password <span className="required-star">*</span></label>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <input 
-                    className="form-input-styled" 
-                    type={showPassword ? 'text' : 'password'} 
-                    value={password} 
-                    onChange={e => setPassword(e.target.value)} 
-                    placeholder="Enter secure initial password" 
-                    style={{ flex: 1 }} 
-                  />
-                  <Button type="button" variant="outline" onClick={generateRandomPassword}>Generate</Button>
-                  <Button type="button" variant="outline" onClick={() => setShowPassword(!showPassword)}>
-                    {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
-                  </Button>
-                </div>
-              </div>
-            )}
-            
-            {!isEmailVerified && (
-              <div style={{ marginBottom: '20px', padding: '16px', background: 'rgba(255,255,255,0.01)', border: '1px dashed var(--border-color)', borderRadius: '8px', textAlign: 'center' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  🔒 Please complete email verification to set password and create account.
-                </span>
-              </div>
-            )}
+              {formErrors.password && <span className="input-error-msg" style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{formErrors.password}</span>}
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
               <div>
@@ -786,7 +745,8 @@ export const UserAdminStudio: React.FC = () => {
             <Button 
               type="submit" 
               variant="primary" 
-              disabled={!isEmailVerified || formLoading}
+              isLoading={formLoading}
+              disabled={formLoading}
               style={{ width: '100%', padding: '12px', fontSize: '1rem', marginTop: '12px' }}
             >
               Create Account
