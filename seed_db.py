@@ -408,25 +408,25 @@ try:
 
     print("Seeding Badge Tiers...")
     badge_progression = [
-        ("Bronze I", 1, "bronze_1", 1),
+        ("Bronze III", 1, "bronze_3", 1),
         ("Bronze II", 2, "bronze_2", 2),
-        ("Bronze III", 3, "bronze_3", 3),
-        ("Silver I", 4, "silver_1", 4),
+        ("Bronze I", 3, "bronze_1", 3),
+        ("Silver III", 4, "silver_3", 4),
         ("Silver II", 5, "silver_2", 5),
-        ("Silver III", 6, "silver_3", 6),
-        ("Gold I", 7, "gold_1", 7),
+        ("Silver I", 6, "silver_1", 6),
+        ("Gold III", 7, "gold_3", 7),
         ("Gold II", 8, "gold_2", 8),
-        ("Gold III", 9, "gold_3", 9),
+        ("Gold I", 9, "gold_1", 9),
         ("Ruby Crest", 10, "ruby_crest", 10),
-        ("Amethyst I", 11, "amethyst_1", 11),
+        ("Amethyst III", 11, "amethyst_3", 11),
         ("Amethyst II", 12, "amethyst_2", 12),
-        ("Amethyst III", 13, "amethyst_3", 13),
-        ("Emerald I", 14, "emerald_1", 14),
+        ("Amethyst I", 13, "amethyst_1", 13),
+        ("Emerald III", 14, "emerald_3", 14),
         ("Emerald II", 15, "emerald_2", 15),
-        ("Emerald III", 16, "emerald_3", 16),
-        ("Sapphire I", 17, "sapphire_1", 17),
+        ("Emerald I", 16, "emerald_1", 16),
+        ("Sapphire III", 17, "sapphire_3", 17),
         ("Sapphire II", 18, "sapphire_2", 18),
-        ("Sapphire III", 19, "sapphire_3", 19),
+        ("Sapphire I", 19, "sapphire_1", 19),
         ("Diamond Crest", 20, "diamond_crest", 20)
     ]
     for name, order, asset_ref, count in badge_progression:

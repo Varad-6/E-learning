@@ -8,6 +8,8 @@ from typing import List, Optional, Dict, Any
 
 from app.core.dependencies import get_db, get_current_user
 from app.models.user import User
+from app.models.role import Role
+from app.models.user_role import UserRole
 from app.models.department import Department
 from app.models.exam import Exam, ExamSubmission, ExamGrade
 
@@ -66,9 +68,14 @@ def get_leaderboard(
             ExamSubmission, ExamSubmission.user_id == User.id
         ).join(
             ExamGrade, ExamGrade.submission_id == ExamSubmission.id
+        ).join(
+            UserRole, User.id == UserRole.user_id
+        ).join(
+            Role, UserRole.role_id == Role.id
         ).filter(
             User.department_id == d.id,
-            ExamSubmission.status == "graded"
+            ExamSubmission.status == "graded",
+            Role.name == "EMPLOYEE"
         ).group_by(
             User.id, User.first_name, User.last_name
         ).order_by(
@@ -79,10 +86,15 @@ def get_leaderboard(
         top_performer_score = round(float(top_perf[2]), 2) if top_perf else None
 
         # Employee count in department
-        headcount = db.query(User).filter(
+        headcount = db.query(User).join(
+            UserRole, User.id == UserRole.user_id
+        ).join(
+            Role, UserRole.role_id == Role.id
+        ).filter(
             User.department_id == d.id,
             User.is_active == True,
-            User.is_deleted == False
+            User.is_deleted == False,
+            Role.name == "EMPLOYEE"
         ).count()
 
         dept_dicts.append({
@@ -135,12 +147,17 @@ def get_leaderboard(
             ExamGrade, ExamGrade.submission_id == ExamSubmission.id
         ).join(
             User, ExamSubmission.user_id == User.id
+        ).join(
+            UserRole, User.id == UserRole.user_id
+        ).join(
+            Role, UserRole.role_id == Role.id
         ).outerjoin(
             Department, User.department_id == Department.id
         ).filter(
             ExamSubmission.exam_id == exam_id,
             ExamSubmission.status == "graded",
-            ExamGrade.overall_score.isnot(None)
+            ExamGrade.overall_score.isnot(None),
+            Role.name == "EMPLOYEE"
         ).all()
 
         # Sort by overall_score desc, then submitted_at asc
@@ -155,11 +172,16 @@ def get_leaderboard(
             ExamGrade, ExamGrade.submission_id == ExamSubmission.id
         ).join(
             User, ExamSubmission.user_id == User.id
+        ).join(
+            UserRole, User.id == UserRole.user_id
+        ).join(
+            Role, UserRole.role_id == Role.id
         ).filter(
             ExamSubmission.exam_id == exam_id,
             ExamSubmission.status == "graded",
             ExamGrade.overall_score.isnot(None),
-            ExamSubmission.submitted_at < thirty_days_ago
+            ExamSubmission.submitted_at < thirty_days_ago,
+            Role.name == "EMPLOYEE"
         ).all()
         sorted_prev = sorted(prev_graded_subs, key=lambda x: (-x.overall_score, x.submitted_at or datetime.datetime.max))
         prev_ranks = {str(row.user_id): idx + 1 for idx, row in enumerate(sorted_prev)}
@@ -192,6 +214,7 @@ def get_leaderboard(
                 BadgeTier.tier_order.desc()
             ).first()
             badge_name = highest_badge.badge_tier.name if highest_badge else None
+            badge_asset_ref = highest_badge.badge_tier.icon_asset_ref if highest_badge else None
 
             rankings.append({
                 "rank": curr_rank,
@@ -204,7 +227,8 @@ def get_leaderboard(
                 "time_taken": time_taken_str,
                 "date": date_str,
                 "delta": delta,
-                "badge_name": badge_name
+                "badge_name": badge_name,
+                "badge_asset_ref": badge_asset_ref
             })
 
     else:
@@ -223,13 +247,18 @@ def get_leaderboard(
             ExamGrade, ExamGrade.submission_id == ExamSubmission.id
         ).join(
             User, ExamSubmission.user_id == User.id
+        ).join(
+            UserRole, User.id == UserRole.user_id
+        ).join(
+            Role, UserRole.role_id == Role.id
         ).outerjoin(
             Department, User.department_id == Department.id
         ).filter(
             ExamSubmission.status == "graded",
             ExamGrade.overall_score.isnot(None),
             User.is_active == True,
-            User.is_deleted == False
+            User.is_deleted == False,
+            Role.name == "EMPLOYEE"
         )
 
         target_dept_id = department_id
@@ -261,12 +290,17 @@ def get_leaderboard(
             ExamGrade, ExamGrade.submission_id == ExamSubmission.id
         ).join(
             User, ExamSubmission.user_id == User.id
+        ).join(
+            UserRole, User.id == UserRole.user_id
+        ).join(
+            Role, UserRole.role_id == Role.id
         ).filter(
             ExamSubmission.status == "graded",
             ExamGrade.overall_score.isnot(None),
             User.is_active == True,
             User.is_deleted == False,
-            ExamSubmission.submitted_at < thirty_days_ago
+            ExamSubmission.submitted_at < thirty_days_ago,
+            Role.name == "EMPLOYEE"
         )
         if scope == "department" and target_dept_id:
             prev_query = prev_query.filter(User.department_id == target_dept_id)
@@ -300,6 +334,7 @@ def get_leaderboard(
                 BadgeTier.tier_order.desc()
             ).first()
             badge_name = highest_badge.badge_tier.name if highest_badge else None
+            badge_asset_ref = highest_badge.badge_tier.icon_asset_ref if highest_badge else None
 
             rankings.append({
                 "rank": curr_rank,
@@ -310,17 +345,23 @@ def get_leaderboard(
                 "exams_completed": r.exams_count,
                 "score": round(float(r.avg_score), 2),
                 "delta": delta,
-                "badge_name": badge_name
+                "badge_name": badge_name,
+                "badge_asset_ref": badge_asset_ref
             })
 
         # Also append 0-score / unattempted employees for department scope
         if scope == "department" and target_dept_id:
-            dept_users = db.query(User).outerjoin(
+            dept_users = db.query(User).join(
+                UserRole, User.id == UserRole.user_id
+            ).join(
+                Role, UserRole.role_id == Role.id
+            ).outerjoin(
                 Department, User.department_id == Department.id
             ).filter(
                 User.department_id == target_dept_id,
                 User.is_active == True,
-                User.is_deleted == False
+                User.is_deleted == False,
+                Role.name == "EMPLOYEE"
             ).all()
 
             unranked_users = [u for u in dept_users if str(u.id) not in already_ranked_ids]
@@ -343,6 +384,19 @@ def get_leaderboard(
                 exams_count = user_stats[1] if user_stats and user_stats[1] is not None else 0
                 avg_score = round(float(user_stats[0]), 2) if user_stats and user_stats[0] is not None else 0.0
 
+                # Query user's highest active badge tier
+                from app.models.user_badge import UserBadge
+                from app.models.badge_tier import BadgeTier
+                highest_badge = db.query(UserBadge).join(
+                    BadgeTier, UserBadge.badge_tier_id == BadgeTier.id
+                ).filter(
+                    UserBadge.user_id == u.id
+                ).order_by(
+                    BadgeTier.tier_order.desc()
+                ).first()
+                badge_name = highest_badge.badge_tier.name if highest_badge else None
+                badge_asset_ref = highest_badge.badge_tier.icon_asset_ref if highest_badge else None
+
                 rankings.append({
                     "rank": current_next_rank,
                     "user_id": str(u.id),
@@ -352,7 +406,8 @@ def get_leaderboard(
                     "exams_completed": exams_count,
                     "score": avg_score,
                     "delta": "New",
-                    "badge_name": None
+                    "badge_name": badge_name,
+                    "badge_asset_ref": badge_asset_ref
                 })
                 current_next_rank += 1
 

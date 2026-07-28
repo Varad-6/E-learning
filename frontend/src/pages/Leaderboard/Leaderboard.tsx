@@ -19,6 +19,7 @@ interface RankingUser {
   time_taken?: string;
   date?: string;
   badge_name?: string;
+  badge_asset_ref?: string;
 }
 
 interface DepartmentSummary {
@@ -623,7 +624,18 @@ export const Leaderboard: React.FC = () => {
                                             <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'var(--accent-color)', color: '#fff', fontWeight: 800 }}>YOU</span>
                                           )}
                                         </div>
-                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{user.employee_code} &bull; {user.department_name} &bull; <strong style={{ color: 'var(--accent-color)' }}>{user.badge_name || "Bronze I"}</strong></span>
+                                         <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                           <span>{user.employee_code}</span> &bull; 
+                                           <span>{user.department_name}</span> &bull; 
+                                           {user.badge_asset_ref && (
+                                             <img 
+                                               src={`/badges/${user.badge_asset_ref}.png`} 
+                                               alt={user.badge_name} 
+                                               style={{ width: '16px', height: '16px', objectFit: 'contain', display: 'inline-block' }} 
+                                             />
+                                           )}
+                                           <strong style={{ color: 'var(--accent-color)' }}>{user.badge_name || "Bronze III"}</strong>
+                                         </span>
                                       </div>
                                     </div>
                                   </td>
