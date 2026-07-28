@@ -265,7 +265,7 @@ export const UserAdminStudio: React.FC = () => {
         setSelectedDeptId(''); setSelectedRoles(['EMPLOYEE']); setFormErrors({});
         setIsEmailVerified(false); setOtpSent(false); setVerificationOtp(''); setOtpCooldown(0);
         await loadData();
-        setActiveTab('departments');
+        setActiveTab('users');
       } else {
         const errData = await res.json().catch(() => ({}));
         triggerToast(errData.detail || 'Failed to create user.', 'error');
@@ -350,46 +350,66 @@ export const UserAdminStudio: React.FC = () => {
   return (
     <div className="admin-workspace container animate-fade-in" style={{ paddingBottom: '60px', marginTop: '30px' }}>
       
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '24px', marginBottom: '32px' }}>
-        <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>User Administration</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginTop: '6px', marginBottom: 0 }}>Manage departments, personnel, and analytics.</p>
+      {/* Header Tabs */}
+      {(activeTab === 'departments' || activeTab === 'users') && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '24px', marginBottom: '32px' }}>
+          <div>
+            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>User Administration</h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginTop: '6px', marginBottom: 0 }}>Manage departments, personnel, and analytics.</p>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <Button 
+              variant={activeTab === 'departments' ? 'primary' : 'outline'} 
+              onClick={() => { setActiveTab('departments'); setSelectedDept(null); }}
+            >
+              Departments
+            </Button>
+            <Button 
+              variant={activeTab === 'users' ? 'primary' : 'outline'} 
+              onClick={() => { setActiveTab('users'); setSelectedDept(null); }}
+            >
+              Users Directory
+            </Button>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <Button variant={activeTab === 'departments' ? 'primary' : 'outline'} onClick={() => { setActiveTab('departments'); setSelectedDept(null); }}>
-            Departments
-          </Button>
-          <Button variant={activeTab === 'create_department' ? 'primary' : 'outline'} leftIcon={<Plus size={16} />} onClick={() => { setActiveTab('create_department'); setSelectedDept(null); }}>
-            Create Department
-          </Button>
-          <Button id="btn-nav-add-user" variant={activeTab === 'create_user' ? 'primary' : 'outline'} leftIcon={<Plus size={16} />} onClick={() => { setActiveTab('create_user'); setSelectedDept(null); }}>
-            Add User
-          </Button>
-        </div>
-      </div>
+      )}
 
-      {/* Departments Grid View */}
+      {/* Departments Tab View */}
       {activeTab === 'departments' && !selectedDept && (
-        <div className="department-grid">
-          {departments.map(dept => {
-            const headcount = users.filter(u => u.department_id === dept.id).length;
-            return (
-              <div key={dept.id} className="dept-card glass-panel" onClick={() => setSelectedDept(dept)}>
-                <div className="dept-card-header">
-                  <div className="dept-icon"><Building2 size={24} /></div>
-                  <div>
-                    <h3 className="dept-name">{dept.name}</h3>
-                    <span className="dept-code">{dept.code}</span>
+        <div className="animate-fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <span style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+              {departments.length} Active Departments
+            </span>
+            <Button 
+              variant="primary" 
+              leftIcon={<Plus size={16} />} 
+              onClick={() => setActiveTab('create_department')}
+            >
+              Create Department
+            </Button>
+          </div>
+          
+          <div className="department-grid">
+            {departments.map(dept => {
+              const headcount = users.filter(u => u.department_id === dept.id).length;
+              return (
+                <div key={dept.id} className="dept-card glass-panel" onClick={() => setSelectedDept(dept)}>
+                  <div className="dept-card-header">
+                    <div className="dept-icon"><Building2 size={24} /></div>
+                    <div>
+                      <h3 className="dept-name">{dept.name}</h3>
+                      <span className="dept-code">{dept.code}</span>
+                    </div>
+                  </div>
+                  <div className="dept-card-footer">
+                    <span className="headcount"><Users size={16}/> {headcount} Members</span>
+                    <span className="view-link">View Employees &rarr;</span>
                   </div>
                 </div>
-                <div className="dept-card-footer">
-                  <span className="headcount"><Users size={16}/> {headcount} Members</span>
-                  <span className="view-link">View Employees &rarr;</span>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -419,7 +439,12 @@ export const UserAdminStudio: React.FC = () => {
               </div>
             ) : (
               activeUsersToDisplay.map(user => (
-                <div key={user.id} className="personnel-card" style={{ cursor: 'default' }}>
+                <div 
+                  key={user.id} 
+                  className="personnel-card animate-fade-in" 
+                  onClick={() => handleOpenUserModal(user)} 
+                  style={{ cursor: 'pointer', transition: 'var(--transition-smooth)' }}
+                >
                   <div className="person-info">
                     <div className="person-avatar">{user.first_name[0]}{user.last_name[0]}</div>
                     <div>
@@ -427,6 +452,7 @@ export const UserAdminStudio: React.FC = () => {
                       <span className="person-role">{user.employee_code} • {user.email}</span>
                     </div>
                   </div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--accent-color)', fontWeight: 600 }}>View Profile &rarr;</span>
                 </div>
               ))
             )}
@@ -434,6 +460,125 @@ export const UserAdminStudio: React.FC = () => {
         </div>
       )}
 
+      {/* Users Directory View */}
+      {activeTab === 'users' && (
+        <div className="animate-fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', gap: '12px', flex: 1, maxWidth: '400px' }}>
+              <div style={{ position: 'relative', width: '100%' }}>
+                <input
+                  type="text"
+                  className="form-input-styled"
+                  placeholder="Search users by name, email, code..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ paddingLeft: '40px' }}
+                />
+                <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <span style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                {users.length} Registered Users
+              </span>
+              <Button 
+                id="btn-nav-add-user" 
+                variant="primary" 
+                leftIcon={<Plus size={16} />} 
+                onClick={() => setActiveTab('create_user')}
+              >
+                Add User
+              </Button>
+            </div>
+          </div>
+
+          <div className="personnel-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {users.filter(u => {
+              const term = searchTerm.toLowerCase();
+              return (
+                u.first_name.toLowerCase().includes(term) ||
+                u.last_name.toLowerCase().includes(term) ||
+                u.email.toLowerCase().includes(term) ||
+                u.employee_code.toLowerCase().includes(term)
+              );
+            }).length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)', background: 'var(--bg-card)', borderRadius: 'var(--border-radius-lg)', border: '1px solid var(--border-color)' }}>
+                No users match your search criteria.
+              </div>
+            ) : (
+              users.filter(u => {
+                const term = searchTerm.toLowerCase();
+                return (
+                  u.first_name.toLowerCase().includes(term) ||
+                  u.last_name.toLowerCase().includes(term) ||
+                  u.email.toLowerCase().includes(term) ||
+                  u.employee_code.toLowerCase().includes(term)
+                );
+              }).map(user => {
+                const roleLabel = user.roles[0]?.name || 'EMPLOYEE';
+                const deptName = user.department?.name || 'Unscoped / No Department';
+                
+                return (
+                  <div 
+                    key={user.id} 
+                    className="personnel-card animate-fade-in" 
+                    onClick={() => handleOpenUserModal(user)} 
+                    style={{ 
+                      cursor: 'pointer', 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      padding: '16px 20px', 
+                      background: 'var(--bg-card)', 
+                      borderRadius: 'var(--border-radius-md)', 
+                      border: '1px solid var(--border-color)',
+                      transition: 'var(--transition-smooth)'
+                    }}
+                  >
+                    <div className="person-info" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div className="person-avatar" style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                        {user.first_name[0]}{user.last_name[0]}
+                      </div>
+                      <div>
+                        <h4 className="person-name" style={{ margin: '0 0 4px 0', fontSize: '1rem', fontWeight: 700 }}>
+                          {user.first_name} {user.last_name}
+                        </h4>
+                        <span className="person-role" style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                          {user.employee_code} • {user.email}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ display: 'block', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {deptName}
+                        </span>
+                        <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          Department
+                        </span>
+                      </div>
+                      
+                      <span style={{ 
+                        fontSize: '0.72rem', 
+                        fontWeight: 700, 
+                        padding: '4px 10px', 
+                        borderRadius: '20px', 
+                        background: roleLabel === 'SYSTEM_ADMIN' ? 'rgba(239, 68, 68, 0.1)' : roleLabel === 'HR_ADMIN' ? 'rgba(168, 85, 247, 0.1)' : roleLabel === 'COURSE_MANAGER' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                        color: roleLabel === 'SYSTEM_ADMIN' ? 'var(--color-danger)' : roleLabel === 'HR_ADMIN' ? '#a855f7' : roleLabel === 'COURSE_MANAGER' ? '#3b82f6' : 'var(--accent-color)'
+                      }}>
+                        {roleLabel.replace('_', ' ')}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* User Details Modal */}
       <Modal
         isOpen={!!selectedUser}
         onClose={() => setSelectedUser(null)}
@@ -598,6 +743,12 @@ export const UserAdminStudio: React.FC = () => {
       {/* Create Department Tab View */}
       {activeTab === 'create_department' && (
         <div className="glass-panel animate-fade-in" style={{ padding: 'var(--space-card-padding)', maxWidth: '800px', margin: '0 auto' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <Button variant="outline" onClick={() => setActiveTab('departments')}>
+              <ArrowLeft size={16} style={{ marginRight: '8px' }} /> Back to Departments
+            </Button>
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
             <Building2 size={28} style={{ color: 'var(--accent-color)' }} />
             <div>
@@ -654,8 +805,15 @@ export const UserAdminStudio: React.FC = () => {
 
       {/* Create User Tab */}
       {activeTab === 'create_user' && (
-        <div className="glass-panel" style={{ padding: 'var(--space-card-padding)', maxWidth: '800px', margin: '0 auto' }}>
+        <div className="glass-panel animate-fade-in" style={{ padding: 'var(--space-card-padding)', maxWidth: '800px', margin: '0 auto' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <Button variant="outline" onClick={() => setActiveTab('users')}>
+              <ArrowLeft size={16} style={{ marginRight: '8px' }} /> Back to Users Directory
+            </Button>
+          </div>
+
           <h2 style={{ marginBottom: '24px', fontSize: '1.4rem', fontWeight: 600 }}>Create New User</h2>
+          
           <form onSubmit={handleCreateUserSubmit}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
               <div>
@@ -742,15 +900,18 @@ export const UserAdminStudio: React.FC = () => {
               </div>
             </div>
 
-            <Button 
-              type="submit" 
-              variant="primary" 
-              isLoading={formLoading}
-              disabled={formLoading}
-              style={{ width: '100%', padding: '12px', fontSize: '1rem', marginTop: '12px' }}
-            >
-              Create Account
-            </Button>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <Button type="button" variant="outline" onClick={() => setActiveTab('users')}>Cancel</Button>
+              <Button 
+                type="submit" 
+                variant="primary" 
+                isLoading={formLoading}
+                disabled={formLoading}
+                style={{ minWidth: '180px', padding: '12px' }}
+              >
+                Create Account
+              </Button>
+            </div>
           </form>
         </div>
       )}

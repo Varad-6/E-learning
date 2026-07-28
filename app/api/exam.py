@@ -311,6 +311,27 @@ def get_submissions(
         overall_score = s.grade.overall_score if s.grade else None
         overall_feedback = s.grade.overall_feedback if s.grade else None
         scores_dict = s.grade.scores if s.grade else None
+        
+        # Auto-calculate MCQ and MSQ scores on the fly for ungraded submissions so frontend gets them
+        if not scores_dict and s.answers and s.exam:
+            scores_dict = {}
+            for q in s.exam.questions:
+                q_id_str = str(q.id)
+                user_ans = s.answers.get(q_id_str)
+                if q.question_type == "mcq":
+                    if user_ans is not None and q.correct_answer is not None and str(user_ans).strip() == str(q.correct_answer).strip():
+                        scores_dict[q_id_str] = 10
+                    else:
+                        scores_dict[q_id_str] = 0
+                elif q.question_type == "msq":
+                    corr = q.correct_answer if isinstance(q.correct_answer, list) else ([q.correct_answer] if q.correct_answer is not None else [])
+                    ans_list = user_ans if isinstance(user_ans, list) else ([user_ans] if user_ans is not None else [])
+                    corr_set = set(str(x).strip() for x in corr)
+                    ans_set = set(str(x).strip() for x in ans_list)
+                    if corr_set and ans_set == corr_set:
+                        scores_dict[q_id_str] = 10
+                    else:
+                        scores_dict[q_id_str] = 0
 
         res.append(
             ExamSubmissionResponse(

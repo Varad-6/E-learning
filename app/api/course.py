@@ -71,20 +71,40 @@ def list_courses(
     description="Returns all published courses visible to the current user in their department, regardless of enrollment status. This is the correct 'Available Courses' browse endpoint."
 )
 def get_available_courses(
+    department_id: Optional[UUID] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     from sqlalchemy import or_, and_
-    # Return all published courses accessible to the current user's department
-    # (or company-wide courses with no department restriction)
+    
+    # Extract user roles
+    user_roles = [r.name for r in current_user.roles]
+    is_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles
+    
     query = db.query(Course).filter(
         Course.is_published == True,
-        Course.status.in_(["approved", "published"]),
-        or_(
-            Course.department_id == current_user.department_id,
-            Course.department_id.is_(None)
-        )
+        Course.status.in_(["approved", "published"])
     )
+    
+    if is_admin:
+        # Admins see all courses by default, or filtered by department if specified
+        if department_id is not None:
+            query = query.filter(
+                or_(
+                    Course.department_id == department_id,
+                    Course.department_id.is_(None)
+                )
+            )
+    else:
+        # Non-admins see only courses in their department (or unscoped company-wide courses)
+        # We ignore client-supplied department_id for security of non-admins
+        query = query.filter(
+            or_(
+                Course.department_id == current_user.department_id,
+                Course.department_id.is_(None)
+            )
+        )
+        
     courses = query.all()
     return CourseListResponse(courses=courses, total=len(courses))
 

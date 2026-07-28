@@ -330,7 +330,6 @@ export const CreatorDashboard: React.FC = () => {
     if (durationDays === 0 && durationHours === 0 && durationMinutes === 0 && durationSeconds === 0) {
       tempErrors.duration = 'Duration must be greater than zero.';
     }
-    if (!creatorNameInput.trim()) tempErrors.creatorName = 'Creator Name is required.';
     
     setErrors(tempErrors);
     return Object.keys(tempErrors).length === 0;
@@ -1408,7 +1407,7 @@ export const CreatorDashboard: React.FC = () => {
       <Modal
         isOpen={isCreateModalOpen}
         onClose={handleCloseCreateModal}
-        title="Create Course Option"
+        title="Create New Course"
         subtitle="Configure initial details for a new learning pathway"
         icon={<BookOpen size={22} style={{ color: 'var(--accent-color)' }} />}
         maxWidth="540px"
@@ -1424,23 +1423,6 @@ export const CreatorDashboard: React.FC = () => {
         }
       >
         <form id="create-course-form" onSubmit={handleCreateSubmit}>
-          {/* Creator Name (Mandatory Input) */}
-          <div className="form-group-spaced">
-            <label className="form-label-styled">
-              Creator Name <span className="required-star">*</span>
-            </label>
-            <input 
-              type="text" 
-              className="form-input-styled" 
-              placeholder="Enter your name"
-              value={creatorNameInput}
-              onChange={(e) => setCreatorNameInput(e.target.value)}
-            />
-            {errors.creatorName && (
-              <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.creatorName}</p>
-            )}
-          </div>
-
           {/* Title */}
           <div className="form-group-spaced">
             <label className="form-label-styled">

@@ -1,6 +1,16 @@
 # Changelog
 
-All notable changes to the Kaizen LMS project will be documented in this file.
+## [2026-07-28] Kaizen LMS — Course Department Filtering & Exam Grading Fix Sprint
+- **Task 1 (Course Department Filtering)**:
+  - Updated `/api/courses/available` endpoint in `app/api/course.py` to accept an optional `department_id` query parameter.
+  - Allowed privileged roles (Admin, HR Admin) to see all courses if no department is specified, or filter by the parameter. Regular Employees/Managers are strictly scoped to their own department.
+  - Added a Department Filter Dropdown in `ViewCourses.tsx` for Admin, HR, and Managers, and updated available course cards to display their department name.
+- **Task 2 (Exam Grading Auto-Scores calculation & UI Redesign)**:
+  - Updated `/api/exams/submissions` endpoint in `app/api/exam.py` to auto-calculate MCQ/MSQ scores on-the-fly for ungraded submissions, ensuring the frontend receives them immediately.
+  - Added a client-side fallback `getAutoScore` inside `ExamReviewer.tsx` to ensure MCQ/MSQ questions are pre-populated even if the backend returns them as undefined.
+  - Redesigned the descriptive question score input UI in `ExamReviewer.tsx` into a row of interactive numeric pill buttons (0 to 10) with premium active status glow and hover effects.
+- Tests added: Production build compiled successfully (`npm run build` 100% green).
+- Migration: No
 
 ### [2026-07-27] Kaizen LMS — Exam Settings Course Selector & Standalone Exam Sprint
 - **Item 1 (Course Selector in Exam Settings Panel)**: Added a **"Course (Optional)"** dropdown selector to the Exam Settings panel in `ExamCreator.tsx`, positioned directly below "Department" and above "Duration (minutes)".

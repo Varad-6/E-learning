@@ -32,13 +32,40 @@ export const ViewCourses: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'in_progress' | 'completed' | 'available'>('in_progress');
 
-  const fetchDBCourses = async () => {
+  // Role and Department Filter States
+  const userRole = localStorage.getItem('isLoggedInRole') || 'Employee';
+  const userDeptId = localStorage.getItem('isLoggedInDeptId') || '';
+  const [departmentsList, setDepartmentsList] = useState<any[]>([]);
+  const [selectedFilterDeptId, setSelectedFilterDeptId] = useState<string>('');
+
+  const fetchDepartments = async () => {
+    try {
+      const res = await apiCall('/api/departments');
+      if (res.ok) {
+        const data = await res.json();
+        setDepartmentsList(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch departments:', err);
+    }
+  };
+
+  const fetchDBCourses = async (deptId?: string) => {
     try {
       setLoading(true);
 
-      // Fetch available courses for the employee's department via dedicated available endpoint
-      // This correctly returns only published courses scoped to the employee's department.
-      const availRes = await apiCall('/api/courses/available');
+      const targetDeptId = deptId !== undefined ? deptId : selectedFilterDeptId;
+      let url = '/api/courses/available';
+      if (targetDeptId && targetDeptId !== 'ALL') {
+        url += `?department_id=${targetDeptId}`;
+      } else if (userRole === 'Admin' && (!targetDeptId || targetDeptId === 'ALL')) {
+        // Admins can see all if ALL/empty is selected (default)
+      } else if (userDeptId && !targetDeptId) {
+        // Enforce user's assigned department initially
+        url += `?department_id=${userDeptId}`;
+      }
+
+      const availRes = await apiCall(url);
       if (availRes.ok) {
         const data = await availRes.json();
         const dbCourses = data.courses || [];
@@ -97,7 +124,22 @@ export const ViewCourses: React.FC = () => {
 
 
   useEffect(() => {
-    fetchDBCourses();
+    const role = localStorage.getItem('isLoggedInRole') || 'Employee';
+    const deptId = localStorage.getItem('isLoggedInDeptId') || '';
+    
+    if (role === 'Admin' || role === 'HR Admin' || role === 'HR Manager' || role === 'Manager' || role === 'COURSE_MANAGER') {
+      fetchDepartments();
+      if (role === 'Admin') {
+        setSelectedFilterDeptId('ALL');
+        fetchDBCourses('ALL');
+      } else {
+        setSelectedFilterDeptId(deptId);
+        fetchDBCourses(deptId);
+      }
+    } else {
+      setSelectedFilterDeptId(deptId);
+      fetchDBCourses(deptId);
+    }
   }, []);
 
   const handleEnrollCourse = async (courseId: string) => {
@@ -204,6 +246,27 @@ export const ViewCourses: React.FC = () => {
           Available ({availableCourses.length})
         </button>
       </div>
+
+      {/* Department Filter Selector for privileged roles */}
+      {(userRole === 'Admin' || userRole === 'HR Admin' || userRole === 'HR Manager' || userRole === 'Manager' || userRole === 'COURSE_MANAGER') && activeTab === 'available' && (
+        <div className="dept-filter-container" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', background: 'var(--bg-card)', padding: '12px 16px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)', width: 'fit-content' }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>View Department:</span>
+          <select
+            className="form-select-field"
+            value={selectedFilterDeptId}
+            onChange={(e) => {
+              setSelectedFilterDeptId(e.target.value);
+              fetchDBCourses(e.target.value);
+            }}
+            style={{ width: 'auto', padding: '6px 12px', minWidth: '180px', borderRadius: 'var(--border-radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-primary)', fontWeight: '600' }}
+          >
+            {userRole === 'Admin' && <option value="ALL">All Departments</option>}
+            {departmentsList.map((d) => (
+              <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div style={{ width: '100%' }}>
         {activeTab === 'in_progress' && (
@@ -406,7 +469,7 @@ export const ViewCourses: React.FC = () => {
                         {course.title}
                       </h4>
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '8px', display: 'block' }}>
-                        Duration: {course.duration}
+                        Duration: {course.duration} | Department: <strong>{course.departmentName || 'General'}</strong>
                       </span>
                     </div>
                     <div style={{ marginTop: '20px' }}>

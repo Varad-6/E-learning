@@ -94,17 +94,47 @@ export const ExamReviewer: React.FC = () => {
     }
   }, [activeSectionTab]);
 
+  const getAutoScore = (q: any, userAns: any) => {
+    if (q.question_type === 'mcq') {
+      if (userAns !== undefined && q.correct_answer !== undefined && String(userAns).trim() === String(q.correct_answer).trim()) {
+        return 10;
+      }
+      return 0;
+    }
+    if (q.question_type === 'msq') {
+      const corr = Array.isArray(q.correct_answer) ? q.correct_answer : (q.correct_answer !== undefined && q.correct_answer !== null ? [q.correct_answer] : []);
+      const ansList = Array.isArray(userAns) ? userAns : (userAns !== undefined && userAns !== null ? [userAns] : []);
+      const corrSet = new Set(corr.map((x: any) => String(x).trim()));
+      const ansSet = new Set(ansList.map((x: any) => String(x).trim()));
+      if (corrSet.size > 0 && ansSet.size === corrSet.size && [...ansSet].every(x => corrSet.has(x))) {
+        return 10;
+      }
+      return 0;
+    }
+    return 0;
+  };
+
   const handleSelectSubmission = async (sub: Submission) => {
     try {
       setSelectedSub(sub);
       setSelectedReview(null);
       setFeedback('');
-      setScores(sub.scores || {});
       
       const res = await apiCall(`/api/exams/${sub.exam_id}`);
       if (res.ok) {
         const details = await res.json();
         setExamDetails(details);
+
+        // Pre-populate scores combining returned scores and client-side auto-graded fallback
+        const initialScores: { [key: string]: number } = { ...(sub.scores || {}) };
+        details.questions.forEach((q: any) => {
+          if (q.question_type === 'mcq' || q.question_type === 'msq') {
+            if (initialScores[q.id] === undefined || initialScores[q.id] === null) {
+              initialScores[q.id] = getAutoScore(q, sub.answers?.[q.id]);
+            }
+          }
+        });
+        setScores(initialScores);
       }
     } catch (e) {
       console.error(e);
@@ -598,19 +628,37 @@ export const ExamReviewer: React.FC = () => {
                                   <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>/ 10</span>
                                 </div>
                               ) : (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <input 
-                                    type="number" 
-                                    className="form-input-styled" 
-                                    min="0" 
-                                    max="10" 
-                                    placeholder="0-10"
-                                    value={scores[q.id] === undefined ? '' : scores[q.id]}
-                                    onChange={(e) => handleScoreChange(q.id, parseInt(e.target.value) ?? 0)}
-                                    style={{ width: '80px', height: '36px', textAlign: 'center', fontWeight: '800', fontSize: '0.95rem' }}
-                                    required
-                                  />
-                                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>/ 10</span>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', alignItems: 'center' }}>
+                                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((scoreVal) => {
+                                    const isSelected = scores[q.id] === scoreVal;
+                                    return (
+                                      <button
+                                        key={scoreVal}
+                                        type="button"
+                                        onClick={() => handleScoreChange(q.id, scoreVal)}
+                                        style={{
+                                          width: '30px',
+                                          height: '30px',
+                                          borderRadius: '50%',
+                                          border: isSelected ? '1.5px solid var(--accent-color)' : '1px solid var(--border-color)',
+                                          background: isSelected ? 'var(--accent-glow)' : 'transparent',
+                                          color: isSelected ? 'var(--accent-color)' : 'var(--text-primary)',
+                                          fontWeight: '800',
+                                          fontSize: '0.82rem',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.15s ease-in-out',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          boxShadow: isSelected ? '0 0 8px var(--accent-glow)' : 'none'
+                                        }}
+                                        className="score-pill-btn glow-hover"
+                                      >
+                                        {scoreVal}
+                                      </button>
+                                    );
+                                  })}
+                                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '700', marginLeft: '6px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>/ 10 Marks</span>
                                 </div>
                               )}
                             </div>

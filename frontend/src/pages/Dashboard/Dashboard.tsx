@@ -458,10 +458,7 @@ export const Dashboard: React.FC = () => {
   const [showCatalogOnly, setShowCatalogOnly] = useState(false);
 
   // React States for Employee View
-  const [myProgress, setMyProgress] = useState<ProgressItem[]>([
-    { id: '1', courseCode: 'AI-101', title: 'Artificial Intelligence Foundations', progressPercent: 60, difficulty: 'Beginner' },
-    { id: '2', courseCode: 'SD-102', title: 'Sales and Distribution Lifecycle', progressPercent: 20, difficulty: 'Beginner' }
-  ]);
+  const [myProgress, setMyProgress] = useState<ProgressItem[]>([]);
 
   // React States for Manager View
   const [roster, setRoster] = useState<RosterEmployee[]>([]);

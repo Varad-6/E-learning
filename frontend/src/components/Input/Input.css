@@ -112,3 +112,12 @@
 .custom-input-field.has-right-icon {
   padding-right: 44px;
 }
+
+/* Hide native Edge/IE password reveal and clear controls to prevent double eyes */
+.custom-input-field::-ms-reveal,
+.custom-input-field::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
