@@ -875,7 +875,13 @@ export const UserAdminStudio: React.FC = () => {
                   id="select-user-role"
                   className="form-input-styled" 
                   value={selectedRoles[0] || 'EMPLOYEE'} 
-                  onChange={e => setSelectedRoles([e.target.value])}
+                  onChange={e => {
+                    const newRole = e.target.value;
+                    setSelectedRoles([newRole]);
+                    if (newRole === 'SYSTEM_ADMIN' || newRole === 'HR_ADMIN') {
+                      setSelectedDeptId('');
+                    }
+                  }}
                 >
                   <option value="EMPLOYEE">Employee (Learner)</option>
                   <option value="COURSE_MANAGER">Department Manager</option>
@@ -893,6 +899,11 @@ export const UserAdminStudio: React.FC = () => {
                   className="form-input-styled" 
                   value={selectedDeptId} 
                   onChange={e => setSelectedDeptId(e.target.value)}
+                  disabled={selectedRoles[0] === 'SYSTEM_ADMIN' || selectedRoles[0] === 'HR_ADMIN'}
+                  style={{
+                    opacity: (selectedRoles[0] === 'SYSTEM_ADMIN' || selectedRoles[0] === 'HR_ADMIN') ? 0.6 : 1,
+                    cursor: (selectedRoles[0] === 'SYSTEM_ADMIN' || selectedRoles[0] === 'HR_ADMIN') ? 'not-allowed' : 'default'
+                  }}
                 >
                   <option value="">-- No Department (Unscoped) --</option>
                   {departments.map(d => <option key={d.id} value={d.id}>{d.name} ({d.code})</option>)}

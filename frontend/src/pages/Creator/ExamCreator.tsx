@@ -52,6 +52,8 @@ const Spinner = () => (
 
 export const ExamCreator: React.FC = () => {
   const navigate = useNavigate();
+  const userRole = localStorage.getItem('isLoggedInRole') || 'Employee';
+  const userDeptId = localStorage.getItem('isLoggedInDeptId') || '';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Data ──────────────────────────────────────────────────
@@ -97,10 +99,17 @@ export const ExamCreator: React.FC = () => {
 
   // ── Load departments & courses ────────────────────────────
   useEffect(() => {
+    const role = localStorage.getItem('isLoggedInRole') || 'Employee';
+    const deptId = localStorage.getItem('isLoggedInDeptId') || '';
+
     apiCall('/api/departments').then(r => r.ok && r.json()).then(data => {
       if (data && data.length > 0) {
         setDepartments(data);
-        setSelectedDepartment(data[0].id);
+        if (role === 'Manager' && deptId) {
+          setSelectedDepartment(deptId);
+        } else {
+          setSelectedDepartment(data[0].id);
+        }
       }
     }).catch(() => {});
 
@@ -781,11 +790,23 @@ export const ExamCreator: React.FC = () => {
                   <label style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Department
                   </label>
-                  <select className="form-input-styled" value={selectedDepartment} onChange={handleDepartmentChange}>
-                    <option value="all">🌟 All Departments</option>
-                    {departments.map(d => (
-                      <option key={d.id} value={d.id}>[{d.code}] {d.name}</option>
-                    ))}
+                  <select 
+                    className="form-input-styled" 
+                    value={selectedDepartment} 
+                    onChange={handleDepartmentChange}
+                    disabled={userRole === 'Manager'}
+                    style={{
+                      opacity: userRole === 'Manager' ? 0.6 : 1,
+                      cursor: userRole === 'Manager' ? 'not-allowed' : 'default'
+                    }}
+                  >
+                    {userRole !== 'Manager' && <option value="all">🌟 All Departments</option>}
+                    {departments
+                      .filter(d => userRole !== 'Manager' || d.id === userDeptId)
+                      .map(d => (
+                        <option key={d.id} value={d.id}>[{d.code}] {d.name}</option>
+                      ))
+                    }
                   </select>
                 </div>
 

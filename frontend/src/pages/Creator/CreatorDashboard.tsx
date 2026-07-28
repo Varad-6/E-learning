@@ -184,7 +184,11 @@ export const CreatorDashboard: React.FC = () => {
           const data = await response.json();
           setDepartmentsList(data);
           if (data.length > 0) {
-            setTargetDeptInput(data[0].code);
+            if (savedRole === 'Manager') {
+              setTargetDeptInput(savedDept);
+            } else {
+              setTargetDeptInput(data[0].code);
+            }
           }
         }
       } catch (err) {
@@ -1467,10 +1471,18 @@ export const CreatorDashboard: React.FC = () => {
                 className="form-select-styled"
                 value={targetDeptInput}
                 onChange={(e) => setTargetDeptInput(e.target.value)}
+                disabled={role === 'Manager'}
+                style={{
+                  opacity: role === 'Manager' ? 0.6 : 1,
+                  cursor: role === 'Manager' ? 'not-allowed' : 'default'
+                }}
               >
-                {departmentsList.map(d => (
-                  <option key={d.id} value={d.code}>[{d.code}] {d.name}</option>
-                ))}
+                {departmentsList
+                  .filter(d => role !== 'Manager' || d.code === dept)
+                  .map(d => (
+                    <option key={d.id} value={d.code}>[{d.code}] {d.name}</option>
+                  ))
+                }
                 {departmentsList.length === 0 && (
                   <option value="AI">[AI] Artificial Intelligence</option>
                 )}

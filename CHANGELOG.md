@@ -12,6 +12,10 @@
 - **Task 3 (Conditional Seeding & Legacy Container Cleanup)**:
   - Modified `seed_db.py` to check for active records inside the `users` table on startup. If data is present, the script skips execution and exits with `0` to prevent wipes of dynamic QA test progress. Added the `--reset` command line flag to force clearing if needed.
   - Successfully deleted stopped legacy database containers (`elearning-db`, `planpilot_db`, `planpilot_backend`, `planpilot_frontend`) to clean up environment overlaps.
+- **Task 4 (Administrative Gating, Manager Creator Scoping & Leaderboard Score Calculations)**:
+  - Updated "Create User" panel in `UserAdminStudio.tsx` to automatically disable and lock the Department Assignment selector when a global administrator role (`SYSTEM_ADMIN` or `HR_ADMIN`) is selected, resetting its value to unscoped.
+  - Updated "Create Exam" workspace (`ExamCreator.tsx`) and "Create Course" modal (`CreatorDashboard.tsx`) to check for the `Manager` role. When a Manager accesses these panels, the target department is automatically pre-selected to their own department, options are filtered to exclude other departments, and the selector is disabled/locked to secure data boundaries.
+  - Modified the leaderboard calculation endpoint in `app/api/leaderboard.py` to set the default `MIN_EXAMS_DEFAULT` ranking threshold to `1`. Modified the unranked/0-attempt employee list handler to query and compute actual graded average scores and completed counts instead of returning hardcoded `0.0`/`0`.
 - Tests added: Production build compiled successfully (`npm run build` 100% green).
 - Migration: No
 

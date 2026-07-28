@@ -13,7 +13,7 @@ from app.models.exam import Exam, ExamSubmission, ExamGrade
 
 router = APIRouter(prefix="/api/leaderboard", tags=["Leaderboard"])
 
-MIN_EXAMS_DEFAULT = 3
+MIN_EXAMS_DEFAULT = 1
 
 
 @router.get(
@@ -328,14 +328,29 @@ def get_leaderboard(
 
             current_next_rank = len(rankings) + 1
             for u in unranked_users:
+                # Query actual exams completed and average score for this user
+                user_stats = db.query(
+                    func.avg(ExamGrade.overall_score).label("avg_score"),
+                    func.count(ExamSubmission.id).label("exams_count")
+                ).join(
+                    ExamGrade, ExamGrade.submission_id == ExamSubmission.id
+                ).filter(
+                    ExamSubmission.user_id == u.id,
+                    ExamSubmission.status == "graded",
+                    ExamGrade.overall_score.isnot(None)
+                ).first()
+
+                exams_count = user_stats[1] if user_stats and user_stats[1] is not None else 0
+                avg_score = round(float(user_stats[0]), 2) if user_stats and user_stats[0] is not None else 0.0
+
                 rankings.append({
                     "rank": current_next_rank,
                     "user_id": str(u.id),
                     "user_name": f"{u.first_name} {u.last_name}",
                     "employee_code": u.employee_code,
                     "department_name": u.department.name if u.department else "General",
-                    "exams_completed": 0,
-                    "score": 0.0,
+                    "exams_completed": exams_count,
+                    "score": avg_score,
                     "delta": "New",
                     "badge_name": None
                 })
