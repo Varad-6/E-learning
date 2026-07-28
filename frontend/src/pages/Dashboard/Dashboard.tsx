@@ -1825,7 +1825,10 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <div>
                     <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
-                      {empDashboardData.available_courses?.length || 0}
+                      {managedCourses.filter((c: any) => {
+                        const isPublished = c.status === 'published' || c.status === 'approved' || c.is_published;
+                        return isPublished && !myProgress.some((p: any) => p.courseId === c.id);
+                      }).length}
                     </div>
                     <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body), sans-serif' }}>
                       Ready to enroll and start

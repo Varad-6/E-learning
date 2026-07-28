@@ -847,4 +847,14 @@
   border-radius: var(--border-radius-md) !important; /* 12px */
 }
 
+/* Metric Navigation Cards Hover Effects */
+.metric-nav-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.metric-nav-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent-color) !important;
+  box-shadow: var(--shadow-premium) !important;
+}
+
 

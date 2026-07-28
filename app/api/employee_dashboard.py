@@ -213,7 +213,6 @@ def get_employee_dashboard(
             )
 
     upcoming_exams.sort(key=lambda x: (x.due_date is None, x.due_date))
-    upcoming_exams = upcoming_exams[:3]
 
     # 6. Rank calculation
     position = None
