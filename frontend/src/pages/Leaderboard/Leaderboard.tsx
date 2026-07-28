@@ -158,25 +158,25 @@ export const Leaderboard: React.FC = () => {
     if (rank === 1) {
       return (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', padding: '4px 10px', borderRadius: '12px', fontWeight: 800, fontSize: '0.82rem', boxShadow: '0 2px 10px rgba(245, 158, 11, 0.3)' }}>
-          <Trophy size={14} /> #1 Gold
+          <Trophy size={14} /> Gold
         </div>
       );
     }
     if (rank === 2) {
       return (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #94a3b8, #64748b)', color: '#fff', padding: '4px 10px', borderRadius: '12px', fontWeight: 800, fontSize: '0.82rem' }}>
-          <Medal size={14} /> #2 Silver
+          <Medal size={14} /> Silver
         </div>
       );
     }
     if (rank === 3) {
       return (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #b45309, #78350f)', color: '#fff', padding: '4px 10px', borderRadius: '12px', fontWeight: 800, fontSize: '0.82rem' }}>
-          <Award size={14} /> #3 Bronze
+          <Award size={14} /> Bronze
         </div>
       );
     }
-    return <span style={{ fontWeight: 800, color: 'var(--text-secondary)', fontSize: '0.95rem' }}>#{rank}</span>;
+    return <span style={{ fontWeight: 800, color: 'var(--text-secondary)', fontSize: '0.95rem' }}>{rank}</span>;
   };
 
   const renderDelta = (delta: number | string) => {
@@ -363,16 +363,20 @@ export const Leaderboard: React.FC = () => {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   
-                  {/* Purple Premium Podium Section for Top 3 */}
+                  {/* Professional Translucent Step-Chart for Top 3 */}
                   <div className="glass-panel" style={{
-                    padding: '32px 24px',
+                    padding: '28px 24px',
                     borderRadius: 'var(--border-radius-lg)',
-                    background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(99, 102, 241, 0.05) 100%)',
-                    border: '1px solid rgba(124, 58, 237, 0.2)',
-                    boxShadow: '0 8px 32px rgba(124, 58, 237, 0.05)'
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: 'var(--shadow-sm)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center'
                   }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', textAlign: 'center', marginBottom: '32px', letterSpacing: '0.5px' }}>
-                      🏆 Top Performers
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '32px', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Trophy size={18} style={{ color: '#f59e0b' }} />
+                      Top Department Performers
                     </h3>
                     
                     <div style={{
@@ -381,152 +385,96 @@ export const Leaderboard: React.FC = () => {
                       alignItems: 'flex-end',
                       gap: '16px',
                       maxWidth: '540px',
+                      width: '100%',
                       margin: '0 auto',
-                      width: '100%'
+                      paddingBottom: '16px'
                     }}>
                       
-                      {/* Podium #2: Silver (Left) */}
+                      {/* Step Rank 2 */}
                       {rank2 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                          <div style={{ position: 'relative', marginBottom: '12px' }}>
-                            <div style={{ 
-                              width: '64px', 
-                              height: '64px', 
-                              borderRadius: '50%', 
-                              background: 'linear-gradient(135deg, #cbd5e1, #64748b)', 
-                              color: '#fff', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center', 
-                              fontWeight: 800, 
-                              fontSize: '1.25rem', 
-                              border: '3px solid #94a3b8', 
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.25)' 
-                            }}>
-                              {rank2.user_name.split(' ').map(n => n[0]).join('')}
-                            </div>
-                            <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '22px', height: '22px', borderRadius: '50%', background: '#64748b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 900, border: '2px solid var(--bg-card)' }}>2</div>
-                          </div>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', textAlign: 'center', display: 'block', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rank2.user_name}</span>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{rank2.user_name}</span>
                           <span style={{ fontSize: '0.78rem', color: 'var(--accent-color)', fontWeight: 700, marginTop: '2px' }}>{rank2.score} Avg</span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '2px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                            <span>{getBadgeEmoji(rank2.badge_name)}</span>
-                            <span>{rank2.badge_name || "Bronze I"}</span>
-                          </span>
                           
-                          {/* Column base */}
+                          {/* Translucent Step Bar */}
                           <div style={{ 
                             height: '70px', 
-                            width: '50px', 
-                            background: 'rgba(99, 102, 241, 0.15)', 
-                            border: '1px solid rgba(99, 102, 241, 0.3)', 
+                            width: '100%', 
+                            maxWidth: '100px',
+                            background: 'linear-gradient(to top, rgba(20, 168, 0, 0.08) 0%, rgba(20, 168, 0, 0.02) 100%)',
+                            border: '1px solid rgba(20, 168, 0, 0.2)',
                             borderBottom: 'none', 
                             borderRadius: '8px 8px 0 0', 
                             marginTop: '12px', 
                             display: 'flex', 
+                            flexDirection: 'column',
                             justifyContent: 'center', 
-                            alignItems: 'center' 
+                            alignItems: 'center',
+                            gap: '4px'
                           }}>
-                            <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 900, fontSize: '1rem' }}>#2</span>
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '0.95rem' }}>Rank 2</span>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{getBadgeEmoji(rank2.badge_name)} Silver</span>
                           </div>
                         </div>
                       ) : (
                         <div style={{ flex: 1 }} />
                       )}
 
-                      {/* Podium #1: Gold (Center - Elevated) */}
+                      {/* Step Rank 1 */}
                       {rank1 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.25, transform: 'translateY(-16px)' }}>
-                          <div style={{ position: 'relative', marginBottom: '12px' }}>
-                            <div style={{ 
-                              width: '80px', 
-                              height: '80px', 
-                              borderRadius: '50%', 
-                              background: 'linear-gradient(135deg, #fbbf24, #d97706)', 
-                              color: '#fff', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center', 
-                              fontWeight: 900, 
-                              fontSize: '1.6rem', 
-                              border: '4px solid #f59e0b', 
-                              boxShadow: '0 8px 24px rgba(245, 158, 11, 0.4)' 
-                            }}>
-                              {rank1.user_name.split(' ').map(n => n[0]).join('')}
-                            </div>
-                            <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '26px', height: '26px', borderRadius: '50%', background: '#fbbf24', color: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 900, border: '2px solid var(--bg-card)', boxShadow: '0 2px 6px rgba(0,0,0,0.3)' }}>1</div>
-                          </div>
-                          <span style={{ fontSize: '0.92rem', fontWeight: 900, color: 'var(--text-primary)', textAlign: 'center', display: 'block', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rank1.user_name}</span>
-                          <span style={{ fontSize: '0.85rem', color: '#fbbf24', fontWeight: 800, marginTop: '2px' }}>{rank1.score} Avg</span>
-                          <span style={{ fontSize: '0.72rem', color: '#fbbf24', marginTop: '2px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                            <span>{getBadgeEmoji(rank1.badge_name)}</span>
-                            <span>{rank1.badge_name || "Bronze I"}</span>
-                          </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.2 }}>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-primary)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>{rank1.user_name}</span>
+                          <span style={{ fontSize: '0.82rem', color: 'var(--accent-color)', fontWeight: 800, marginTop: '2px' }}>{rank1.score} Avg</span>
                           
-                          {/* Column base */}
+                          {/* Translucent Step Bar */}
                           <div style={{ 
                             height: '110px', 
-                            width: '60px', 
-                            background: 'linear-gradient(to top, rgba(124, 58, 237, 0.35) 0%, rgba(99, 102, 241, 0.25) 100%)', 
-                            border: '1px solid rgba(124, 58, 237, 0.5)', 
+                            width: '100%', 
+                            maxWidth: '120px',
+                            background: 'linear-gradient(to top, rgba(20, 168, 0, 0.15) 0%, rgba(20, 168, 0, 0.04) 100%)',
+                            border: '1px solid rgba(20, 168, 0, 0.3)',
                             borderBottom: 'none', 
                             borderRadius: '8px 8px 0 0', 
                             marginTop: '12px', 
                             display: 'flex', 
+                            flexDirection: 'column',
                             justifyContent: 'center', 
                             alignItems: 'center',
-                            boxShadow: '0 4px 20px rgba(124, 58, 237, 0.15)'
+                            gap: '4px',
+                            boxShadow: '0 4px 12px rgba(20, 168, 0, 0.05)'
                           }}>
-                            <span style={{ color: '#fbbf24', fontWeight: 900, fontSize: '1.2rem', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>#1</span>
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '1.05rem' }}>Rank 1</span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{getBadgeEmoji(rank1.badge_name)} Gold</span>
                           </div>
                         </div>
                       ) : (
-                        <div style={{ flex: 1.25 }} />
+                        <div style={{ flex: 1.2 }} />
                       )}
 
-                      {/* Podium #3: Bronze (Right) */}
+                      {/* Step Rank 3 */}
                       {rank3 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                          <div style={{ position: 'relative', marginBottom: '12px' }}>
-                            <div style={{ 
-                              width: '64px', 
-                              height: '64px', 
-                              borderRadius: '50%', 
-                              background: 'linear-gradient(135deg, #d97706, #78350f)', 
-                              color: '#fff', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center', 
-                              fontWeight: 800, 
-                              fontSize: '1.25rem', 
-                              border: '3px solid #b45309', 
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.25)' 
-                            }}>
-                              {rank3.user_name.split(' ').map(n => n[0]).join('')}
-                            </div>
-                            <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '22px', height: '22px', borderRadius: '50%', background: '#b45309', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 900, border: '2px solid var(--bg-card)' }}>3</div>
-                          </div>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', textAlign: 'center', display: 'block', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rank3.user_name}</span>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{rank3.user_name}</span>
                           <span style={{ fontSize: '0.78rem', color: 'var(--accent-color)', fontWeight: 700, marginTop: '2px' }}>{rank3.score} Avg</span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '2px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                            <span>{getBadgeEmoji(rank3.badge_name)}</span>
-                            <span>{rank3.badge_name || "Bronze I"}</span>
-                          </span>
                           
-                          {/* Column base */}
+                          {/* Translucent Step Bar */}
                           <div style={{ 
                             height: '50px', 
-                            width: '50px', 
-                            background: 'rgba(99, 102, 241, 0.15)', 
-                            border: '1px solid rgba(99, 102, 241, 0.3)', 
+                            width: '100%', 
+                            maxWidth: '100px',
+                            background: 'linear-gradient(to top, rgba(20, 168, 0, 0.08) 0%, rgba(20, 168, 0, 0.02) 100%)',
+                            border: '1px solid rgba(20, 168, 0, 0.2)',
                             borderBottom: 'none', 
                             borderRadius: '8px 8px 0 0', 
                             marginTop: '12px', 
                             display: 'flex', 
+                            flexDirection: 'column',
                             justifyContent: 'center', 
-                            alignItems: 'center' 
+                            alignItems: 'center',
+                            gap: '4px'
                           }}>
-                            <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 900, fontSize: '1rem' }}>#3</span>
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '0.95rem' }}>Rank 3</span>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{getBadgeEmoji(rank3.badge_name)} Bronze</span>
                           </div>
                         </div>
                       ) : (
@@ -571,9 +519,7 @@ export const Leaderboard: React.FC = () => {
                               <th style={{ padding: '14px 16px', width: '100px', fontWeight: 800, color: 'var(--text-primary)' }}>Rank</th>
                               <th style={{ padding: '14px 16px', fontWeight: 800, color: 'var(--text-primary)' }}>Learner</th>
                               <th style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 800, color: 'var(--text-primary)' }}>Score / 10</th>
-                              <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 800, color: 'var(--text-secondary)' }}>Trend</th>
                               <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 800, color: 'var(--text-secondary)' }}>Exams</th>
-                              <th style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 800, color: 'var(--text-secondary)' }}>Details</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -607,8 +553,9 @@ export const Leaderboard: React.FC = () => {
                                         width: '32px', 
                                         height: '32px', 
                                         borderRadius: '50%', 
-                                        background: isSelf ? 'var(--accent-color)' : 'var(--accent-glow)', 
-                                        color: isSelf ? '#fff' : 'var(--accent-color)', 
+                                        background: 'var(--bg-main)', 
+                                        border: '1px solid var(--border-color)',
+                                        color: 'var(--text-primary)', 
                                         display: 'flex', 
                                         alignItems: 'center', 
                                         justifyContent: 'center', 
@@ -644,14 +591,8 @@ export const Leaderboard: React.FC = () => {
                                     {user.score} / 10
                                   </span>
                                 </td>
-                                <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                                  {renderDelta(user.delta)}
-                                </td>
                                 <td style={{ padding: '14px 16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
                                   {user.exams_completed} Attempted
-                                </td>
-                                <td style={{ padding: '14px 16px', textAlign: 'right', color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
-                                  {user.time_taken ? `Duration: ${user.time_taken}` : 'Department Ranks'}
                                 </td>
                                 </tr>
                               );

@@ -442,8 +442,7 @@ export const UserAdminStudio: React.FC = () => {
                 <div 
                   key={user.id} 
                   className="personnel-card animate-fade-in" 
-                  onClick={() => handleOpenUserModal(user)} 
-                  style={{ cursor: 'pointer', transition: 'var(--transition-smooth)' }}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'var(--transition-smooth)' }}
                 >
                   <div className="person-info">
                     <div className="person-avatar">{user.first_name[0]}{user.last_name[0]}</div>
@@ -452,7 +451,17 @@ export const UserAdminStudio: React.FC = () => {
                       <span className="person-role">{user.employee_code} • {user.email}</span>
                     </div>
                   </div>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--accent-color)', fontWeight: 600 }}>View Profile &rarr;</span>
+                  <Button 
+                    variant="outline" 
+                    style={{ borderColor: 'var(--danger-color)', color: 'var(--danger-color)', width: '32px', height: '32px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedUser(user);
+                      setShowDeleteConfirm(true);
+                    }}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
                 </div>
               ))
             )}
@@ -522,9 +531,7 @@ export const UserAdminStudio: React.FC = () => {
                   <div 
                     key={user.id} 
                     className="personnel-card animate-fade-in" 
-                    onClick={() => handleOpenUserModal(user)} 
                     style={{ 
-                      cursor: 'pointer', 
                       display: 'flex', 
                       justifyContent: 'space-between', 
                       alignItems: 'center', 
@@ -565,10 +572,22 @@ export const UserAdminStudio: React.FC = () => {
                         padding: '4px 10px', 
                         borderRadius: '20px', 
                         background: roleLabel === 'SYSTEM_ADMIN' ? 'rgba(239, 68, 68, 0.1)' : roleLabel === 'HR_ADMIN' ? 'rgba(168, 85, 247, 0.1)' : roleLabel === 'COURSE_MANAGER' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                        color: roleLabel === 'SYSTEM_ADMIN' ? 'var(--color-danger)' : roleLabel === 'HR_ADMIN' ? '#a855f7' : roleLabel === 'COURSE_MANAGER' ? '#3b82f6' : 'var(--accent-color)'
+                        color: roleLabel === 'SYSTEM_ADMIN' ? 'var(--danger-color)' : roleLabel === 'HR_ADMIN' ? '#a855f7' : roleLabel === 'COURSE_MANAGER' ? '#3b82f6' : 'var(--accent-color)'
                       }}>
                         {roleLabel.replace('_', ' ')}
                       </span>
+
+                      <Button 
+                        variant="outline" 
+                        style={{ borderColor: 'var(--danger-color)', color: 'var(--danger-color)', width: '32px', height: '32px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedUser(user);
+                          setShowDeleteConfirm(true);
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
                     </div>
                   </div>
                 );
@@ -578,155 +597,21 @@ export const UserAdminStudio: React.FC = () => {
         </div>
       )}
 
-      {/* User Details Modal */}
-      <Modal
-        isOpen={!!selectedUser}
-        onClose={() => setSelectedUser(null)}
-        title={selectedUser ? `${selectedUser.first_name} ${selectedUser.last_name}` : ''}
-        subtitle={selectedUser ? `${selectedUser.employee_code} | ${selectedUser.email}` : ''}
-        icon={selectedUser ? (
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-color), var(--color-chart-2))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem' }}>
-            {selectedUser.first_name[0]}{selectedUser.last_name[0]}
-          </div>
-        ) : null}
-        maxWidth="460px"
-        footer={
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <Button 
-              variant="outline" 
-              style={{ borderColor: 'var(--color-danger)', color: 'var(--color-danger)', height: '36px', padding: '0 12px', fontSize: '0.82rem' }} 
-              leftIcon={<Trash2 size={14} />}
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              Delete User
-            </Button>
-            <Button 
-              variant="outline" 
-              style={{ height: '36px', padding: '0 16px', fontSize: '0.82rem' }} 
-              onClick={() => setSelectedUser(null)}
-            >
-              Close Analytics
-            </Button>
-          </div>
-        }
-      >
-        {modalLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
-            <div className="animate-spin" style={{ width: '32px', height: '32px', border: '3px solid var(--accent-color)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
-          </div>
-        ) : modalError ? (
-          <div className="glass-panel" style={{ padding: '24px', textAlign: 'center', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', margin: '12px' }}>
-            <AlertCircle size={32} style={{ color: 'var(--color-danger)', margin: '0 auto 12px' }} />
-            <p style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: '600', margin: '0 0 4px 0' }}>Error Loading Analytics</p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>{modalError}</p>
-            <Button variant="outline" style={{ fontSize: '0.8rem' }} onClick={() => handleOpenUserModal(selectedUser!)}>Retry Fetch</Button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '8px 0 16px 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Courses Completed</span>
-              <strong style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>
-                {userProfileData ? userProfileData.courses?.filter((c: any) => c.status === 'completed').length : 0}
-                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: '6px' }}>
-                  (of {userProfileData ? userProfileData.courses?.length : 0} enrolled)
-                </span>
-              </strong>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Average Exam Score</span>
-              <strong style={{ fontSize: '0.88rem', color: 'var(--accent-color)' }}>
-                {userProfileData && userProfileData.exams?.length > 0
-                  ? (userProfileData.exams.reduce((acc: number, item: any) => acc + (item.overall_score || 0), 0) / userProfileData.exams.length).toFixed(1)
-                  : 'N/A'}
-                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: '6px' }}>
-                  ({userProfileData ? userProfileData.exams?.length : 0} attempts)
-                </span>
-              </strong>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Earned Achievements</span>
-              {userBadges.length === 0 ? (
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No badges earned yet.</span>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px', marginTop: '4px' }}>
-                  {[...userBadges].reverse().map((ub: any) => {
-                    const badgeColorMap: {[key: string]: string} = {
-                      'Bronze': 'linear-gradient(135deg, #a1887f 0%, #5d4037 100%)',
-                      'Silver': 'linear-gradient(135deg, #bcaaa4 0%, #8d6e63 100%)',
-                      'Gold': 'linear-gradient(135deg, #ffd54f 0%, #ffb300 100%)',
-                      'Ruby Crest': 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)',
-                      'Amethyst': 'linear-gradient(135deg, #a855f7 0%, #6b21a8 100%)',
-                      'Emerald': 'linear-gradient(135deg, #10b981 0%, #065f46 100%)',
-                      'Sapphire': 'linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%)',
-                      'Diamond Crest': 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)'
-                    };
-                    const baseColorKey = Object.keys(badgeColorMap).find(k => ub.badge_tier.name.startsWith(k)) || 'Bronze';
-                    const gradient = badgeColorMap[baseColorKey];
-                    
-                    const badgeEmojiMap: {[key: string]: string} = {
-                      'Bronze I': '🥉', 'Bronze II': '🥉✨', 'Bronze III': '🥉🛡️',
-                      'Silver I': '🥈', 'Silver II': '🥈✨', 'Silver III': '🥈🛡️',
-                      'Gold I': '🥇', 'Gold II': '🥇✨', 'Gold III': '🥇🛡️',
-                      'Ruby Crest': '👑🌺',
-                      'Amethyst I': '🔮', 'Amethyst II': '🔮✨', 'Amethyst III': '🔮🛡️',
-                      'Emerald I': '🟢', 'Emerald II': '🟢✨', 'Emerald III': '🟢🛡️',
-                      'Sapphire I': '🔵', 'Sapphire II': '🔵✨', 'Sapphire III': '🔵🛡️',
-                      'Diamond Crest': '💎🛡️'
-                    };
-                    const emoji = badgeEmojiMap[ub.badge_tier.name] || '🎖️';
-                    const dateEarned = new Date(ub.earned_at).toLocaleDateString();
-
-                    return (
-                      <div 
-                        key={ub.id}
-                        title={`Earned after completing ${ub.badge_tier.courses_required_cumulative} courses on ${dateEarned}`}
-                        style={{ 
-                          display: 'flex', 
-                          flexDirection: 'column',
-                          alignItems: 'center', 
-                          gap: '4px', 
-                          padding: '8px', 
-                          borderRadius: '8px', 
-                          background: gradient, 
-                          color: '#fff', 
-                          fontSize: '0.72rem', 
-                          fontWeight: '700',
-                          textAlign: 'center',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                          cursor: 'help'
-                        }}
-                      >
-                        <span style={{ fontSize: '1.4rem' }}>{emoji}</span>
-                        <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-                          {ub.badge_tier.name}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </Modal>
-
       {/* Delete User Confirmation Modal */}
       <Modal
         isOpen={showDeleteConfirm && !!selectedUser}
-        onClose={() => setShowDeleteConfirm(false)}
+        onClose={() => { setShowDeleteConfirm(false); setSelectedUser(null); }}
         title="Confirm User Deletion"
-        icon={<AlertCircle style={{ color: 'var(--color-danger)' }} size={24} />}
+        icon={<AlertCircle style={{ color: 'var(--danger-color)' }} size={24} />}
         maxWidth="440px"
         footer={
           <>
-            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isDeletingUser}>
+            <Button variant="outline" onClick={() => { setShowDeleteConfirm(false); setSelectedUser(null); }} disabled={isDeletingUser}>
               Cancel
             </Button>
             <Button 
               variant="primary" 
-              style={{ background: 'var(--color-danger)', borderColor: 'var(--color-danger)', color: '#fff' }} 
+              style={{ background: 'var(--danger-color)', borderColor: 'var(--danger-color)', color: '#fff' }} 
               onClick={handleDeleteUser}
               disabled={isDeletingUser}
             >
@@ -824,7 +709,7 @@ export const UserAdminStudio: React.FC = () => {
                   onChange={e => setEmployeeCode(e.target.value)} 
                   placeholder="e.g. EMP001" 
                 />
-                {formErrors.employeeCode && <span className="input-error-msg" style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{formErrors.employeeCode}</span>}
+                {formErrors.employeeCode && <span className="input-error-msg" style={{ color: 'var(--danger-color)', fontSize: '0.8rem' }}>{formErrors.employeeCode}</span>}
               </div>
               <div>
                 <label className="form-label-styled">Email Address <span className="required-star">*</span></label>
@@ -835,17 +720,17 @@ export const UserAdminStudio: React.FC = () => {
                   onChange={e => handleEmailChange(e.target.value)} 
                   placeholder="employee@company.com" 
                 />
-                {formErrors.email && <span className="input-error-msg" style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{formErrors.email}</span>}
+                {formErrors.email && <span className="input-error-msg" style={{ color: 'var(--danger-color)', fontSize: '0.8rem' }}>{formErrors.email}</span>}
               </div>
               <div>
                 <label className="form-label-styled">First Name <span className="required-star">*</span></label>
                 <input className="form-input-styled" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First Name" />
-                {formErrors.firstName && <span className="input-error-msg" style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{formErrors.firstName}</span>}
+                {formErrors.firstName && <span className="input-error-msg" style={{ color: 'var(--danger-color)', fontSize: '0.8rem' }}>{formErrors.firstName}</span>}
               </div>
               <div>
                 <label className="form-label-styled">Last Name <span className="required-star">*</span></label>
                 <input className="form-input-styled" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last Name" />
-                {formErrors.lastName && <span className="input-error-msg" style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{formErrors.lastName}</span>}
+                {formErrors.lastName && <span className="input-error-msg" style={{ color: 'var(--danger-color)', fontSize: '0.8rem' }}>{formErrors.lastName}</span>}
               </div>
             </div>
 
@@ -865,7 +750,7 @@ export const UserAdminStudio: React.FC = () => {
                   {showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}
                 </Button>
               </div>
-              {formErrors.password && <span className="input-error-msg" style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{formErrors.password}</span>}
+              {formErrors.password && <span className="input-error-msg" style={{ color: 'var(--danger-color)', fontSize: '0.8rem' }}>{formErrors.password}</span>}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>

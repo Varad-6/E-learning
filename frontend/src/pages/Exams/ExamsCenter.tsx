@@ -492,6 +492,379 @@ export const ExamsCenter: React.FC = () => {
     );
   }
 
+  if (viewingDetails) {
+    return (
+      <div className="container animate-fade-in" style={{ marginTop: '40px', paddingBottom: '80px' }}>
+        {/* Back Button and Header */}
+        <div style={{ marginBottom: '24px' }}>
+          <button 
+            onClick={() => setViewingDetails(null)} 
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              color: 'var(--accent-color)', 
+              fontWeight: 700, 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px', 
+              cursor: 'pointer',
+              padding: 0,
+              fontSize: '0.95rem'
+            }}
+          >
+            ← Back to Exams
+          </button>
+          
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginTop: '16px', marginBottom: '8px' }}>
+            Graded Examination Breakdown
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', margin: 0 }}>
+            Reviewing results for: <strong>{viewingDetails.exam.title}</strong>
+          </p>
+        </div>
+
+        {/* Grade Summary and Feedback Panel */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', marginBottom: '32px' }}>
+          
+          {/* Overall score card */}
+          <div className="glass-panel" style={{ 
+            padding: '24px', 
+            borderRadius: 'var(--border-radius-lg)', 
+            background: 'var(--bg-card)', 
+            border: '1px solid var(--border-color)', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            justifyContent: 'center',
+            alignItems: 'center',
+            textAlign: 'center'
+          }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Overall Score</span>
+            <span style={{ 
+              fontSize: '3rem', 
+              fontWeight: 900, 
+              margin: '12px 0',
+              color: (viewingDetails.submission.overall_score || 0) >= 8.0 ? 'var(--accent-color)' : '#ef4444' 
+            }}>
+              {viewingDetails.submission.overall_score} <span style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', fontWeight: 600 }}>/ 10.0</span>
+            </span>
+            <span style={{ 
+              padding: '6px 14px', 
+              borderRadius: '20px', 
+              fontSize: '0.78rem', 
+              fontWeight: '800',
+              textTransform: 'uppercase',
+              background: (viewingDetails.submission.overall_score || 0) >= 8.0 ? 'var(--accent-glow)' : 'rgba(239,68,68,0.15)',
+              color: (viewingDetails.submission.overall_score || 0) >= 8.0 ? 'var(--accent-color)' : '#ef4444'
+            }}>
+              {(viewingDetails.submission.overall_score || 0) >= 8.0 ? 'Pass / Compliant' : 'Needs Improvement'}
+            </span>
+          </div>
+
+          {/* Manager feedback panel */}
+          <div className="glass-panel" style={{ 
+            padding: '24px', 
+            borderRadius: 'var(--border-radius-lg)', 
+            background: 'var(--bg-card)', 
+            border: '1px solid var(--border-color)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center'
+          }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase', color: 'var(--accent-color)', display: 'block', marginBottom: '8px', letterSpacing: '0.5px' }}>
+              Manager Review Feedback
+            </span>
+            <p style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1.5, fontStyle: viewingDetails.submission.overall_feedback ? 'normal' : 'italic' }}>
+              {viewingDetails.submission.overall_feedback || "No manager feedback was provided for this assessment."}
+            </p>
+          </div>
+        </div>
+
+        {/* Questions serial list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', margin: 0 }}>
+            Questions & Response Details
+          </h3>
+
+          {(viewingDetails.exam.questions || []).map((q, idx) => {
+            const answerRaw = (viewingDetails.submission.answers || {})[q.id] || '';
+            let fileObj: { name: string; url: string } | null = null;
+
+            if (q.question_type === 'file_upload') {
+              try {
+                fileObj = typeof answerRaw === 'string' ? JSON.parse(answerRaw) : answerRaw;
+              } catch {
+                fileObj = null;
+              }
+            }
+
+            const questionScore = viewingDetails.submission.scores?.[q.id] ?? 0;
+
+            const renderQuestionDetailsPage = () => {
+              if (q.question_type === 'mcq') {
+                const selectedIdx = String(answerRaw).trim();
+                const correctIdx = String(q.correct_answer).trim();
+                
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+                    {(q.options || []).map((opt, optIdx) => {
+                      const isSelected = selectedIdx === String(optIdx);
+                      const isCorrect = correctIdx === String(optIdx);
+                      
+                      let itemBg = 'var(--bg-main)';
+                      let itemBorder = '1px solid var(--border-color)';
+                      let statusText = null;
+
+                      if (isSelected) {
+                        if (isCorrect) {
+                          itemBg = 'rgba(20, 168, 0, 0.08)';
+                          itemBorder = '1px solid rgba(20, 168, 0, 0.3)';
+                          statusText = <span style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>✓ Your Correct Answer</span>;
+                        } else {
+                          itemBg = 'rgba(239, 68, 68, 0.08)';
+                          itemBorder = '1px solid rgba(239, 68, 68, 0.3)';
+                          statusText = <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>✗ Your Incorrect Answer</span>;
+                        }
+                      } else if (isCorrect) {
+                        itemBg = 'rgba(20, 168, 0, 0.04)';
+                        itemBorder = '1px dashed rgba(20, 168, 0, 0.25)';
+                        statusText = <span style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto' }}>✓ Correct Answer</span>;
+                      }
+
+                      return (
+                        <div 
+                          key={optIdx} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            padding: '12px 16px', 
+                            borderRadius: '8px', 
+                            background: itemBg, 
+                            border: itemBorder,
+                            fontSize: '0.88rem'
+                          }}
+                        >
+                          <span>{opt}</span>
+                          {statusText}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              }
+
+              if (q.question_type === 'msq') {
+                let selectedIndices: string[] = [];
+                try {
+                  if (Array.isArray(answerRaw)) {
+                    selectedIndices = answerRaw.map(String).map(s => s.trim());
+                  } else if (typeof answerRaw === 'string') {
+                    if (answerRaw.startsWith('[')) {
+                      selectedIndices = JSON.parse(answerRaw).map(String).map((s: string) => s.trim());
+                    } else if (answerRaw.includes(',')) {
+                      selectedIndices = answerRaw.split(',').map(s => s.trim());
+                    } else if (answerRaw) {
+                      selectedIndices = [answerRaw.trim()];
+                    }
+                  }
+                } catch {
+                  selectedIndices = [];
+                }
+
+                let correctIndices: string[] = [];
+                try {
+                  if (Array.isArray(q.correct_answer)) {
+                    correctIndices = q.correct_answer.map(String).map(s => s.trim());
+                  } else if (typeof q.correct_answer === 'string') {
+                    if (q.correct_answer.startsWith('[')) {
+                      correctIndices = JSON.parse(q.correct_answer).map(String).map((s: string) => s.trim());
+                    } else if (q.correct_answer.includes(',')) {
+                      correctIndices = q.correct_answer.split(',').map(s => s.trim());
+                    } else if (q.correct_answer) {
+                      correctIndices = [q.correct_answer.trim()];
+                    }
+                  }
+                } catch {
+                  correctIndices = [];
+                }
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+                    {(q.options || []).map((opt, optIdx) => {
+                      const strOptIdx = String(optIdx);
+                      const isSelected = selectedIndices.includes(strOptIdx);
+                      const isCorrect = correctIndices.includes(strOptIdx);
+                      
+                      let itemBg = 'var(--bg-main)';
+                      let itemBorder = '1px solid var(--border-color)';
+                      let statusText = null;
+
+                      if (isSelected) {
+                        if (isCorrect) {
+                          itemBg = 'rgba(20, 168, 0, 0.08)';
+                          itemBorder = '1px solid rgba(20, 168, 0, 0.3)';
+                          statusText = <span style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto' }}>✓ Selected (Correct)</span>;
+                        } else {
+                          itemBg = 'rgba(239, 68, 68, 0.08)';
+                          itemBorder = '1px solid rgba(239, 68, 68, 0.3)';
+                          statusText = <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto' }}>✗ Selected (Incorrect)</span>;
+                        }
+                      } else if (isCorrect) {
+                        itemBg = 'rgba(20, 168, 0, 0.04)';
+                        itemBorder = '1px dashed rgba(20, 168, 0, 0.25)';
+                        statusText = <span style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto' }}>✓ Correct Answer</span>;
+                      }
+
+                      return (
+                        <div 
+                          key={optIdx} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            padding: '12px 16px', 
+                            borderRadius: '8px', 
+                            background: itemBg, 
+                            border: itemBorder,
+                            fontSize: '0.88rem'
+                          }}
+                        >
+                          <span>{opt}</span>
+                          {statusText}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              }
+
+              if (q.question_type === 'file_upload') {
+                const isCorrect = questionScore >= 8;
+                return (
+                  <div style={{ 
+                    padding: '14px 16px', 
+                    background: isCorrect ? 'rgba(20, 168, 0, 0.08)' : 'rgba(239, 68, 68, 0.08)', 
+                    border: isCorrect ? '1px solid rgba(20, 168, 0, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)', 
+                    borderRadius: '8px', 
+                    fontSize: '0.88rem' 
+                  }}>
+                    {fileObj ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CheckCircle size={16} style={{ color: isCorrect ? 'var(--accent-color)' : '#ef4444' }} />
+                        <a 
+                          href={fileObj.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ color: 'var(--accent-color)', fontWeight: '600', textDecoration: 'underline' }}
+                        >
+                          {fileObj.name}
+                        </a>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 800, color: isCorrect ? 'var(--accent-color)' : '#ef4444', marginLeft: 'auto' }}>
+                          {isCorrect ? '✓ Approved' : '✗ Needs Improvement'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>No file uploaded</span>
+                    )}
+                  </div>
+                );
+              }
+
+              // Theory/Descriptive Answers
+              const isCorrect = questionScore >= 8;
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ 
+                    padding: '14px 16px', 
+                    background: isCorrect ? 'rgba(20, 168, 0, 0.08)' : 'rgba(239, 68, 68, 0.08)', 
+                    border: isCorrect ? '1px solid rgba(20, 168, 0, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)', 
+                    borderRadius: '8px', 
+                    fontSize: '0.88rem' 
+                  }}>
+                    <span style={{ 
+                      fontSize: '0.75rem', 
+                      fontWeight: '800', 
+                      textTransform: 'uppercase', 
+                      color: isCorrect ? 'var(--accent-color)' : '#ef4444', 
+                      display: 'flex', 
+                      justifyContent: 'space-between',
+                      marginBottom: '8px' 
+                    }}>
+                      <span>Your Submitted Answer</span>
+                      <span>{isCorrect ? '✓ Correct Answer' : '✗ Needs Improvement'}</span>
+                    </span>
+                    <p style={{ margin: 0, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                      {answerRaw || <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>No response written</span>}
+                    </p>
+                  </div>
+                  
+                  {q.correct_answer && (
+                    <div style={{ padding: '14px 16px', background: 'rgba(20,168,0,0.02)', border: '1px dashed var(--border-color)', borderRadius: '8px', fontSize: '0.88rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: 'var(--accent-color)', display: 'block', marginBottom: '8px' }}>
+                        Ideal Model Answer
+                      </span>
+                      <p style={{ margin: 0, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                        {String(q.correct_answer)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            };
+
+            return (
+              <div 
+                key={q.id} 
+                className="glass-panel" 
+                style={{ 
+                  padding: '24px', 
+                  borderRadius: 'var(--border-radius-lg)', 
+                  background: 'var(--bg-card)', 
+                  border: '1px solid var(--border-color)' 
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: 'var(--accent-glow)', color: 'var(--accent-color)', textTransform: 'uppercase' }}>
+                      {q.question_type.replace('_', ' ')}
+                    </span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                      Question {idx + 1}
+                    </span>
+                  </div>
+                  
+                  <span style={{ 
+                    fontSize: '0.85rem', 
+                    fontWeight: '800', 
+                    padding: '4px 12px', 
+                    borderRadius: '6px',
+                    background: 'var(--bg-main)',
+                    color: questionScore >= 8 ? 'var(--accent-color)' : questionScore >= 5 ? '#f59e0b' : '#ef4444',
+                    whiteSpace: 'nowrap',
+                    border: '1px solid var(--border-color)'
+                  }}>
+                    Score: {questionScore} / 10
+                  </span>
+                </div>
+
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', lineHeight: '1.4', marginTop: 0 }}>
+                  {q.question_text}
+                </h4>
+
+                {renderQuestionDetailsPage()}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Back Button Footer */}
+        <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-start' }}>
+          <Button variant="outline" onClick={() => setViewingDetails(null)} style={{ height: '44px', fontWeight: '700' }}>
+            Back to Exams
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container animate-fade-in" style={{ marginTop: '40px', paddingBottom: '60px' }}>
       <div className="pane-header" style={{ marginBottom: '28px' }}>
@@ -726,135 +1099,7 @@ export const ExamsCenter: React.FC = () => {
         </>
       )}
 
-      {/* DETAILED EVALUATION VIEW MODAL */}
-      <Modal
-        isOpen={viewingDetails !== null}
-        onClose={() => setViewingDetails(null)}
-        title="📝 Graded Examination Breakdown"
-        subtitle={viewingDetails?.exam.title || ''}
-        maxWidth="550px"
-        icon={<Award size={20} style={{ color: 'var(--accent-color)' }} />}
-        footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-            <Button variant="outline" onClick={() => setViewingDetails(null)}>Close</Button>
-          </div>
-        }
-      >
-        {viewingDetails && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '4px 0' }}>
-            
-            {/* Grade summary banner */}
-            <div style={{ 
-              padding: '16px', 
-              borderRadius: 'var(--border-radius-md)', 
-              background: 'var(--bg-main)', 
-              border: '1px solid var(--border-color)', 
-              display: 'flex', 
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <div>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', textTransform: 'uppercase' }}>Overall Score</span>
-                <span style={{ fontSize: '1.5rem', fontWeight: '900', color: (viewingDetails.submission.overall_score || 0) >= 8.0 ? 'var(--accent-color)' : '#ef4444' }}>
-                  {viewingDetails.submission.overall_score} / 10.0
-                </span>
-              </div>
-              <span style={{ 
-                padding: '4px 12px', 
-                borderRadius: '12px', 
-                fontSize: '0.78rem', 
-                fontWeight: '800',
-                textTransform: 'uppercase',
-                background: (viewingDetails.submission.overall_score || 0) >= 8.0 ? 'var(--accent-glow)' : 'rgba(239,68,68,0.15)',
-                color: (viewingDetails.submission.overall_score || 0) >= 8.0 ? 'var(--accent-color)' : '#ef4444'
-              }}>
-                {(viewingDetails.submission.overall_score || 0) >= 8.0 ? 'Compliant / Pass' : 'Needs Improvement'}
-              </span>
-            </div>
-
-            {/* Overall Feedback */}
-            {viewingDetails.submission.overall_feedback && (
-              <div className="glass-panel" style={{ padding: '16px', borderRadius: 'var(--border-radius-md)', background: 'rgba(20,168,0,0.02)', border: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: 'var(--accent-color)', display: 'block', marginBottom: '6px' }}>
-                  Reviewer Feedback
-                </span>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.4 }}>
-                  {viewingDetails.submission.overall_feedback}
-                </p>
-              </div>
-            )}
-
-            {/* Question level breakdown */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-                Question Breakdown
-              </span>
-
-              {viewingDetails.exam.questions.map((q, idx) => {
-                const answerRaw = viewingDetails.submission.answers[q.id] || '';
-                let answerText = answerRaw;
-                let fileObj: { name: string; url: string } | null = null;
-
-                if (q.question_type === 'file_upload') {
-                  try {
-                    fileObj = JSON.parse(answerRaw);
-                  } catch {
-                    fileObj = null;
-                  }
-                }
-
-                const questionScore = viewingDetails.submission.scores?.[q.id] ?? 0;
-
-                return (
-                  <div key={q.id} style={{ 
-                    borderBottom: idx === viewingDetails.exam.questions.length - 1 ? 'none' : '1px solid var(--border-color)', 
-                    paddingBottom: '16px' 
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)' }}>
-                        {idx + 1}. {q.question_text}
-                      </span>
-                      <span style={{ 
-                        fontSize: '0.78rem', 
-                        fontWeight: '700', 
-                        padding: '2px 8px', 
-                        borderRadius: '4px',
-                        background: 'var(--bg-main)',
-                        color: questionScore >= 8 ? 'var(--accent-color)' : questionScore >= 5 ? '#f59e0b' : '#ef4444',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {questionScore} / 10
-                      </span>
-                    </div>
-
-                    <div style={{ padding: '10px 14px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.82rem' }}>
-                      {q.question_type === 'file_upload' && fileObj ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <CheckCircle size={14} style={{ color: '#10b981' }} />
-                          <a 
-                            href={fileObj.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            style={{ color: 'var(--accent-color)', fontWeight: '600', textDecoration: 'underline' }}
-                          >
-                            {fileObj.name}
-                          </a>
-                        </div>
-                      ) : (
-                        <p style={{ margin: 0, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
-                          {answerText || <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>No answer submitted</span>}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-          </div>
-        )}
-      </Modal>
-
     </div>
   );
 };
+
