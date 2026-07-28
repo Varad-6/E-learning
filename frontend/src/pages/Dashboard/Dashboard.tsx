@@ -1896,209 +1896,57 @@ export const Dashboard: React.FC = () => {
                 </div>
 
 
-                {/* ROW 2: DETAILED LISTS (Left: Span 8 / Right: Span 4) */}
-
-                {/* LEFT BLOCK: UPCOMING EXAMS & AVAILABLE COURSES LISTS (Span 8) */}
-                <div style={{ gridColumn: 'span 8', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  
-                  {/* UPCOMING EXAMS DETAILS */}
-                  <div className="widget-card" style={{ border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
-                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800 }}>
-                      <Clock size={18} style={{ color: '#7c3aed' }} />
-                      Assigned Upcoming Assessments
-                    </h4>
-                    <div style={{ flex: 1, marginTop: '8px' }}>
-                      {empDashboardData.upcoming_exams.length === 0 ? (
-                        <div style={{ padding: '36px 0', textAlign: 'center' }}>
-                          <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
-                            No exams waiting for your attempt! Enjoy your day! 🥳
-                          </p>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          {empDashboardData.upcoming_exams.map((exam: any) => (
-                            <div key={exam.id} style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              background: 'var(--bg-main)',
-                              padding: '16px',
-                              borderRadius: 'var(--border-radius-md)',
-                              border: '1px solid var(--border-color)',
-                              borderLeft: '4px solid #7c3aed'
-                            }}>
-                              <div style={{ minWidth: 0, flex: 1, marginRight: '16px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span className="course-code-tag" style={{ padding: '2px 8px', borderRadius: '12px', background: 'rgba(124, 58, 237, 0.12)', color: '#7c3aed', fontSize: '0.68rem', fontWeight: '800', textTransform: 'uppercase' }}>
-                                    {exam.course_code || 'EXAM'}
-                                  </span>
-                                  {exam.due_date && (
-                                    <span style={{ fontSize: '0.72rem', color: '#ef4444', fontWeight: 700 }}>
-                                      Due: {new Date(exam.due_date).toLocaleDateString()}
-                                    </span>
-                                  )}
-                                </div>
-                                <h5 style={{ margin: '8px 0 4px 0', fontSize: '1rem', fontWeight: 750, color: 'var(--text-primary)' }}>
-                                  {exam.exam_title}
-                                </h5>
-                                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                  Course: {exam.course_title} • Time Limit: {exam.duration_minutes} mins
-                                </p>
-                              </div>
-                              <Button 
-                                variant="primary" 
-                                size="sm" 
-                                onClick={() => navigate('/exams')}
-                                style={{ height: '36px', fontWeight: '700', padding: '0 16px', background: '#7c3aed', borderColor: '#7c3aed' }}
-                              >
-                                Start Exam
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* HIGHLIGHTED AVAILABLE COURSES */}
-                  <div className="widget-card" style={{ border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-                      <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, border: 'none', margin: 0, padding: 0 }}>
-                        <BookOpen size={18} style={{ color: '#059669' }} />
-                        Recommended Available Courses
-                      </h4>
-                      <button onClick={() => navigate('/dashboard?tab=my-courses&sub=available')} style={{ background: 'none', border: 'none', color: 'var(--accent-color)', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}>
-                        View All
-                      </button>
-                    </div>
-                    <div>
-                      {empDashboardData.available_courses.length === 0 ? (
-                        <div style={{ padding: '36px 0', textAlign: 'center' }}>
-                          <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
-                            You are fully enrolled in all available courses for your department! 🌟
-                          </p>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                          {empDashboardData.available_courses.map((course: any) => (
-                            <div key={course.id} style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'space-between',
-                              background: 'var(--bg-main)',
-                              padding: '16px',
-                              borderRadius: 'var(--border-radius-md)',
-                              border: '1px solid var(--border-color)',
-                              minHeight: '140px'
-                            }}>
-                              <div>
-                                <span className="course-code-tag" style={{ padding: '2px 8px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.12)', color: '#059669', fontSize: '0.65rem', fontWeight: '800' }}>
-                                  {course.course_code}
-                                </span>
-                                <h5 style={{ margin: '6px 0 4px 0', fontSize: '0.92rem', fontWeight: 750, color: 'var(--text-primary)', lineHeight: 1.3 }}>
-                                  {course.title}
-                                </h5>
-                                <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {course.description || 'No description provided.'}
-                                </p>
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                  ⌛ {course.duration || '10 hours'}
-                                </span>
-                                <Button 
-                                  variant="primary" 
-                                  size="sm" 
-                                  onClick={() => handleEnrollCourse(course.id)}
-                                  style={{ height: '28px', fontSize: '0.78rem', padding: '0 12px', background: '#059669', borderColor: '#059669' }}
-                                >
-                                  Enroll
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* RIGHT BLOCK: DETAILED STANDINGS & LEARNING PROGRESS (Span 4) */}
-                <div style={{ gridColumn: 'span 4', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  
-                  {/* DETAILED RANK CIRCLE CARD */}
-                  <div className="widget-card" style={{ border: '1px solid var(--border-color)', background: 'var(--bg-card)', alignItems: 'center' }}>
-                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, width: '100%' }}>
-                      <Trophy size={18} style={{ color: '#d97706' }} />
-                      My Department Rank
-                    </h4>
-                    {renderRankCircle(
-                      empDashboardData.my_rank?.position,
-                      empDashboardData.my_rank?.badge_tier,
-                      empDashboardData.my_rank?.department || dept
-                    )}
-                    <Button 
-                      variant="outline" 
-                      onClick={() => navigate('/leaderboard')}
-                      style={{ width: '100%', marginTop: '16px', height: '36px', fontSize: '0.82rem', fontWeight: '700' }}
-                    >
-                      Open Leaderboard →
-                    </Button>
-                  </div>
-
-                  {/* LEARNING PROGRESS RING */}
-                  <div className="widget-card" style={{ border: '1px solid var(--border-color)', background: 'var(--bg-card)', alignItems: 'center' }}>
-                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, width: '100%' }}>
-                      <Target size={18} style={{ color: 'var(--accent-color)' }} />
-                      Learning Journey
-                    </h4>
-                    {renderProgressRing(
-                      empDashboardData.overall_progress.percent,
-                      empDashboardData.overall_progress.completed,
-                      empDashboardData.overall_progress.total
-                    )}
-                    
-                    {empDashboardData.next_badge_milestone.tier_name ? (
-                      <div style={{ width: '100%', marginTop: '12px', background: 'var(--accent-glow)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: 'var(--border-radius-md)', textAlign: 'center' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '700' }}>
-                          🎯 Next Badge: <strong>{empDashboardData.next_badge_milestone.tier_name}</strong> ({empDashboardData.next_badge_milestone.courses_remaining} course left!)
-                        </span>
-                      </div>
-                    ) : (
-                      <div style={{ width: '100%', marginTop: '12px', background: 'var(--accent-glow)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: 'var(--border-radius-md)', textAlign: 'center' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '700' }}>
-                          👑 You've unlocked the highest badge tier!
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-
-                {/* ROW 3: VISUALLY APPEALING COLORFUL CHARTS */}
+                {/* ROW 2: DETAILED WIDGETS */}
                 
-                {/* SCORE TREND LINE CHART */}
-                <div className="widget-card" style={{ gridColumn: 'span 8', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
-                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800 }}>
-                    <TrendingUp size={18} style={{ color: 'var(--accent-color)' }} />
-                    Exam Score Performance Trend
+                {/* 1. MY DEPARTMENT RANK CARD (Span 4) */}
+                <div className="widget-card" style={{ gridColumn: 'span 4', border: '1px solid var(--border-color)', background: 'var(--bg-card)', alignItems: 'center' }}>
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, width: '100%', margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)' }}>
+                    <Trophy size={18} style={{ color: '#d97706' }} />
+                    My Department Rank
                   </h4>
-                  <p style={{ margin: '0 0 16px 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    Track your grades over time (latest exam scores out of 10).
-                  </p>
-                  <div style={{ flex: 1 }}>
-                    <SVGLineChart 
-                      data={empDashboardData.exam_score_trend && empDashboardData.exam_score_trend.length > 0 ? empDashboardData.exam_score_trend : [{ label: 'Baseline', value: 0 }]} 
-                      xAxisLabel="Exams Taken" 
-                      yAxisLabel="Score (max 10)" 
-                    />
-                  </div>
+                  {renderRankCircle(
+                    empDashboardData.my_rank?.position,
+                    empDashboardData.my_rank?.badge_tier,
+                    empDashboardData.my_rank?.department || dept
+                  )}
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate('/leaderboard')}
+                    style={{ width: '100%', marginTop: '16px', height: '36px', fontSize: '0.82rem', fontWeight: '700' }}
+                  >
+                    Open Leaderboard →
+                  </Button>
                 </div>
 
-                {/* ENROLLMENT STATUS BAR CHART */}
+                {/* 2. LEARNING JOURNEY PROGRESS RING (Span 4) */}
+                <div className="widget-card" style={{ gridColumn: 'span 4', border: '1px solid var(--border-color)', background: 'var(--bg-card)', alignItems: 'center' }}>
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, width: '100%', margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)' }}>
+                    <Target size={18} style={{ color: 'var(--accent-color)' }} />
+                    Learning Journey
+                  </h4>
+                  {renderProgressRing(
+                    empDashboardData.overall_progress.percent,
+                    empDashboardData.overall_progress.completed,
+                    empDashboardData.overall_progress.total
+                  )}
+                  {empDashboardData.next_badge_milestone.tier_name ? (
+                    <div style={{ width: '100%', marginTop: '12px', background: 'var(--accent-glow)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: 'var(--border-radius-md)', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '700' }}>
+                        🎯 Next Badge: <strong>{empDashboardData.next_badge_milestone.tier_name}</strong> ({empDashboardData.next_badge_milestone.courses_remaining} course left!)
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ width: '100%', marginTop: '12px', background: 'var(--accent-glow)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: 'var(--border-radius-md)', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '700' }}>
+                        👑 You've unlocked the highest badge tier!
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. COURSE ENROLLMENT STATUS BAR CHART (Span 4) */}
                 <div className="widget-card" style={{ gridColumn: 'span 4', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
-                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800 }}>
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)', marginBottom: '14px' }}>
                     <Layers size={18} style={{ color: '#00f2fe' }} />
                     Course Enrollment Status
                   </h4>
@@ -2124,6 +1972,24 @@ export const Dashboard: React.FC = () => {
                           { label: 'Enrolled', value: 0, color: '#f59e0b' }
                         ]
                     } />
+                  </div>
+                </div>
+
+                {/* ROW 3: SCORE TREND LINE CHART (Span 12) */}
+                <div className="widget-card" style={{ gridColumn: 'span 12', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)', marginBottom: '14px' }}>
+                    <TrendingUp size={18} style={{ color: 'var(--accent-color)' }} />
+                    Exam Score Performance Trend
+                  </h4>
+                  <p style={{ margin: '0 0 16px 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                    Track your grades over time (latest exam scores out of 10).
+                  </p>
+                  <div style={{ flex: 1 }}>
+                    <SVGLineChart 
+                      data={empDashboardData.exam_score_trend && empDashboardData.exam_score_trend.length > 0 ? empDashboardData.exam_score_trend : [{ label: 'Baseline', value: 0 }]} 
+                      xAxisLabel="Exams Taken" 
+                      yAxisLabel="Score (max 10)" 
+                    />
                   </div>
                 </div>
 
