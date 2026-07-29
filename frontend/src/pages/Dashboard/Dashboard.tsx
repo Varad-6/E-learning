@@ -2775,23 +2775,13 @@ export const Dashboard: React.FC = () => {
 
                   </Button>
 
-                  {role !== 'Employee' && (
-
-                    <Button
-
-                      variant="outline"
-
-                      style={{ width: '100%', fontSize: '0.82rem', borderColor: '#ef4444', color: '#ef4444' }}
-
-                      onClick={handleLogout}
-
-                    >
-
-                      Logout Account
-
-                    </Button>
-
-                  )}
+                  <Button
+                    variant="outline"
+                    style={{ width: '100%', fontSize: '0.82rem', borderColor: '#ef4444', color: '#ef4444' }}
+                    onClick={handleLogout}
+                  >
+                    Logout Account
+                  </Button>
 
                 </div>
 
@@ -2827,229 +2817,7 @@ export const Dashboard: React.FC = () => {
 
             {/* Right Pane - Marks report / Course summaries for Employees or Password Form for Admins/Managers */}
 
-            {role === 'Employee' ? (
-
-              <div className="profile-main-pane">
-
-                {/* Detailed Performance / Quiz Scores */}
-
-                <div className="roster-card glass-panel" style={{ padding: '28px', marginBottom: '24px' }}>
-
-                  <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', border: 'none', padding: 0 }}>
-
-                    <Award size={18} className="icon-blue" />
-
-                    <span>Training Performance & Assessment Report</span>
-
-                  </h3>
-
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-
-                    List of completed and logged exam marks traces matching your curriculum.
-
-                  </p>
-
-
-
-                  <div className="scores-table-section">
-
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
-
-                      <thead>
-
-                        <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-
-                          <th style={{ padding: '12px 6px', color: 'var(--text-secondary)' }}>Module Code</th>
-
-                          <th style={{ padding: '12px 6px', color: 'var(--text-secondary)' }}>Assessment Name</th>
-
-                          <th style={{ padding: '12px 6px', color: 'var(--text-secondary)' }}>Passing Score</th>
-
-                          <th style={{ padding: '12px 6px', color: 'var(--text-secondary)', textAlign: 'right' }}>My Score</th>
-
-                        </tr>
-
-                      </thead>
-
-                      <tbody>
-
-                        {profileExamScores && profileExamScores.length > 0 ? (
-
-                          profileExamScores.map((ex: any, idx: number) => (
-
-                            <tr key={ex.submission_id || idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
-
-                              <td style={{ padding: '12px 6px' }}><code>{ex.exam_title ? ex.exam_title.split(' ')[0] : 'EXAM'}</code></td>
-
-                              <td style={{ padding: '12px 6px' }}>{ex.exam_title}</td>
-
-                              <td style={{ padding: '12px 6px' }}>8.0 / 10.0</td>
-
-                              <td style={{ padding: '12px 6px', textAlign: 'right', fontWeight: '700', color: ex.overall_score >= 8.0 ? 'var(--neon-teal)' : 'var(--text-secondary)' }}>
-
-                                {ex.overall_score !== null ? `${ex.overall_score} / 10.0` : `Pending (${ex.status})`}
-
-                              </td>
-
-                            </tr>
-
-                          ))
-
-                        ) : (
-
-                          <tr>
-
-                            <td colSpan={4} style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-
-                              No exam submissions recorded yet.
-
-                            </td>
-
-                          </tr>
-
-                        )}
-
-                      </tbody>
-
-                    </table>
-
-                  </div>
-
-                </div>
-
-
-
-                {/* Categorized Course Modules */}
-
-                <div className="roster-card glass-panel" style={{ padding: '28px' }}>
-
-                  <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', border: 'none', padding: 0 }}>
-
-                    <Layers size={18} className="icon-green" />
-
-                    <span>Module Status Details</span>
-
-                  </h3>
-
-                  
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-                    {/* Ongoing Courses */}
-
-                    <div>
-
-                      <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-color)', letterSpacing: '0.03em', marginBottom: '10px' }}>Ongoing Modules</h4>
-
-                      {myProgress.some(p => p.progressPercent < 100) ? (
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-                          {myProgress.filter(p => p.progressPercent < 100).map(course => (
-
-                            <div key={course.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)' }}>
-
-                              <div>
-
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{course.courseCode}</span>
-
-                                <p style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)' }}>{course.title}</p>
-
-                              </div>
-
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-
-                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{course.progressPercent}%</span>
-
-                                <Button 
-
-                                  variant="outline" 
-
-                                  size="sm" 
-
-                                  className="tooltip-trigger"
-
-                                  data-tooltip={`Resume study for ${course.courseCode}`}
-
-                                  onClick={() => {
-
-                                    handleStudyIncrement(course.id);
-
-                                  }}
-
-                                >
-
-                                  Resume
-
-                                </Button>
-
-                              </div>
-
-                            </div>
-
-                          ))}
-
-                        </div>
-
-                      ) : (
-
-                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No ongoing modules found.</p>
-
-                      )}
-
-                    </div>
-
-
-
-                    {/* Completed Courses */}
-
-                    <div style={{ marginTop: '10px' }}>
-
-                      <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--neon-teal)', letterSpacing: '0.03em', marginBottom: '10px' }}>Completed Modules & Certificates</h4>
-
-                      {myProgress.some(p => p.progressPercent === 100) ? (
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-                          {myProgress.filter(p => p.progressPercent === 100).map(course => (
-
-                            <div key={course.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)' }}>
-
-                              <div>
-
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{course.courseCode}</span>
-
-                                <p style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)' }}>{course.title}</p>
-
-                              </div>
-
-                              <span className="row-success-badge" style={{ fontSize: '0.8rem' }}>
-
-                                Certified ✓
-
-                              </span>
-
-                            </div>
-
-                          ))}
-
-                        </div>
-
-                      ) : (
-
-                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No completed modules found.</p>
-
-                      )}
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            ) : (
+            
 
               <div className="profile-main-pane">
 
@@ -3363,7 +3131,7 @@ export const Dashboard: React.FC = () => {
 
               </div>
 
-            )}
+
 
           </div>
 
@@ -5127,182 +4895,287 @@ export const Dashboard: React.FC = () => {
       {/* 3. ADMINISTRATOR VIEW (BI & ANALYTICS DASHBOARD) */}
 
       {activeMainView === 'dashboard' && (role === 'Admin' || role === 'HR Admin' || role === 'HR Manager') && (
-
-        <div className="dashboard-layout-admin animate-fade-in">
-
-          <div className="pane-header" style={{ marginBottom: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-
-            <div>
-
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>Admin Analytics Dashboard</h2>
-
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginTop: '4px' }}>Real-time course stats, department performance, and system health.</p>
-
+        <div className="employee-dashboard-container animate-fade-in" style={{ paddingBottom: '40px' }}>
+          <div className="employee-dashboard-grid-root">
+            {/* Header Banner */}
+            <div style={{
+              gridColumn: '1 / -1',
+              background: 'var(--bg-card)',
+              borderRadius: 'var(--border-radius-lg)',
+              border: '1px solid var(--border-color)',
+              padding: '24px 30px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '16px',
+              boxShadow: 'var(--shadow-sm)',
+              marginBottom: '8px'
+            }}>
+              <div>
+                <h3 style={{ fontSize: '1.6rem', fontWeight: 850, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  System Admin Workspace 🛡️
+                </h3>
+                <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  Real-time corporate analytics, curriculum drop-off statistics, and department evaluations.
+                </p>
+              </div>
+              <Button variant="primary" onClick={fetchDashboardAnalytics} disabled={analyticsLoading}>
+                {analyticsLoading ? 'Refreshing...' : 'Refresh Analytics 🔄'}
+              </Button>
             </div>
 
-            <Button variant="outline" style={{ fontSize: '0.82rem' }} onClick={fetchDashboardAnalytics}>
-
-              Refresh Analytics 🔄
-
-            </Button>
-
-          </div>
-
-
-
-          {analyticsError && (
-
-            <div style={{ padding: '16px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-
-              <span>Failed to load live analytics data from backend.</span>
-
-              <Button variant="primary" style={{ fontSize: '0.78rem' }} onClick={fetchDashboardAnalytics}>Retry</Button>
-
-            </div>
-
-          )}
-
-
-
-          {/* Top Level Hero Card: Top Performing Department */}
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '28px' }}>
-
-            <div className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gridColumn: '1 / -1' }}>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-
-                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-
-                  <Award size={24} />
-
+            {/* KPI Card 1: Active Headcount */}
+            <div className="metric-nav-card" style={{
+              gridColumn: 'span 3',
+              background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.08) 0%, rgba(0, 242, 254, 0.02) 100%)',
+              border: '1px solid rgba(0, 242, 254, 0.2)',
+              color: 'var(--text-primary)',
+              padding: '20px',
+              borderRadius: 'var(--border-radius-lg)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              minHeight: '130px',
+              boxShadow: '0 4px 15px rgba(0, 242, 254, 0.05)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
+                  Active Headcount
+                </span>
+                <Users size={20} style={{ color: '#00f2fe' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1 }}>
+                  {summaryData.total_users || 0}
                 </div>
+                <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)' }}>
+                  Registered Learners
+                </div>
+              </div>
+            </div>
 
-                <div>
+            {/* KPI Card 2: Completed Enrollments */}
+            <div className="metric-nav-card" style={{
+              gridColumn: 'span 3',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)',
+              border: '1px solid rgba(16, 185, 129, 0.2)',
+              color: 'var(--text-primary)',
+              padding: '20px',
+              borderRadius: 'var(--border-radius-lg)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              minHeight: '130px',
+              boxShadow: '0 4px 15px rgba(16, 185, 129, 0.05)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
+                  Completed Exams
+                </span>
+                <BookOpen size={20} style={{ color: '#10b981' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1 }}>
+                  {summaryData.completed_enrollments || 0}
+                </div>
+                <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)' }}>
+                  Graded & Completed
+                </div>
+              </div>
+            </div>
 
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Top Performing Department</span>
+            {/* KPI Card 3: Top Performing Department */}
+            <div className="metric-nav-card" style={{
+              gridColumn: 'span 3',
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(139, 92, 246, 0.02) 100%)',
+              border: '1px solid rgba(139, 92, 246, 0.2)',
+              color: 'var(--text-primary)',
+              padding: '20px',
+              borderRadius: 'var(--border-radius-lg)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              minHeight: '130px',
+              boxShadow: '0 4px 15px rgba(139, 92, 246, 0.05)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
+                  Top Department
+                </span>
+                <Award size={20} style={{ color: '#8b5cf6' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {deptPerformanceData && deptPerformanceData.length > 0
+                    ? (() => {
+                        const topDept = [...deptPerformanceData].sort((a, b) => (b.value || 0) - (a.value || 0))[0];
+                        return `${topDept.label}`;
+                      })()
+                    : 'None Yet'}
+                </div>
+                <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '6px', color: 'var(--text-secondary)' }}>
+                  {deptPerformanceData && deptPerformanceData.length > 0
+                    ? (() => {
+                        const topDept = [...deptPerformanceData].sort((a, b) => (b.value || 0) - (a.value || 0))[0];
+                        return `Highest Avg: ${topDept.value}/10`;
+                      })()
+                    : 'Awaiting scores'}
+                </div>
+              </div>
+            </div>
 
-                  <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '2px' }}>
+            {/* KPI Card 4: Best Creator Manager */}
+            <div className="metric-nav-card" style={{
+              gridColumn: 'span 3',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.2)',
+              color: 'var(--text-primary)',
+              padding: '20px',
+              borderRadius: 'var(--border-radius-lg)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              minHeight: '130px',
+              boxShadow: '0 4px 15px rgba(245, 158, 11, 0.05)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
+                  Best Creator Manager
+                </span>
+                <Trophy size={20} style={{ color: '#f59e0b' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {summaryData.best_manager ? summaryData.best_manager.name : 'Awaiting Data'}
+                </div>
+                <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '6px', color: 'var(--text-secondary)' }}>
+                  {summaryData.best_manager 
+                    ? `${summaryData.best_manager.courses_count} courses & ${summaryData.best_manager.reviews_count} graded`
+                    : 'No reviews logged yet'}
+                </div>
+              </div>
+            </div>
 
-                    {deptPerformanceData && deptPerformanceData.length > 0
+            {/* Left Column (span 8): SVG Business Intelligence Charts */}
+            <div style={{ gridColumn: 'span 8', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div className="widget-card" style={{ height: 'auto' }}>
+                <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>Avg Score per Department</h4>
+                <div style={{ padding: '10px 0' }}>
+                  <SVGBarChart data={deptPerformanceData.length > 0 ? deptPerformanceData : [{ label: 'General', value: 0, color: '#10b981' }]} />
+                </div>
+              </div>
 
-                      ? (() => {
-
-                          const topDept = [...deptPerformanceData].sort((a, b) => (b.value || 0) - (a.value || 0))[0];
-
-                          return `${topDept.label} Department (${topDept.value} / 10 Avg Score)`;
-
-                        })()
-
-                      : 'No department performance recorded yet'}
-
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '24px' }}>
+                <div className="widget-card" style={{ height: 'auto' }}>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>Exam Pass / Fail Ratio</h4>
+                  <div style={{ padding: '10px 0' }}>
+                    <SVGDonutChart items={passFailRatioData.length > 0 ? passFailRatioData : [{ label: 'Passed (>= 8.0)', value: 100, color: '#10b981' }]} />
                   </div>
-
                 </div>
 
-              </div>
-
-            </div>
-
-          </div>
-
-
-
-          {/* BI Charts Grid Layout - 6 Core Analytics Widgets */}
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px', marginBottom: '32px' }}>
-
-            
-
-
-
-
-
-            {/* 2. Department-wise Performance Comparison (Bar Chart) */}
-
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Avg Score per Department</h3>
-
-              <SVGBarChart data={deptPerformanceData.length > 0 ? deptPerformanceData : [{ label: 'General', value: 0, color: '#10b981' }]} />
-
-            </div>
-
-
-
-            {/* 3. Top Courses by Enrollment (Ranked Bar List) */}
-
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Top Course Enrollment</h3>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-
-                {topCoursesData && topCoursesData.length > 0 ? (
-
-                  topCoursesData.map((c: any, idx: number) => {
-
-                    const maxCount = topCoursesData[0]?.enrollments_count || 1;
-
-                    const pct = Math.max(10, Math.round((c.enrollments_count / maxCount) * 100));
-
-                    const barColor = idx === 0 ? '#00f2fe' : idx === 1 ? '#8b5cf6' : '#10b981';
-
-                    return (
-
-                      <div key={c.id || idx}>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
-
-                          <strong style={{ color: 'var(--text-primary)' }}>{c.course_code}: {c.title}</strong>
-
-                          <span>{c.enrollments_count} Enrollments</span>
-
+                <div className="widget-card" style={{ height: 'auto' }}>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>Platform Insights Feed</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '10px 0', fontSize: '0.85rem' }}>
+                    {((pendingApprovalsData.pending_course_approvals || 0) + (pendingApprovalsData.pending_exam_submissions || 0)) > 0 ? (
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', color: '#f59e0b' }}>
+                        <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>⚠️</span>
+                        <div>
+                          <strong>Ungraded Assessments Pending</strong>
+                          <p style={{ margin: '3px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                            Course Managers have {(pendingApprovalsData.pending_course_approvals || 0) + (pendingApprovalsData.pending_exam_submissions || 0)} pending items waiting for review/approvals.
+                          </p>
                         </div>
-
-                        <div style={{ height: '8px', background: 'var(--bg-secondary)', borderRadius: '4px', overflow: 'hidden' }}>
-
-                          <div style={{ width: `${pct}%`, height: '100%', background: barColor }}></div>
-
-                        </div>
-
                       </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', color: '#10b981' }}>
+                        <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>✅</span>
+                        <div>
+                          <strong>All Submissions Graded</strong>
+                          <p style={{ margin: '3px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                            All exam sheets and approval flows are fully completed. Keep up the good work!
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
-                    );
-
-                  })
-
-                ) : (
-
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No course enrollment data.</span>
-
-                )}
-
+                    {topCoursesData && topCoursesData.length > 0 && (
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', color: 'var(--accent-color)' }}>
+                        <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>📈</span>
+                        <div>
+                          <strong>Highest Enrollment Course</strong>
+                          <p style={{ margin: '3px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                            "{topCoursesData[0].title}" ({topCoursesData[0].course_code}) is leading training enrollment counts.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-
             </div>
 
-
-
-            {/* 4. Exam Pass / Fail Ratio (Donut Chart) */}
-
-            <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '16px' }}>Exam Pass / Fail Ratio</h3>
-
-              <SVGDonutChart items={passFailRatioData.length > 0 ? passFailRatioData : [{ label: 'Passed (>= 8.0)', value: 100, color: '#10b981' }]} />
-
+            {/* Right Column (span 4): Top Performers Showcase (Global Podium) */}
+            <div style={{ gridColumn: 'span 4' }}>
+              <div className="widget-card">
+                <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>
+                  🏆 Top Performers Showcase
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '10px' }}>
+                  {topPerformersData && topPerformersData.length > 0 ? (
+                    topPerformersData.map((user: any, idx: number) => (
+                      <div 
+                        key={user.user_id || idx} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'space-between', 
+                          padding: '12px', 
+                          borderRadius: 'var(--border-radius-sm)', 
+                          background: idx === 0 ? 'rgba(245, 158, 11, 0.06)' : 'rgba(255,255,255,0.02)',
+                          border: idx === 0 ? '1px solid rgba(245, 158, 11, 0.15)' : '1px solid var(--border-color)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ 
+                            fontSize: '0.85rem', 
+                            fontWeight: '900', 
+                            color: idx === 0 ? '#f59e0b' : idx === 1 ? '#94a3b8' : '#b45309',
+                            width: '20px'
+                          }}>
+                            #{idx + 1}
+                          </span>
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              {user.user_name}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                              <span>{user.department_name}</span> &bull; 
+                              {user.badge_asset_ref && (
+                                <img 
+                                  src={`/badges/${user.badge_asset_ref}.png`} 
+                                  alt={user.badge_name} 
+                                  style={{ width: '14px', height: '14px', objectFit: 'contain' }} 
+                                />
+                              )}
+                              <span>{user.badge_name || 'Bronze III'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--accent-color)', background: 'var(--accent-glow)', padding: '2px 8px', borderRadius: '4px' }}>
+                          {user.score ? user.score.toFixed(1) : '0.0'}/10
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.82rem' }}>No student evaluations recorded.</p>
+                  )}
+                </div>
+              </div>
             </div>
-
-
-
           </div>
-
         </div>
-
       )}
-
-
 
       {/* Course Modules Modal View */}
 
