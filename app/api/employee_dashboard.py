@@ -123,8 +123,6 @@ def get_employee_dashboard(
         Course.id.notin_(enrolled_course_ids)
     )
 
-    if current_user.department_id:
-        available_query = available_query.filter(Course.department_id == current_user.department_id)
 
     db_available = available_query.limit(4).all()
     available_courses = [

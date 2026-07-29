@@ -557,7 +557,9 @@ export const Dashboard: React.FC = () => {
           description: c.description || '',
           difficulty_level: c.difficulty_level || 'Beginner',
           is_published: c.is_published,
-          status: c.status
+          status: c.status,
+          is_mandatory: c.is_mandatory,
+          duration: c.duration
         }));
         setManagedCourses(mapped);
       }

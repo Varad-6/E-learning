@@ -149,23 +149,12 @@ class CourseService:
 
         if not is_global_admin:
             from sqlalchemy import or_, and_
-            if is_manager:
-                query = query.filter(
-                    or_(
-                        Course.created_by == current_user.id,
-                        Course.department_id == current_user.department_id
-                    )
+            query = query.filter(
+                or_(
+                    Course.created_by == current_user.id,
+                    Course.status.in_(["approved", "published"])
                 )
-            else:
-                query = query.filter(
-                    or_(
-                        Course.created_by == current_user.id,
-                        and_(
-                            Course.status.in_(["approved", "published"]),
-                            Course.department_id == current_user.department_id
-                        )
-                    )
-                )
+            )
             
         if status_filter:
             query = query.filter(Course.status == status_filter)

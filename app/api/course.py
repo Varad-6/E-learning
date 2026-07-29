@@ -40,23 +40,12 @@ def list_courses(
     total_count = db.query(Course)
     if not is_global_admin:
         from sqlalchemy import or_, and_
-        if is_manager:
-            total_count = total_count.filter(
-                or_(
-                    Course.created_by == current_user.id,
-                    Course.department_id == current_user.department_id
-                )
+        total_count = total_count.filter(
+            or_(
+                Course.created_by == current_user.id,
+                Course.status.in_(["approved", "published"])
             )
-        else:
-            total_count = total_count.filter(
-                or_(
-                    Course.created_by == current_user.id,
-                    and_(
-                        Course.status.in_(["approved", "published"]),
-                        Course.department_id == current_user.department_id
-                    )
-                )
-            )
+        )
         
     if status_filter:
         total_count = total_count.filter(Course.status == status_filter)
@@ -86,21 +75,10 @@ def get_available_courses(
         Course.status.in_(["approved", "published"])
     )
     
-    if is_admin:
-        # Admins see all courses by default, or filtered by department if specified
-        if department_id is not None:
-            query = query.filter(
-                or_(
-                    Course.department_id == department_id,
-                    Course.department_id.is_(None)
-                )
-            )
-    else:
-        # Non-admins see only courses in their department (or unscoped company-wide courses)
-        # We ignore client-supplied department_id for security of non-admins
+    if department_id is not None:
         query = query.filter(
             or_(
-                Course.department_id == current_user.department_id,
+                Course.department_id == department_id,
                 Course.department_id.is_(None)
             )
         )

@@ -58,11 +58,6 @@ export const ViewCourses: React.FC = () => {
       let url = '/api/courses/available';
       if (targetDeptId && targetDeptId !== 'ALL') {
         url += `?department_id=${targetDeptId}`;
-      } else if (userRole === 'Admin' && (!targetDeptId || targetDeptId === 'ALL')) {
-        // Admins can see all if ALL/empty is selected (default)
-      } else if (userDeptId && !targetDeptId) {
-        // Enforce user's assigned department initially
-        url += `?department_id=${userDeptId}`;
       }
 
       const availRes = await apiCall(url);
@@ -260,7 +255,7 @@ export const ViewCourses: React.FC = () => {
             }}
             style={{ width: 'auto', padding: '6px 12px', minWidth: '180px', borderRadius: 'var(--border-radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-primary)', fontWeight: '600' }}
           >
-            {userRole === 'Admin' && <option value="ALL">All Departments</option>}
+            <option value="ALL">All Departments</option>
             {departmentsList.map((d) => (
               <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
             ))}
