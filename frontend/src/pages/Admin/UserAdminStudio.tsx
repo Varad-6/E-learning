@@ -190,11 +190,11 @@ export const UserAdminStudio: React.FC = () => {
         setOtpCooldown(30);
         triggerToast('Verification code sent successfully to email.', 'success');
       } else {
-        triggerToast(data.detail || 'Failed to send verification code.', 'error');
+        triggerToast(data.detail || 'Could not send the verification code. Please try again.', 'error');
       }
     } catch (err: any) {
       console.error(err);
-      triggerToast('Error connecting to security service.', 'error');
+      triggerToast('Could not connect to the verification service. Please try again.', 'error');
     } finally {
       setFormLoading(false);
     }
@@ -220,11 +220,11 @@ export const UserAdminStudio: React.FC = () => {
         setIsEmailVerified(true);
         triggerToast('Email address verified successfully!', 'success');
       } else {
-        triggerToast(data.detail || 'Verification code is invalid or has expired.', 'error');
+        triggerToast(data.detail || 'The code is invalid or has expired.', 'error');
       }
     } catch (err: any) {
       console.error(err);
-      triggerToast('Error verifying code.', 'error');
+      triggerToast('Could not verify the code. Please try again.', 'error');
     } finally {
       setIsVerifyingOtp(false);
     }
@@ -268,11 +268,11 @@ export const UserAdminStudio: React.FC = () => {
         setActiveTab('users');
       } else {
         const errData = await res.json().catch(() => ({}));
-        triggerToast(errData.detail || 'Failed to create user.', 'error');
+        triggerToast(errData.detail || 'Could not create the user. Please check details and try again.', 'error');
       }
     } catch (err: any) {
       console.error(err);
-      triggerToast('Error creating user.', 'error');
+      triggerToast('Could not create the user. Please try again.', 'error');
     } finally {
       setFormLoading(false);
     }
@@ -305,11 +305,11 @@ export const UserAdminStudio: React.FC = () => {
         loadData();
       } else {
         const err = await res.json();
-        triggerToast(err.detail || 'Failed to create department.', 'error');
+        triggerToast(err.detail || 'Could not create the department. Please check details and try again.', 'error');
       }
     } catch (e) {
       console.error(e);
-      triggerToast('Network error creating department.', 'error');
+      triggerToast('Could not create the department. Please check your internet and try again.', 'error');
     } finally {
       setDeptSubmitting(false);
     }
@@ -330,11 +330,11 @@ export const UserAdminStudio: React.FC = () => {
         await loadData();
       } else {
         const err = await res.json();
-        triggerToast(err.detail || 'Failed to delete user.', 'error');
+        triggerToast(err.detail || 'Could not delete the user. Please try again.', 'error');
       }
     } catch (e) {
       console.error(e);
-      triggerToast('Error deleting user.', 'error');
+      triggerToast('Could not delete the user. Please check your internet and try again.', 'error');
     } finally {
       setIsDeletingUser(false);
     }
@@ -348,7 +348,7 @@ export const UserAdminStudio: React.FC = () => {
   const activeUsersToDisplay = deptTab === 'employees' ? deptEmployees : deptManagers;
 
   return (
-    <div className="admin-workspace container animate-fade-in" style={{ paddingBottom: '60px', marginTop: '30px' }}>
+    <div className="admin-workspace container animate-fade-in" style={{ padding: '40px 24px', paddingBottom: '60px' }}>
       
       {/* Header Tabs */}
       {(activeTab === 'departments' || activeTab === 'users') && (

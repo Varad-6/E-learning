@@ -23,7 +23,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://elearning_user:postgres@postgres:5432/elearning
     ports:
-      - "8081:8000"
+      - "8000:8000"
     volumes:
       - .:/workspace
       - /workspace/venv
@@ -41,8 +41,7 @@ services:
       - WATCHPACK_POLLING=true
       - VITE_USE_POLLING=true
     ports:
-      - "5180:5173"
-      - "5181:5173"
+      - "5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules

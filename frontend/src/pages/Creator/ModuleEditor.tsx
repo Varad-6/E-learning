@@ -267,14 +267,14 @@ export const ModuleEditor: React.FC = () => {
           body: JSON.stringify(quizPayload)
         });
         if (!quizCreateRes.ok) {
-          alert('Failed to save assessment questions to the server.');
+          alert('Could not save the assessment questions. Please try again.');
         }
       }
 
-      alert('Module workspace successfully saved to Kaizen database!');
+      alert('Your changes have been saved!');
     } catch (err) {
       console.error(err);
-      alert('Connection error. Failed to save module workspace.');
+      alert('Could not save your changes. Please check your internet connection and try again.');
     }
   };
 

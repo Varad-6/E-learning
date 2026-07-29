@@ -419,7 +419,7 @@ export const CreatorDashboard: React.FC = () => {
 
       if (!res.ok) {
         const errData = await res.json();
-        triggerToast(errData.detail || 'Failed to create course in DB.', 'warning');
+        triggerToast(errData.detail || 'Could not create course. Please try again.', 'warning');
         return;
       }
 
@@ -627,7 +627,7 @@ export const CreatorDashboard: React.FC = () => {
           className={`sidebar-tab-btn ${activeTab === 'exams' ? 'active' : ''}`}
           onClick={() => { setActiveTab('exams'); fetchExams(); }}
         >
-          Exams Catalog ({examsList.length})
+          Exams Catalog
         </button>
       </div>
 
@@ -1542,6 +1542,9 @@ export const CreatorDashboard: React.FC = () => {
               <label className="form-label-styled">
                 Course Duration <span className="required-star">*</span>
               </label>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 8px 0', lineHeight: '1.4' }}>
+                ℹ️ <strong>Note:</strong> This timeline counter starts running automatically as soon as the course is officially published. Please add time accordingly.
+              </p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                 <div>
                   <input 

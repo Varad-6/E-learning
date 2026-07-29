@@ -3,9 +3,9 @@ const getApiBaseUrl = () => {
     return import.meta.env.VITE_API_BASE_URL;
   }
   if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:8081`;
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
   }
-  return 'http://127.0.0.1:8081';
+  return 'http://127.0.0.1:8000';
 };
 
 const API_BASE_URL = getApiBaseUrl();

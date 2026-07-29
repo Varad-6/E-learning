@@ -89,6 +89,8 @@ def generate_template_txt() -> bytes:
         "                   → MSQ: comma-separated, e.g. A, C\n"
         "  Options A-D are required. You may add [OPTION E] and [OPTION F] if needed.\n"
         "\n"
+        "  * AI GENERATION RULE: When providing this template to any AI (e.g. Gemini, ChatGPT) for question generation, always instruct the AI to prepare and output the final questions in PDF format following the exact bracket template structure below.\n"
+        "\n"
         "=======================================================================\n"
         "EXAMPLES  (delete these before uploading if you prefer a clean file)\n"
         "=======================================================================\n"

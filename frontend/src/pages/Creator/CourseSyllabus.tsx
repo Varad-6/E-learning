@@ -107,11 +107,11 @@ export const CourseSyllabus: React.FC = () => {
         }]);
         setNewModuleTitle('');
       } else {
-        alert('Failed to create module on the server.');
+        alert('Could not create the module. Please try again.');
       }
     } catch (err) {
       console.error(err);
-      alert('Connection error. Failed to add module.');
+      alert('Could not add the module. Please check your internet connection and try again.');
     }
   };
 
