@@ -22,6 +22,42 @@
   - Sliced and cropped all 20 individual badges from the screenshot (`Screenshot 2026-07-22 144614.png`) using Pillow connected-component detection. Keyed out background pixels with anti-aliasing to produce transparent PNGs under `frontend/public/badges/` and created a download ZIP package.
   - Re-ordered the badge progression tiers inside `seed_db.py` to follow a 3-2-1 sub-tier progression (where III is the lowest diamond shield, II is the pentagon, and I is the highest star-and-wings shield).
   - Updated `app/api/leaderboard.py` to query and return `badge_asset_ref` inside ranking records, and updated `Leaderboard.tsx` in the frontend to display the custom transparent badge image next to the user's name/rank delta.
+- **Task 7 (Admin Dashboard Premium Re-design & Analytics)**:
+  - Re-designed the Admin / HR Analytics Dashboard inside `Dashboard.tsx` to match the exact glassmorphic, grid-based aesthetic of the Employee view. Unified all nodes under a single grid to fix vertical alignment bugs.
+  - Modified `app/services/dashboard_service.py` to calculate the "Best Creator Manager" dynamically based on the sum of courses created and exams graded. Returned the manager's metrics in the summary API.
+  - Added new KPI cards to the top row: Active Headcount, Completed Exams, Top Performing Department, and Best Creator Manager.
+  - Added a Two-column grid containing SVG charts, platform insights, and a Top Performers Showcase displaying user ranks and achievement badges side-by-side.
+  - Added safety baseline rendering (minimum 4% height) and automatic label truncation to the department SVG bar chart to accommodate dynamic new department creations.
+- **Task 8 (AI PDF Generation Rule for Exam Template)**:
+  - Added an explicit instruction line in the blank question template (`template_service.py`) directing external AI agents (Gemini, ChatGPT) to generate exam outputs in PDF format using the exact bracket template structure.
+- **Task 9 (Course Creation Duration Timeline Note)**:
+  - Added a descriptive note block directly beneath the "Course Duration" inputs in the course creation modal inside `CreatorDashboard.tsx` alerting managers that the duration countdown timer begins immediately upon course publication.
+- **Task 10 (Exams Catalog Sidebar Clean-up)**:
+  - Removed the length counter (`({examsList.length})`) from the Exams Catalog sidebar tab inside `CreatorDashboard.tsx`, simplifying it to a clean "Exams Catalog" label.
+- **Task 11 (Admin/Manager Profile Workspace Redesign & Password Update Form)**:
+  - Redesigned the My Profile view inside `Dashboard.tsx` for Admin and Manager roles.
+  - Replaced empty exam/syllabus tables in the Right Pane with a clean, secure Password Reset form (fields: Current Password, New Password, and Confirm New Password).
+  - Wired the form to call `/api/auth/change-password` with standard validations (min. 6 characters, fields matching).
+  - Added a dedicated, styled "Logout Account" button at the bottom of the Credentials sidebar card.
+- **Task 12 (User-Friendly UI Notifications & Jargon Removal)**:
+  - Conducted a sweep of user-facing alert notifications and error status warnings across all frontend page views (`Dashboard.tsx`, `UserAdminStudio.tsx`, `CoursePlayer.tsx`, `CourseSyllabus.tsx`, `ModuleEditor.tsx`, `CreatorDashboard.tsx`, `Login.tsx`).
+  - Removed technical, database, and backend developer jargon (e.g., "synchronized with backend", "failed to create course in DB", "connection error to security service", "failed to create module on the server").
+  - Replaced native alerts inside `Dashboard.tsx` with color-coded, user-friendly `triggerToast` messages.
+  - Set all password validation errors and mismatches to display as red error toasts (`'error'`), reservation of green success toasts (`'success'`) exclusively for fully completed/successful tasks.
+- **Task 13 (Profile Header Cleanup & Back Button Redesign)**:
+  - Removed the `Connected Node: admin` text/badge completely from the profile page header.
+  - Replaced the plain, raw HTML back button with our premium, styled `Button` component with variant `"outline"`, matching the active visual guidelines of other LMS control buttons.
+- **Task 14 (Password Input Visibility Toggles)**:
+  - Imported `Eye` and `EyeOff` icons from `lucide-react`.
+  - Added visibility states (`showPasswordCurrent`, `showPasswordNew`, `showPasswordConfirm`) in `Dashboard.tsx`.
+  - Wrapped all three password fields inside custom input containers with absolute-positioned visibility toggle buttons, allowing users to toggle between password masking and plaintext viewing.
+- **Task 15 (Universal Page Spacing & Top Padding Alignment)**:
+  - Aligned page-top spacing/padding constraints across all core subpages to match the profile page (`padding: 40px 24px` / `marginTop: 40px`).
+  - Standardized root containers in `UserAdminStudio.tsx`, `CreatorDashboard.tsx` (`Creator.css`), `ReportingDashboard.tsx`, `Leaderboard.tsx`, and `ExamsCenter.tsx` to prevent layouts from being pushed too close to the top navigation header bar.
+- **Task 16 (Department Head / Manager Dashboard Redesign)**:
+  - Aligned the Department Manager dashboard layout to use the unified `.employee-dashboard-grid-root` grid container, achieving visual parity with the Admin and Employee views.
+  - Implemented 4 modern KPI cards mapping department top performers, overall average score, published courses, and pending grading submissions (linked dynamically to `pendingApprovalsData.pending_exam_submissions`).
+  - Restructured subviews into clean tab selectors: Roster Directory (with a detailed employee metrics grid that hooks into the details popup Modal), Published Syllabus Catalog, and Create Course form.
 - Tests added: Production build compiled successfully (`npm run build` 100% green).
 - Migration: No
 

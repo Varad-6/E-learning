@@ -31,12 +31,65 @@ class DashboardService:
             total_users = base_users_query.filter(User.department_id == manager_dept_id).count()
             total_courses = db.query(Course).filter(Course.is_published == True, Course.department_id == manager_dept_id).count()
             total_all_courses = db.query(Course).filter(Course.department_id == manager_dept_id).count()
+            completed_enrollments = db.query(CourseEnrollment).join(
+                Course, CourseEnrollment.course_id == Course.id
+            ).filter(
+                CourseEnrollment.status == "completed",
+                Course.department_id == manager_dept_id
+            ).count()
         else:
             total_departments = db.query(Department).count()
             total_users = base_users_query.count()
             total_courses = db.query(Course).filter(Course.is_published == True).count()
             total_all_courses = db.query(Course).count()
+            completed_enrollments = db.query(CourseEnrollment).filter(
+                CourseEnrollment.status == "completed"
+            ).count()
         
+        # Best Manager calculation (only for global admins)
+        best_manager_data = None
+        if not manager_dept_id:
+            mgr_role = db.query(Role).filter(Role.name == "COURSE_MANAGER").first()
+            if mgr_role:
+                managers = db.query(User).join(
+                    UserRole, User.id == UserRole.user_id
+                ).filter(
+                    UserRole.role_id == mgr_role.id,
+                    User.is_active == True,
+                    User.is_deleted == False
+                ).all()
+
+                best_mgr = None
+                max_activity = -1
+                best_mgr_courses = 0
+                best_mgr_grades = 0
+
+                for m in managers:
+                    courses_created = db.query(Course).filter(Course.created_by == m.id).count()
+                    grades_done = db.query(ExamSubmission).join(
+                        ExamGrade, ExamSubmission.id == ExamGrade.submission_id
+                    ).filter(
+                        ExamGrade.graded_by == m.id,
+                        ExamSubmission.status == "graded"
+                    ).count()
+                    
+                    activity = courses_created + grades_done
+                    if activity > max_activity:
+                        max_activity = activity
+                        best_mgr = m
+                        best_mgr_courses = courses_created
+                        best_mgr_grades = grades_done
+                
+                if best_mgr:
+                    best_manager_data = {
+                        "name": f"{best_mgr.first_name} {best_mgr.last_name}",
+                        "email": best_mgr.email,
+                        "department_name": best_mgr.department.name if best_mgr.department else "General",
+                        "courses_count": best_mgr_courses,
+                        "reviews_count": best_mgr_grades,
+                        "activity_score": max_activity
+                    }
+
         # System status
         health_status = "Healthy"
         cluster_nodes = "3 Clusters"
@@ -47,7 +100,9 @@ class DashboardService:
             "total_published_courses": total_courses,
             "total_courses": total_all_courses,
             "health_status": health_status,
-            "cluster_nodes": cluster_nodes
+            "cluster_nodes": cluster_nodes,
+            "completed_enrollments": completed_enrollments,
+            "best_manager": best_manager_data
         }
 
     @staticmethod
