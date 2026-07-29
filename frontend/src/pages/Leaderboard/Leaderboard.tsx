@@ -94,7 +94,8 @@ export const Leaderboard: React.FC = () => {
         
         if (data.departments && data.departments.length > 0) {
           if (isManager || savedRole === 'Employee' || data.departments.length === 1) {
-            const userDept = data.departments[0];
+            const actualDeptId = data.department_id;
+            const userDept = data.departments.find(d => d.id === actualDeptId) || data.departments[0];
             setSelectedDept(userDept);
             loadRankings(userDept.id, null);
           }
