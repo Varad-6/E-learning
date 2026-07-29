@@ -393,18 +393,35 @@ export const Leaderboard: React.FC = () => {
                       {/* Step Rank 2 */}
                       {rank2 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{rank2.user_name}</span>
-                          <span style={{ fontSize: '0.78rem', color: 'var(--accent-color)', fontWeight: 700, marginTop: '2px' }}>{rank2.score} Avg</span>
+                          <div style={{
+                            width: '44px',
+                            height: '44px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #94a3b8, #64748b)',
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 800,
+                            fontSize: '0.9rem',
+                            marginBottom: '8px',
+                            border: '2px solid #fff',
+                            boxShadow: '0 4px 10px rgba(148,163,184,0.3)'
+                          }}>
+                            {rank2.user_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2)}
+                          </div>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{rank2.user_name}</span>
+                          <span style={{ fontSize: '0.76rem', color: '#94a3b8', fontWeight: 700, marginTop: '2px' }}>{rank2.score} Avg</span>
                           
                           {/* Translucent Step Bar */}
                           <div style={{ 
-                            height: '70px', 
+                            height: '75px', 
                             width: '100%', 
                             maxWidth: '100px',
-                            background: 'linear-gradient(to top, rgba(20, 168, 0, 0.08) 0%, rgba(20, 168, 0, 0.02) 100%)',
-                            border: '1px solid rgba(20, 168, 0, 0.2)',
+                            background: 'linear-gradient(to top, rgba(148, 163, 184, 0.12) 0%, rgba(148, 163, 184, 0.03) 100%)',
+                            border: '1px solid rgba(148, 163, 184, 0.3)',
                             borderBottom: 'none', 
-                            borderRadius: '8px 8px 0 0', 
+                            borderRadius: '12px 12px 0 0', 
                             marginTop: '12px', 
                             display: 'flex', 
                             flexDirection: 'column',
@@ -412,8 +429,8 @@ export const Leaderboard: React.FC = () => {
                             alignItems: 'center',
                             gap: '4px'
                           }}>
-                            <span style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '0.95rem' }}>Rank 2</span>
-                            <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{getBadgeEmoji(rank2.badge_name)} Silver</span>
+                            <span style={{ color: '#94a3b8', fontWeight: 900, fontSize: '1.4rem', fontFamily: 'var(--font-title)' }}>2</span>
+                            <span style={{ fontSize: '0.8rem' }}>🥈</span>
                           </div>
                         </div>
                       ) : (
@@ -423,28 +440,47 @@ export const Leaderboard: React.FC = () => {
                       {/* Step Rank 1 */}
                       {rank1 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.2 }}>
+                          <div style={{
+                            width: '52px',
+                            height: '52px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 900,
+                            fontSize: '1rem',
+                            marginBottom: '8px',
+                            border: '2px solid #fff',
+                            boxShadow: '0 4px 12px rgba(245,158,11,0.3)',
+                            position: 'relative'
+                          }}>
+                            {rank1.user_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2)}
+                            <span style={{ position: 'absolute', top: '-10px', right: '-6px', fontSize: '1.1rem', transform: 'rotate(15deg)' }}>👑</span>
+                          </div>
                           <span style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-primary)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>{rank1.user_name}</span>
-                          <span style={{ fontSize: '0.82rem', color: 'var(--accent-color)', fontWeight: 800, marginTop: '2px' }}>{rank1.score} Avg</span>
+                          <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 800, marginTop: '2px' }}>{rank1.score} Avg</span>
                           
                           {/* Translucent Step Bar */}
                           <div style={{ 
                             height: '110px', 
                             width: '100%', 
                             maxWidth: '120px',
-                            background: 'linear-gradient(to top, rgba(20, 168, 0, 0.15) 0%, rgba(20, 168, 0, 0.04) 100%)',
-                            border: '1px solid rgba(20, 168, 0, 0.3)',
+                            background: 'linear-gradient(to top, rgba(245, 158, 11, 0.16) 0%, rgba(245, 158, 11, 0.04) 100%)',
+                            border: '1px solid rgba(245, 158, 11, 0.4)',
                             borderBottom: 'none', 
-                            borderRadius: '8px 8px 0 0', 
+                            borderRadius: '12px 12px 0 0', 
                             marginTop: '12px', 
                             display: 'flex', 
                             flexDirection: 'column',
                             justifyContent: 'center', 
                             alignItems: 'center',
                             gap: '4px',
-                            boxShadow: '0 4px 12px rgba(20, 168, 0, 0.05)'
+                            boxShadow: '0 4px 15px rgba(245, 158, 11, 0.05)'
                           }}>
-                            <span style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '1.05rem' }}>Rank 1</span>
-                            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{getBadgeEmoji(rank1.badge_name)} Gold</span>
+                            <span style={{ color: '#f59e0b', fontWeight: 900, fontSize: '1.6rem', fontFamily: 'var(--font-title)' }}>1</span>
+                            <span style={{ fontSize: '0.85rem' }}>🥇</span>
                           </div>
                         </div>
                       ) : (
@@ -454,18 +490,35 @@ export const Leaderboard: React.FC = () => {
                       {/* Step Rank 3 */}
                       {rank3 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>{rank3.user_name}</span>
-                          <span style={{ fontSize: '0.78rem', color: 'var(--accent-color)', fontWeight: 700, marginTop: '2px' }}>{rank3.score} Avg</span>
+                          <div style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #b45309, #78350f)',
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 800,
+                            fontSize: '0.85rem',
+                            marginBottom: '8px',
+                            border: '2px solid #fff',
+                            boxShadow: '0 4px 8px rgba(180,83,9,0.3)'
+                          }}>
+                            {rank3.user_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2)}
+                          </div>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '110px' }}>{rank3.user_name}</span>
+                          <span style={{ fontSize: '0.74rem', color: '#b45309', fontWeight: 700, marginTop: '2px' }}>{rank3.score} Avg</span>
                           
                           {/* Translucent Step Bar */}
                           <div style={{ 
                             height: '50px', 
                             width: '100%', 
                             maxWidth: '100px',
-                            background: 'linear-gradient(to top, rgba(20, 168, 0, 0.08) 0%, rgba(20, 168, 0, 0.02) 100%)',
-                            border: '1px solid rgba(20, 168, 0, 0.2)',
+                            background: 'linear-gradient(to top, rgba(180, 83, 9, 0.12) 0%, rgba(180, 83, 9, 0.03) 100%)',
+                            border: '1px solid rgba(180, 83, 9, 0.3)',
                             borderBottom: 'none', 
-                            borderRadius: '8px 8px 0 0', 
+                            borderRadius: '12px 12px 0 0', 
                             marginTop: '12px', 
                             display: 'flex', 
                             flexDirection: 'column',
@@ -473,8 +526,8 @@ export const Leaderboard: React.FC = () => {
                             alignItems: 'center',
                             gap: '4px'
                           }}>
-                            <span style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '0.95rem' }}>Rank 3</span>
-                            <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>{getBadgeEmoji(rank3.badge_name)} Bronze</span>
+                            <span style={{ color: '#b45309', fontWeight: 900, fontSize: '1.25rem', fontFamily: 'var(--font-title)' }}>3</span>
+                            <span style={{ fontSize: '0.75rem' }}>🥉</span>
                           </div>
                         </div>
                       ) : (
