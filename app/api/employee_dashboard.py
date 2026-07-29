@@ -220,33 +220,83 @@ def get_employee_dashboard(
     if current_user.department_id:
         department = current_user.department.name if current_user.department else "General"
         
-        from sqlalchemy import func
-        from app.models.exam import ExamGrade
+    from sqlalchemy import func
+    from app.models.exam import ExamGrade
+    from app.models.role import Role
+    from app.models.user_role import UserRole
+    
+    # Query all active employees in user's department (or globally if no department)
+    dept_users_query = db.query(User).join(
+        UserRole, User.id == UserRole.user_id
+    ).join(
+        Role, UserRole.role_id == Role.id
+    ).filter(
+        User.is_active == True,
+        User.is_deleted == False,
+        Role.name == "EMPLOYEE"
+    )
+    
+    if current_user.department_id:
+        dept_users_query = dept_users_query.filter(User.department_id == current_user.department_id)
         
-        query_rank = db.query(
-            ExamSubmission.user_id,
-            func.avg(ExamGrade.overall_score).label("avg_score")
-        ).join(
-            ExamGrade, ExamGrade.submission_id == ExamSubmission.id
-        ).join(
-            User, ExamSubmission.user_id == User.id
-        ).filter(
-            ExamSubmission.status == "graded",
-            ExamGrade.overall_score.isnot(None),
-            User.is_active == True,
-            User.is_deleted == False,
-            User.department_id == current_user.department_id
-        ).group_by(
-            ExamSubmission.user_id
-        )
-
-        rows = query_rank.all()
-        sorted_rows = sorted(rows, key=lambda x: -float(x.avg_score))
-
-        for idx, r in enumerate(sorted_rows):
-            if r.user_id == current_user.id:
-                position = idx + 1
-                break
+    dept_users = dept_users_query.all()
+    
+    # Query avg scores for all graded submissions
+    graded_scores_query = db.query(
+        ExamSubmission.user_id,
+        func.avg(ExamGrade.overall_score).label("avg_score")
+    ).join(
+        ExamGrade, ExamGrade.submission_id == ExamSubmission.id
+    ).join(
+        User, ExamSubmission.user_id == User.id
+    ).join(
+        UserRole, User.id == UserRole.user_id
+    ).join(
+        Role, UserRole.role_id == Role.id
+    ).filter(
+        ExamSubmission.status == "graded",
+        ExamGrade.overall_score.isnot(None),
+        User.is_active == True,
+        User.is_deleted == False,
+        Role.name == "EMPLOYEE"
+    )
+    
+    if current_user.department_id:
+        graded_scores_query = graded_scores_query.filter(User.department_id == current_user.department_id)
+        
+    graded_scores = graded_scores_query.group_by(ExamSubmission.user_id).all()
+    
+    # Map users to their average scores
+    scores_map = {str(row.user_id): float(row.avg_score) for row in graded_scores}
+    
+    # Split users into ranked (at least 1 graded exam) and unranked (0 graded exams)
+    ranked_users = []
+    unranked_users = []
+    
+    for u in dept_users:
+        user_id_str = str(u.id)
+        if user_id_str in scores_map:
+            ranked_users.append((u, scores_map[user_id_str]))
+        else:
+            unranked_users.append(u)
+            
+    # Sort ranked users: by score DESC, then name ASC
+    ranked_users.sort(key=lambda x: (-x[1], (x[0].first_name or '').lower(), (x[0].last_name or '').lower()))
+    
+    # Sort unranked users: by name ASC
+    unranked_users.sort(key=lambda u: ((u.first_name or '').lower(), (u.last_name or '').lower()))
+    
+    # Combine lists to form final rankings
+    final_rankings = []
+    for u, score in ranked_users:
+        final_rankings.append(str(u.id))
+    for u in unranked_users:
+        final_rankings.append(str(u.id))
+        
+    # Find current user's position
+    current_user_id_str = str(current_user.id)
+    if current_user_id_str in final_rankings:
+        position = final_rankings.index(current_user_id_str) + 1
 
     if completed_count > 0:
         step = min(completed_count, 10)
