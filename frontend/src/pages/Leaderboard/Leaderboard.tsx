@@ -105,7 +105,7 @@ export const Leaderboard: React.FC = () => {
       }
     } catch (e) {
       console.error(e);
-      triggerToast('Error fetching leaderboard service.', 'error');
+      triggerToast(`Error fetching leaderboard service: ${e instanceof Error ? e.message : String(e)}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -132,7 +132,7 @@ export const Leaderboard: React.FC = () => {
       }
     } catch (e) {
       console.error(e);
-      triggerToast('Error loading leaderboard.', 'error');
+      triggerToast(`Error loading leaderboard: ${e instanceof Error ? e.message : String(e)}`, 'error');
     } finally {
       setTableLoading(false);
     }
