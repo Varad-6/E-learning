@@ -547,6 +547,9 @@ export const Leaderboard: React.FC = () => {
                         <div style={{ flex: 1 }} />
                       )}
 
+                    </div>
+                  </div>
+
                   {/* Ranked List Section */}
                   <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
                     
