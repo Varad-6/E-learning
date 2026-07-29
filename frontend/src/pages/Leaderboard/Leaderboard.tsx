@@ -366,49 +366,38 @@ export const Leaderboard: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   {/* Top 3 Performers Showcase Cards */}
                   <div className="glass-panel" style={{
-                    padding: '24px',
+                    padding: '28px 24px',
                     borderRadius: 'var(--border-radius-lg)',
                     background: 'var(--bg-card)',
                     border: '1px solid var(--border-color)',
                     boxShadow: 'var(--shadow-sm)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '20px'
+                    alignItems: 'center'
                   }}>
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Trophy size={18} style={{ color: '#f59e0b' }} />
-                      Top Performers
+                      Top Department Performers
                     </h3>
                     
                     <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(3, 1fr)',
-                      gap: '20px',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'flex-end',
+                      gap: '24px',
+                      maxWidth: '540px',
                       width: '100%',
-                      alignItems: 'stretch'
+                      margin: '20px auto 10px auto',
+                      paddingBottom: '8px'
                     }}>
                       
-                      {/* 2nd Place Card */}
+                      {/* Step Rank 2 */}
                       {rank2 ? (
-                        <div style={{
-                          background: 'linear-gradient(135deg, rgba(148, 163, 184, 0.05) 0%, rgba(148, 163, 184, 0.01) 100%)',
-                          border: '1px solid rgba(148, 163, 184, 0.25)',
-                          borderRadius: '16px',
-                          padding: '20px 16px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          position: 'relative',
-                          textAlign: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          <div style={{ position: 'absolute', top: '-12px', left: '12px', background: 'linear-gradient(135deg, #94a3b8, #64748b)', color: '#fff', fontSize: '0.75rem', fontWeight: 900, padding: '3px 8px', borderRadius: '20px', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}>
-                            #2 PLACE
-                          </div>
-                          
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                          {/* Avatar & Score Pill */}
                           <div style={{
-                            width: '56px',
-                            height: '56px',
+                            width: '46px',
+                            height: '46px',
                             borderRadius: '50%',
                             background: 'linear-gradient(135deg, #94a3b8 0%, #475569 100%)',
                             color: '#fff',
@@ -416,52 +405,50 @@ export const Leaderboard: React.FC = () => {
                             alignItems: 'center',
                             justifyContent: 'center',
                             fontWeight: 800,
-                            fontSize: '1.1rem',
-                            border: '3px solid #64748b',
-                            boxShadow: '0 0 15px rgba(148, 163, 184, 0.2)',
-                            margin: '12px 0 8px 0'
+                            fontSize: '0.92rem',
+                            border: '2px solid #fff',
+                            boxShadow: '0 4px 10px rgba(148, 163, 184, 0.25)'
                           }}>
                             {rank2.user_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2)}
                           </div>
-                          
-                          <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: '4px 0', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px', textAlign: 'center' }}>
                             {rank2.user_name}
-                          </h4>
+                          </span>
+                          <div style={{ background: 'rgba(148, 163, 184, 0.12)', color: '#94a3b8', fontSize: '0.74rem', fontWeight: 800, padding: '2px 8px', borderRadius: '10px', marginTop: '2px' }}>
+                            🥈 {rank2.score} Avg
+                          </div>
                           
-                          <div style={{ background: 'rgba(148, 163, 184, 0.1)', color: '#94a3b8', fontSize: '0.8rem', fontWeight: 800, padding: '4px 12px', borderRadius: '12px', marginTop: '6px' }}>
-                            🥈 {rank2.score} Score
+                          {/* Translucent Step Bar */}
+                          <div style={{ 
+                            height: '90px', 
+                            width: '100%', 
+                            maxWidth: '100px',
+                            background: 'linear-gradient(to top, rgba(148, 163, 184, 0.12) 0%, rgba(148, 163, 184, 0.03) 100%)',
+                            border: '2px solid rgba(148, 163, 184, 0.4)',
+                            borderBottom: 'none', 
+                            borderRadius: '12px 12px 0 0', 
+                            marginTop: '12px', 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            justifyContent: 'center', 
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <span style={{ color: '#94a3b8', fontWeight: 900, fontSize: '2rem', lineHeight: 1 }}>2</span>
+                            <span style={{ fontSize: '0.9rem' }}>🥈</span>
                           </div>
                         </div>
                       ) : (
-                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px dashed var(--border-color)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.82rem', minHeight: '150px' }}>
-                          Empty
-                        </div>
+                        <div style={{ flex: 1 }} />
                       )}
 
-                      {/* 1st Place Card */}
+                      {/* Step Rank 1 */}
                       {rank1 ? (
-                        <div style={{
-                          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%)',
-                          border: '1px solid rgba(245, 158, 11, 0.35)',
-                          borderRadius: '16px',
-                          padding: '24px 16px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          position: 'relative',
-                          textAlign: 'center',
-                          justifyContent: 'center',
-                          boxShadow: '0 8px 25px rgba(245, 158, 11, 0.08)',
-                          transform: 'scale(1.03)',
-                          zIndex: 2
-                        }}>
-                          <div style={{ position: 'absolute', top: '-14px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', fontSize: '0.78rem', fontWeight: 900, padding: '4px 12px', borderRadius: '20px', boxShadow: '0 3px 8px rgba(245,158,11,0.3)', letterSpacing: '0.05em' }}>
-                            👑 CHAMPION
-                          </div>
-                          
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.2 }}>
+                          {/* Avatar & Score Pill */}
                           <div style={{
-                            width: '64px',
-                            height: '64px',
+                            width: '56px',
+                            height: '56px',
                             borderRadius: '50%',
                             background: 'linear-gradient(135deg, #f59e0b 0%, #b45309 100%)',
                             color: '#fff',
@@ -469,49 +456,53 @@ export const Leaderboard: React.FC = () => {
                             alignItems: 'center',
                             justifyContent: 'center',
                             fontWeight: 900,
-                            fontSize: '1.25rem',
-                            border: '3px solid #d97706',
-                            boxShadow: '0 0 20px rgba(245, 158, 11, 0.3)',
-                            margin: '12px 0 8px 0'
+                            fontSize: '1.05rem',
+                            border: '2px solid #fff',
+                            boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
+                            position: 'relative'
                           }}>
                             {rank1.user_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2)}
+                            <span style={{ position: 'absolute', top: '-10px', right: '-6px', fontSize: '1.1rem', transform: 'rotate(15deg)' }}>👑</span>
+                          </div>
+                          <span style={{ fontSize: '0.88rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px', textAlign: 'center' }}>
+                            {rank1.user_name}
+                          </span>
+                          <div style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#f59e0b', fontSize: '0.78rem', fontWeight: 900, padding: '2px 10px', borderRadius: '10px', marginTop: '2px', border: '1px solid rgba(245,158,11,0.1)' }}>
+                            🥇 {rank1.score} Avg
                           </div>
                           
-                          <h4 style={{ fontSize: '0.98rem', fontWeight: 900, margin: '4px 0', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-                            {rank1.user_name}
-                          </h4>
-                          
-                          <div style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', fontSize: '0.85rem', fontWeight: 900, padding: '6px 14px', borderRadius: '12px', marginTop: '6px', border: '1px solid rgba(245,158,11,0.2)' }}>
-                            🥇 {rank1.score} Score
+                          {/* Translucent Step Bar */}
+                          <div style={{ 
+                            height: '140px', 
+                            width: '100%', 
+                            maxWidth: '120px',
+                            background: 'linear-gradient(to top, rgba(245, 158, 11, 0.22) 0%, rgba(245, 158, 11, 0.05) 100%)',
+                            border: '2px solid rgba(245, 158, 11, 0.5)',
+                            borderBottom: 'none', 
+                            borderRadius: '12px 12px 0 0', 
+                            marginTop: '12px', 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            justifyContent: 'center', 
+                            alignItems: 'center',
+                            gap: '4px',
+                            boxShadow: '0 8px 20px rgba(245, 158, 11, 0.06)'
+                          }}>
+                            <span style={{ color: '#f59e0b', fontWeight: 900, fontSize: '2.5rem', lineHeight: 1 }}>1</span>
+                            <span style={{ fontSize: '1rem' }}>🥇</span>
                           </div>
                         </div>
                       ) : (
-                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px dashed var(--border-color)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.82rem', minHeight: '150px' }}>
-                          Empty
-                        </div>
+                        <div style={{ flex: 1.2 }} />
                       )}
 
-                      {/* 3rd Place Card */}
+                      {/* Step Rank 3 */}
                       {rank3 ? (
-                        <div style={{
-                          background: 'linear-gradient(135deg, rgba(180, 83, 9, 0.05) 0%, rgba(180, 83, 9, 0.01) 100%)',
-                          border: '1px solid rgba(180, 83, 9, 0.25)',
-                          borderRadius: '16px',
-                          padding: '20px 16px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          position: 'relative',
-                          textAlign: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          <div style={{ position: 'absolute', top: '-12px', right: '12px', background: 'linear-gradient(135deg, #b45309, #78350f)', color: '#fff', fontSize: '0.75rem', fontWeight: 900, padding: '3px 8px', borderRadius: '20px', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}>
-                            #3 PLACE
-                          </div>
-                          
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                          {/* Avatar & Score Pill */}
                           <div style={{
-                            width: '56px',
-                            height: '56px',
+                            width: '40px',
+                            height: '40px',
                             borderRadius: '50%',
                             background: 'linear-gradient(135deg, #b45309 0%, #78350f 100%)',
                             color: '#fff',
@@ -519,30 +510,42 @@ export const Leaderboard: React.FC = () => {
                             alignItems: 'center',
                             justifyContent: 'center',
                             fontWeight: 800,
-                            fontSize: '1.1rem',
-                            border: '3px solid #b45309',
-                            boxShadow: '0 0 15px rgba(180, 83, 9, 0.2)',
-                            margin: '12px 0 8px 0'
+                            fontSize: '0.85rem',
+                            border: '2px solid #fff',
+                            boxShadow: '0 4px 8px rgba(180, 83, 9, 0.25)'
                           }}>
                             {rank3.user_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2)}
                           </div>
-                          
-                          <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: '4px 0', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '110px', textAlign: 'center' }}>
                             {rank3.user_name}
-                          </h4>
+                          </span>
+                          <div style={{ background: 'rgba(180, 83, 9, 0.12)', color: '#b45309', fontSize: '0.74rem', fontWeight: 800, padding: '2px 8px', borderRadius: '10px', marginTop: '2px' }}>
+                            🥉 {rank3.score} Avg
+                          </div>
                           
-                          <div style={{ background: 'rgba(180, 83, 9, 0.1)', color: '#b45309', fontSize: '0.8rem', fontWeight: 800, padding: '4px 12px', borderRadius: '12px', marginTop: '6px' }}>
-                            🥉 {rank3.score} Score
+                          {/* Translucent Step Bar */}
+                          <div style={{ 
+                            height: '60px', 
+                            width: '100%', 
+                            maxWidth: '100px',
+                            background: 'linear-gradient(to top, rgba(180, 83, 9, 0.12) 0%, rgba(180, 83, 9, 0.03) 100%)',
+                            border: '2px solid rgba(180, 83, 9, 0.4)',
+                            borderBottom: 'none', 
+                            borderRadius: '12px 12px 0 0', 
+                            marginTop: '12px', 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            justifyContent: 'center', 
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <span style={{ color: '#b45309', fontWeight: 900, fontSize: '1.75rem', lineHeight: 1 }}>3</span>
+                            <span style={{ fontSize: '0.85rem' }}>🥉</span>
                           </div>
                         </div>
                       ) : (
-                        <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px dashed var(--border-color)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.82rem', minHeight: '150px' }}>
-                          Empty
-                        </div>
+                        <div style={{ flex: 1 }} />
                       )}
-
-                    </div>
-                  </div>
 
                   {/* Ranked List Section */}
                   <div className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
