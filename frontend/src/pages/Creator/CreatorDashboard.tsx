@@ -32,6 +32,7 @@ interface CourseData {
   rejectionReason?: string;
   createdDate: string;
   published_at?: string | null;
+  is_mandatory?: boolean;
 }
 
 interface AppNotification {
@@ -69,7 +70,7 @@ export const CreatorDashboard: React.FC = () => {
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
 
   // Navigation states
-  const [activeTab, setActiveTab] = useState<'my_courses' | 'exams' | 'approvals' | 'auditing' | 'departments'>('my_courses');
+  const [activeTab, setActiveTab] = useState<'my_courses' | 'exams' | 'approvals' | 'auditing' | 'departments' | 'view_courses'>('my_courses');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Draft' | 'Pending' | 'Approved' | 'Rejected' | 'Published'>('All');
   
   // Admin departments state
@@ -132,7 +133,8 @@ export const CreatorDashboard: React.FC = () => {
             department_id: c.department_id,
             departmentName: c.department_name || 'AI',
             createdDate: c.created_at ? c.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
-            rejectionReason: c.rejection_reason || undefined
+            rejectionReason: c.rejection_reason || undefined,
+            is_mandatory: c.is_mandatory || false
           };
         });
         setCourses(mapped);
@@ -154,6 +156,20 @@ export const CreatorDashboard: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to fetch exams:', err);
+    }
+  };
+
+  const [myEnrollments, setMyEnrollments] = useState<any[]>([]);
+
+  const fetchMyEnrollments = async () => {
+    try {
+      const res = await apiCall('/api/enrollments/my-courses');
+      if (res.ok) {
+        const data = await res.json();
+        setMyEnrollments(data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch enrollments:', err);
     }
   };
 
@@ -209,6 +225,7 @@ export const CreatorDashboard: React.FC = () => {
     // Sync with database
     fetchDBCourses();
     fetchExams();
+    fetchMyEnrollments();
   }, []);
 
   useEffect(() => {
@@ -241,13 +258,16 @@ export const CreatorDashboard: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to reload departments', err);
-    } opacity: 1;
+    }
     setIsLoadingDepts(false);
   };
 
   useEffect(() => {
     if (activeTab === 'departments') {
       fetchDepartments();
+    } else if (activeTab === 'view_courses') {
+      fetchMyEnrollments();
+      fetchDBCourses();
     }
   }, [activeTab]);
 
@@ -554,6 +574,15 @@ export const CreatorDashboard: React.FC = () => {
     return c.status === statusFilter;
   });
 
+  const viewCoursesList = courses.filter(c => {
+    const isCreatedByMe = c.creatorName === profileName || 
+      (profileName === 'John Doe' && c.creatorName === 'John Doe') ||
+      (profileName === 'Dr. Evelyn C.' && c.creatorName === 'Dr. Evelyn C.') ||
+      (profileName === 'Systems Administrator' && c.creatorName === 'Systems Administrator');
+    const isMandatory = c.is_mandatory || false;
+    return isCreatedByMe || isMandatory;
+  });
+
   // Scope approvals visible to active role
   const pendingApprovals = courses.filter(c => {
     if (c.status !== 'Pending') return false;
@@ -616,13 +645,21 @@ export const CreatorDashboard: React.FC = () => {
       </div>
 
       {/* Tabs Layout */}
-      <div className="sidebar-tabs-header" style={{ marginBottom: '30px' }}>
+      <div className="sidebar-tabs-header" style={{ marginBottom: '30px', display: 'flex', gap: '10px' }}>
         <button 
           className={`sidebar-tab-btn ${activeTab === 'my_courses' ? 'active' : ''}`}
           onClick={() => { setActiveTab('my_courses'); setSelectedCreatorDept(null); }}
         >
           {isAdmin ? 'All Courses' : 'My Created Courses'}
         </button>
+        {(isDeptHead || isAdmin || isManager) && (
+          <button 
+            className={`sidebar-tab-btn ${activeTab === 'view_courses' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('view_courses'); fetchMyEnrollments(); }}
+          >
+            View Courses
+          </button>
+        )}
         <button 
           className={`sidebar-tab-btn ${activeTab === 'exams' ? 'active' : ''}`}
           onClick={() => { setActiveTab('exams'); fetchExams(); }}
@@ -994,6 +1031,136 @@ export const CreatorDashboard: React.FC = () => {
             </>
           )}
         </>
+      )}
+
+      {activeTab === 'view_courses' && (
+        <div className="animate-fade-in" style={{ marginBottom: '40px' }}>
+          <div className="course-grid-header" style={{ marginBottom: '20px' }}>
+            <div>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Course Studio — Enrolled & Created Pathways</h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                Quick access to learning pathways you have authored or that are mandatory for compliance.
+              </p>
+            </div>
+          </div>
+
+          {viewCoursesList.length === 0 ? (
+            <div className="glass-panel" style={{ padding: '40px', textAlign: 'center', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)' }}>
+              <p style={{ color: 'var(--text-secondary)' }}>No authored or mandatory courses found.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+              {viewCoursesList.map((course) => {
+                const enrollmentItem = myEnrollments.find((e: any) => e.course_id === course.id);
+                const isEnrolled = !!enrollmentItem;
+                const progressVal = enrollmentItem ? enrollmentItem.progress_percent : 0;
+                const isLocked = enrollmentItem ? enrollmentItem.is_locked : false;
+
+                return (
+                  <div 
+                    key={course.id} 
+                    className="glass-panel" 
+                    style={{ 
+                      padding: '24px', 
+                      borderRadius: 'var(--border-radius-md)', 
+                      background: 'var(--bg-card)', 
+                      border: course.is_mandatory ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      justifyContent: 'space-between',
+                      position: 'relative'
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, padding: '4px 10px', borderRadius: '12px', background: 'rgba(107, 114, 128, 0.15)', color: 'var(--text-primary)' }}>
+                          {course.course_code}
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          {course.is_mandatory && (
+                            <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 8px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                              Mandatory
+                            </span>
+                          )}
+                          <span style={{ fontSize: '0.7rem', fontWeight: 800, padding: '2px 8px', borderRadius: '12px', 
+                            background: course.status === 'Published' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                            color: course.status === 'Published' ? '#10b981' : '#f59e0b'
+                          }}>
+                            {course.status}
+                          </span>
+                        </div>
+                      </div>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '8px' }}>{course.title}</h3>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {course.description}
+                      </p>
+                    </div>
+
+                    <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                      {isEnrolled ? (
+                        <div>
+                          <div className="progress-bar-group" style={{ marginBottom: '12px' }}>
+                            <div className="progress-bar-container" style={{ height: '6px', background: 'var(--bg-main)', borderRadius: '3px', overflow: 'hidden' }}>
+                              <div className="progress-bar-fill" style={{ width: `${progressVal}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-color), var(--accent-color-hover))' }}></div>
+                            </div>
+                            <div className="progress-label-row" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              <span>{progressVal}% Completed</span>
+                              {isLocked && <span style={{ color: '#ef4444', fontWeight: 700 }}>Locked</span>}
+                            </div>
+                          </div>
+                          <Button 
+                            variant="primary" 
+                            style={{ width: '100%' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/course-player/${enrollmentItem.id}`);
+                            }}
+                          >
+                            {isLocked ? 'Review Course' : progressVal === 100 ? 'Review Course' : progressVal > 0 ? 'Resume Course' : 'Start Course'}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div>
+                          {course.status === 'Published' ? (
+                            <Button 
+                              variant="primary" 
+                              style={{ width: '100%' }}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  const res = await apiCall('/api/enrollments', {
+                                    method: 'POST',
+                                    body: JSON.stringify({ course_id: course.id })
+                                  });
+                                  if (res.ok) {
+                                    triggerToast('Successfully enrolled in course!', 'success');
+                                    fetchMyEnrollments();
+                                  } else {
+                                    const err = await res.json();
+                                    triggerToast(err.detail || 'Enrollment failed.', 'error');
+                                  }
+                                } catch (errVal) {
+                                  console.error(errVal);
+                                  triggerToast('Network error during enrollment.', 'error');
+                                }
+                              }}
+                            >
+                              Enroll Now
+                            </Button>
+                          ) : (
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center', fontStyle: 'italic' }}>
+                              Enrollment unavailable (Course is {course.status.toLowerCase()})
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Tab 2: Approvals View */}

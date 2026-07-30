@@ -279,6 +279,7 @@ def get_employee_detail_profile(
             "progress_percent": enr.progress_percent,
             "status": enr.status,
             "score": course_exam_score,
+            "is_locked": enr.is_locked,
             "enrolled_at": enr.enrolled_at.isoformat() if enr.enrolled_at else None,
             "completed_at": enr.completed_at.isoformat() if enr.completed_at else None
         })

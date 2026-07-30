@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Shield, Users, LayoutDashboard, ArrowRight } from 'lucide-react';
-import { Button } from '../../components/Button/Button';
+import { Shield, Users, LayoutDashboard, ArrowRight, Briefcase } from 'lucide-react';
 import './Landing.css';
 
 export const Landing: React.FC = () => {
@@ -41,6 +40,19 @@ export const Landing: React.FC = () => {
             </p>
             <span className="portal-link">
               Sign in to Manager Workspace <ArrowRight size={16} className="portal-link-arrow" />
+            </span>
+          </div>
+
+          <div className="portal-card" onClick={() => navigate('/login')}>
+            <div className="portal-icon">
+              <Briefcase size={28} />
+            </div>
+            <h3 className="portal-title">HR Workspace</h3>
+            <p className="portal-desc">
+              Manage departments, update user roles, audit training progression, and monitor team benchmarks.
+            </p>
+            <span className="portal-link">
+              Sign in to HR Workspace <ArrowRight size={16} className="portal-link-arrow" />
             </span>
           </div>
 

@@ -753,7 +753,7 @@ export const ModuleEditor: React.FC = () => {
                                 : oIdx === q.correctOptionIndex;
                               return (
                                 <span key={oIdx} style={{ color: isCorrect ? 'var(--neon-teal)' : 'inherit', fontWeight: isCorrect ? '700' : 'normal' }}>
-                                  {String.fromCharCode(65 + oIdx)}) {opt} {isCorrect ? '✓' : ''}
+                                  {String.fromCharCode(65 + oIdx)}) {opt} {isCorrect ? ' (Correct)' : ''}
                                 </span>
                               );
                             })}
