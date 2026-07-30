@@ -82,6 +82,61 @@ export const ExamsCenter: React.FC = () => {
     };
   }, []);
 
+  // Refs to always access the latest state in the unmount cleanup
+  const activeSubmissionRef = useRef(activeSubmission);
+  const answersRef = useRef(answers);
+  const uploadedFilesRef = useRef(uploadedFiles);
+
+  useEffect(() => {
+    activeSubmissionRef.current = activeSubmission;
+  }, [activeSubmission]);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  useEffect(() => {
+    uploadedFilesRef.current = uploadedFiles;
+  }, [uploadedFiles]);
+
+  useEffect(() => {
+    // Intercept client-side navigation unmounts
+    return () => {
+      const sub = activeSubmissionRef.current;
+      if (sub) {
+        // Collect answers at unmount time
+        const finalAnswers: { [key: string]: string } = { ...answersRef.current };
+        Object.keys(uploadedFilesRef.current).forEach(qId => {
+          finalAnswers[qId] = JSON.stringify(uploadedFilesRef.current[qId]);
+        });
+
+        // Trigger background submission request with keepalive
+        apiCall(`/api/exams/${sub.exam_id}/submit`, {
+          method: 'POST',
+          body: JSON.stringify(finalAnswers),
+          keepalive: true
+        } as any).catch(err => console.error('Auto-submitting on exit failed:', err));
+
+        // Alert user
+        alert('You exited the exam workspace. Any marked answers have been automatically submitted, and the exam is now closed.');
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Alert browser reload / close tab
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (activeSubmissionRef.current) {
+        e.preventDefault();
+        e.returnValue = 'You are in the middle of an exam. If you reload or close this page, your answers will not be saved.';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
   const handleStartExam = async (sub: ExamSubmission) => {
     try {
       // 1. Fetch Exam Details
