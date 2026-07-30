@@ -269,7 +269,7 @@ export const ReportingDashboard: React.FC = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        setAssignSuccess(`✅ "${data.course_title}" assigned successfully!`);
+        setAssignSuccess(`"${data.course_title}" assigned successfully!`);
         setSelectedCourseId('');
         // Refresh course marks by re-loading employee detail
         const detailRes = await apiCall(`/api/reporting/employees/${selectedEmployee.user.id}/detail`);
@@ -425,16 +425,16 @@ export const ReportingDashboard: React.FC = () => {
     const baseColorKey = Object.keys(badgeColorMap).find(k => badgeName.startsWith(k)) || 'Bronze';
     const gradient = badgeColorMap[baseColorKey];
     const badgeEmojiMap: {[key: string]: string} = {
-      'Bronze I': '🥉', 'Bronze II': '🥉✨', 'Bronze III': '🥉🛡️',
-      'Silver I': '🥈', 'Silver II': '🥈✨', 'Silver III': '🥈🛡️',
-      'Gold I': '🥇', 'Gold II': '🥇✨', 'Gold III': '🥇🛡️',
-      'Ruby Crest': '👑🌺',
-      'Amethyst I': '🔮', 'Amethyst II': '🔮✨', 'Amethyst III': '🔮🛡️',
-      'Emerald I': '🟢', 'Emerald II': '🟢✨', 'Emerald III': '🟢🛡️',
-      'Sapphire I': '🔵', 'Sapphire II': '🔵✨', 'Sapphire III': '🔵🛡️',
-      'Diamond Crest': '💎🛡️'
+      'Bronze I': 'Bronze', 'Bronze II': 'Bronze II', 'Bronze III': 'Bronze III',
+      'Silver I': 'Silver', 'Silver II': 'Silver II', 'Silver III': 'Silver III',
+      'Gold I': 'Gold', 'Gold II': 'Gold II', 'Gold III': 'Gold III',
+      'Ruby Crest': 'Ruby',
+      'Amethyst I': 'Amethyst', 'Amethyst II': 'Amethyst II', 'Amethyst III': 'Amethyst III',
+      'Emerald I': 'Emerald', 'Emerald II': 'Emerald II', 'Emerald III': 'Emerald III',
+      'Sapphire I': 'Sapphire', 'Sapphire II': 'Sapphire II', 'Sapphire III': 'Sapphire III',
+      'Diamond Crest': 'Diamond'
     };
-    const emoji = badgeEmojiMap[badgeName] || '🥉';
+    const emoji = badgeEmojiMap[badgeName] || 'Elite';
 
     return (
       <div className="container animate-fade-in" style={{ marginTop: '36px', paddingBottom: '80px' }}>
@@ -617,7 +617,7 @@ export const ReportingDashboard: React.FC = () => {
 
 
         {/* Summary stats row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px', marginBottom: '24px' }}>
           <div className="glass-panel" style={{ padding: '20px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Average Score</span>
             <strong style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent-color)', display: 'block', marginTop: '6px' }}>
@@ -629,6 +629,13 @@ export const ReportingDashboard: React.FC = () => {
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Exams Attempted</span>
             <strong style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', display: 'block', marginTop: '6px' }}>
               {selectedEmployee.exams_attempted}
+            </strong>
+          </div>
+
+          <div className="glass-panel" style={{ padding: '20px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Locked Courses</span>
+            <strong style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ef4444', display: 'block', marginTop: '6px' }}>
+              {selectedEmployee.courses.filter((c: any) => c.is_locked).length}
             </strong>
           </div>
 
@@ -685,10 +692,10 @@ export const ReportingDashboard: React.FC = () => {
                           fontWeight: '700',
                           padding: '2px 8px',
                           borderRadius: '4px',
-                          background: course.status === 'completed' ? 'color-mix(in srgb, var(--success-color) 10%, transparent)' : 'color-mix(in srgb, var(--warning-color) 10%, transparent)',
-                          color: course.status === 'completed' ? 'var(--success-color)' : 'var(--warning-color)'
+                          background: course.is_locked ? 'rgba(239, 68, 68, 0.15)' : course.status === 'completed' ? 'color-mix(in srgb, var(--success-color) 10%, transparent)' : 'color-mix(in srgb, var(--warning-color) 10%, transparent)',
+                          color: course.is_locked ? '#ef4444' : course.status === 'completed' ? 'var(--success-color)' : 'var(--warning-color)'
                         }}>
-                          {course.status === 'completed' ? 'Completed' : 'In Progress'}
+                          {course.is_locked ? 'Locked' : course.status === 'completed' ? 'Completed' : 'In Progress'}
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px', fontWeight: 800, color: course.score !== null ? 'var(--accent-color)' : 'var(--text-secondary)' }}>
@@ -726,16 +733,16 @@ export const ReportingDashboard: React.FC = () => {
                 const baseColorKey = Object.keys(badgeColorMap).find(k => ub.badge_tier.name.startsWith(k)) || 'Bronze';
                 const gradient = badgeColorMap[baseColorKey];
                 const badgeEmojiMap: {[key: string]: string} = {
-                  'Bronze I': '🥉', 'Bronze II': '🥉✨', 'Bronze III': '🥉🛡️',
-                  'Silver I': '🥈', 'Silver II': '🥈✨', 'Silver III': '🥈🛡️',
-                  'Gold I': '🥇', 'Gold II': '🥇✨', 'Gold III': '🥇🛡️',
-                  'Ruby Crest': '👑🌺',
-                  'Amethyst I': '🔮', 'Amethyst II': '🔮✨', 'Amethyst III': '🔮🛡️',
-                  'Emerald I': '🟢', 'Emerald II': '🟢✨', 'Emerald III': '🟢🛡️',
-                  'Sapphire I': '🔵', 'Sapphire II': '🔵✨', 'Sapphire III': '🔵🛡️',
-                  'Diamond Crest': '💎🛡️'
+                  'Bronze I': 'Bronze', 'Bronze II': 'Bronze II', 'Bronze III': 'Bronze III',
+                  'Silver I': 'Silver', 'Silver II': 'Silver II', 'Silver III': 'Silver III',
+                  'Gold I': 'Gold', 'Gold II': 'Gold II', 'Gold III': 'Gold III',
+                  'Ruby Crest': 'Ruby',
+                  'Amethyst I': 'Amethyst', 'Amethyst II': 'Amethyst II', 'Amethyst III': 'Amethyst III',
+                  'Emerald I': 'Emerald', 'Emerald II': 'Emerald II', 'Emerald III': 'Emerald III',
+                  'Sapphire I': 'Sapphire', 'Sapphire II': 'Sapphire II', 'Sapphire III': 'Sapphire III',
+                  'Diamond Crest': 'Diamond'
                 };
-                const emoji = badgeEmojiMap[ub.badge_tier.name] || '🎖️';
+                const emoji = badgeEmojiMap[ub.badge_tier.name] || 'Elite';
                 const dateEarned = new Date(ub.earned_at).toLocaleDateString();
 
                 return (

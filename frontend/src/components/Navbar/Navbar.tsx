@@ -304,14 +304,16 @@ export const Navbar: React.FC = () => {
         </div>
 
         <nav className="navbar-links">
-          <div 
-            onClick={() => navigate('/')} 
-            className={`nav-link ${location.pathname === '/' ? 'active' : ''}`} 
-            style={{ cursor: 'pointer' }}
-            role="button"
-          >
-            Home
-          </div>
+          {!userEmail && (
+            <div 
+              onClick={() => navigate('/')} 
+              className={`nav-link ${location.pathname === '/' ? 'active' : ''}`} 
+              style={{ cursor: 'pointer' }}
+              role="button"
+            >
+              Home
+            </div>
+          )}
           {userEmail && (
             <>
               <div 

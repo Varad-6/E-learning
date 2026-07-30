@@ -51,18 +51,18 @@ export const Leaderboard: React.FC = () => {
   const { triggerToast } = useToast();
 
   const getBadgeEmoji = (badgeName: string | null | undefined): string => {
-    if (!badgeName) return '🥉';
+    if (!badgeName) return 'Bronze';
     const badgeEmojiMap: {[key: string]: string} = {
-      'Bronze I': '🥉', 'Bronze II': '🥉✨', 'Bronze III': '🥉🛡️',
-      'Silver I': '🥈', 'Silver II': '🥈✨', 'Silver III': '🥈🛡️',
-      'Gold I': '🥇', 'Gold II': '🥇✨', 'Gold III': '🥇🛡️',
-      'Ruby Crest': '👑🌺',
-      'Amethyst I': '🔮', 'Amethyst II': '🔮✨', 'Amethyst III': '🔮🛡️',
-      'Emerald I': '🟢', 'Emerald II': '🟢✨', 'Emerald III': '🟢🛡️',
-      'Sapphire I': '🔵', 'Sapphire II': '🔵✨', 'Sapphire III': '🔵🛡️',
-      'Diamond Crest': '💎🛡️'
+      'Bronze I': 'Bronze', 'Bronze II': 'Bronze II', 'Bronze III': 'Bronze III',
+      'Silver I': 'Silver', 'Silver II': 'Silver II', 'Silver III': 'Silver III',
+      'Gold I': 'Gold', 'Gold II': 'Gold II', 'Gold III': 'Gold III',
+      'Ruby Crest': 'Ruby',
+      'Amethyst I': 'Amethyst', 'Amethyst II': 'Amethyst II', 'Amethyst III': 'Amethyst III',
+      'Emerald I': 'Emerald', 'Emerald II': 'Emerald II', 'Emerald III': 'Emerald III',
+      'Sapphire I': 'Sapphire', 'Sapphire II': 'Sapphire II', 'Sapphire III': 'Sapphire III',
+      'Diamond Crest': 'Diamond'
     };
-    return badgeEmojiMap[badgeName] || '🎖️';
+    return badgeEmojiMap[badgeName] || 'Elite';
   };
 
   const [departments, setDepartments] = useState<DepartmentSummary[]>([]);
@@ -416,7 +416,7 @@ export const Leaderboard: React.FC = () => {
                             {rank2.user_name}
                           </span>
                           <div style={{ background: 'rgba(148, 163, 184, 0.12)', color: '#94a3b8', fontSize: '0.74rem', fontWeight: 800, padding: '2px 8px', borderRadius: '10px', marginTop: '2px' }}>
-                            🥈 {rank2.score} Avg
+                            2nd • {rank2.score} Avg
                           </div>
                           
                           {/* Translucent Step Bar */}
@@ -435,8 +435,8 @@ export const Leaderboard: React.FC = () => {
                             alignItems: 'center',
                             gap: '4px'
                           }}>
-                            <span style={{ color: '#94a3b8', fontWeight: 900, fontSize: '2rem', lineHeight: 1 }}>2</span>
-                            <span style={{ fontSize: '0.9rem' }}>🥈</span>
+                             <span style={{ color: '#94a3b8', fontWeight: 900, fontSize: '2rem', lineHeight: 1 }}>2</span>
+                             <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#94a3b8' }}>Silver</span>
                           </div>
                         </div>
                       ) : (
@@ -462,15 +462,15 @@ export const Leaderboard: React.FC = () => {
                             boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
                             position: 'relative'
                           }}>
-                            {rank1.user_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2)}
-                            <span style={{ position: 'absolute', top: '-10px', right: '-6px', fontSize: '1.1rem', transform: 'rotate(15deg)' }}>👑</span>
+                             {rank1.user_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2)}
+                             <Trophy size={14} style={{ position: 'absolute', top: '-10px', right: '-6px', color: '#f59e0b', transform: 'rotate(15deg)' }} />
                           </div>
                           <span style={{ fontSize: '0.88rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px', textAlign: 'center' }}>
                             {rank1.user_name}
                           </span>
-                          <div style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#f59e0b', fontSize: '0.78rem', fontWeight: 900, padding: '2px 10px', borderRadius: '10px', marginTop: '2px', border: '1px solid rgba(245,158,11,0.1)' }}>
-                            🥇 {rank1.score} Avg
-                          </div>
+                           <div style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#f59e0b', fontSize: '0.78rem', fontWeight: 900, padding: '2px 10px', borderRadius: '10px', marginTop: '2px', border: '1px solid rgba(245,158,11,0.1)' }}>
+                             1st • {rank1.score} Avg
+                           </div>
                           
                           {/* Translucent Step Bar */}
                           <div style={{ 
@@ -489,8 +489,8 @@ export const Leaderboard: React.FC = () => {
                             gap: '4px',
                             boxShadow: '0 8px 20px rgba(245, 158, 11, 0.06)'
                           }}>
-                            <span style={{ color: '#f59e0b', fontWeight: 900, fontSize: '2.5rem', lineHeight: 1 }}>1</span>
-                            <span style={{ fontSize: '1rem' }}>🥇</span>
+                             <span style={{ color: '#f59e0b', fontWeight: 900, fontSize: '2.5rem', lineHeight: 1 }}>1</span>
+                             <span style={{ fontSize: '0.8rem', fontWeight: 900, color: '#f59e0b' }}>Gold</span>
                           </div>
                         </div>
                       ) : (
@@ -520,9 +520,9 @@ export const Leaderboard: React.FC = () => {
                           <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '110px', textAlign: 'center' }}>
                             {rank3.user_name}
                           </span>
-                          <div style={{ background: 'rgba(180, 83, 9, 0.12)', color: '#b45309', fontSize: '0.74rem', fontWeight: 800, padding: '2px 8px', borderRadius: '10px', marginTop: '2px' }}>
-                            🥉 {rank3.score} Avg
-                          </div>
+                           <div style={{ background: 'rgba(180, 83, 9, 0.12)', color: '#b45309', fontSize: '0.74rem', fontWeight: 800, padding: '2px 8px', borderRadius: '10px', marginTop: '2px' }}>
+                             3rd • {rank3.score} Avg
+                           </div>
                           
                           {/* Translucent Step Bar */}
                           <div style={{ 
@@ -540,8 +540,8 @@ export const Leaderboard: React.FC = () => {
                             alignItems: 'center',
                             gap: '4px'
                           }}>
-                            <span style={{ color: '#b45309', fontWeight: 900, fontSize: '1.75rem', lineHeight: 1 }}>3</span>
-                            <span style={{ fontSize: '0.85rem' }}>🥉</span>
+                             <span style={{ color: '#b45309', fontWeight: 900, fontSize: '1.75rem', lineHeight: 1 }}>3</span>
+                             <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#b45309' }}>Bronze</span>
                           </div>
                         </div>
                       ) : (

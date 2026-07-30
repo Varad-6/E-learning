@@ -312,8 +312,8 @@ export const ExamReviewer: React.FC = () => {
               >
                 <span>{opt}</span>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                  {isCorrect && '✅ Correct answer'}
-                  {!isCorrect && isSelected && '❌ User selected'}
+                  {isCorrect && 'Correct answer'}
+                  {!isCorrect && isSelected && 'User selected'}
                 </span>
               </div>
             );
@@ -358,8 +358,8 @@ export const ExamReviewer: React.FC = () => {
               >
                 <span>{opt}</span>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                  {isCorrect && '✅ Correct answer'}
-                  {!isCorrect && isSelected && '❌ User selected'}
+                  {isCorrect && 'Correct answer'}
+                  {!isCorrect && isSelected && 'User selected'}
                 </span>
               </div>
             );
@@ -624,7 +624,7 @@ export const ExamReviewer: React.FC = () => {
                                   gap: '6px',
                                   boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                                 }}>
-                                  <span>{scores[q.id] === 10 ? '🎯 Auto: 10' : '❌ Auto: 0'}</span>
+                                  <span>{scores[q.id] === 10 ? 'Auto: 10' : 'Auto: 0'}</span>
                                   <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>/ 10</span>
                                 </div>
                               ) : (

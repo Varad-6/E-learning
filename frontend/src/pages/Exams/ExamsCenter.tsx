@@ -673,16 +673,16 @@ export const ExamsCenter: React.FC = () => {
                         if (isCorrect) {
                           itemBg = 'rgba(20, 168, 0, 0.08)';
                           itemBorder = '1px solid rgba(20, 168, 0, 0.3)';
-                          statusText = <span style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>✓ Your Correct Answer</span>;
+                          statusText = <span style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>Your Correct Answer</span>;
                         } else {
                           itemBg = 'rgba(239, 68, 68, 0.08)';
                           itemBorder = '1px solid rgba(239, 68, 68, 0.3)';
-                          statusText = <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>✗ Your Incorrect Answer</span>;
+                          statusText = <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}>Your Incorrect Answer</span>;
                         }
                       } else if (isCorrect) {
                         itemBg = 'rgba(20, 168, 0, 0.04)';
                         itemBorder = '1px dashed rgba(20, 168, 0, 0.25)';
-                        statusText = <span style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto' }}>✓ Correct Answer</span>;
+                        statusText = <span style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto' }}>Correct Answer</span>;
                       }
 
                       return (
@@ -757,16 +757,16 @@ export const ExamsCenter: React.FC = () => {
                         if (isCorrect) {
                           itemBg = 'rgba(20, 168, 0, 0.08)';
                           itemBorder = '1px solid rgba(20, 168, 0, 0.3)';
-                          statusText = <span style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto' }}>✓ Selected (Correct)</span>;
+                          statusText = <span style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto' }}>Selected (Correct)</span>;
                         } else {
                           itemBg = 'rgba(239, 68, 68, 0.08)';
                           itemBorder = '1px solid rgba(239, 68, 68, 0.3)';
-                          statusText = <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto' }}>✗ Selected (Incorrect)</span>;
+                          statusText = <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto' }}>Selected (Incorrect)</span>;
                         }
                       } else if (isCorrect) {
                         itemBg = 'rgba(20, 168, 0, 0.04)';
                         itemBorder = '1px dashed rgba(20, 168, 0, 0.25)';
-                        statusText = <span style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto' }}>✓ Correct Answer</span>;
+                        statusText = <span style={{ color: 'var(--accent-color)', fontWeight: 800, fontSize: '0.8rem', marginLeft: 'auto' }}>Correct Answer</span>;
                       }
 
                       return (
@@ -813,7 +813,7 @@ export const ExamsCenter: React.FC = () => {
                           {fileObj.name}
                         </a>
                         <span style={{ fontSize: '0.8rem', fontWeight: 800, color: isCorrect ? 'var(--accent-color)' : '#ef4444', marginLeft: 'auto' }}>
-                          {isCorrect ? '✓ Approved' : '✗ Needs Improvement'}
+                          {isCorrect ? 'Approved' : 'Needs Improvement'}
                         </span>
                       </div>
                     ) : (
@@ -844,7 +844,7 @@ export const ExamsCenter: React.FC = () => {
                       marginBottom: '8px' 
                     }}>
                       <span>Your Submitted Answer</span>
-                      <span>{isCorrect ? '✓ Correct Answer' : '✗ Needs Improvement'}</span>
+                      <span>{isCorrect ? 'Correct Answer' : 'Needs Improvement'}</span>
                     </span>
                     <p style={{ margin: 0, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
                       {answerRaw || <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>No response written</span>}

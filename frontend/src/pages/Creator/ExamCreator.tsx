@@ -524,7 +524,7 @@ export const ExamCreator: React.FC = () => {
                 <div style={{ display: 'flex', gap: '8px', fontSize: '0.73rem', fontWeight: 700 }}>
                   {verifiedCount > 0 && (
                     <span style={{ color: '#059669', background: 'color-mix(in srgb, #10b981 10%, transparent)', padding: '2px 8px', borderRadius: '12px' }}>
-                      ✓ {verifiedCount} verified
+                      {verifiedCount} verified
                     </span>
                   )}
                   {aiCount > 0 && (

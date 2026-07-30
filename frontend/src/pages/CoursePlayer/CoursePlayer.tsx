@@ -506,6 +506,7 @@ export const CoursePlayer: React.FC = () => {
   };
 
   const isModuleUnlocked = (modId: string) => {
+    if (courseLocked) return true; // Review Mode: all modules unlocked!
     const modIndex = modules.findIndex(m => m.id === modId);
     if (modIndex <= 0) return true; // First module is always unlocked
     
@@ -514,12 +515,14 @@ export const CoursePlayer: React.FC = () => {
   };
 
   const isItemUnlocked = (itemId: string) => {
+    if (courseLocked) return true; // Review Mode: all items unlocked!
     const parentMod = modules.find(m => m.contents.some(item => item.id === itemId));
     if (!parentMod) return true;
     return isModuleUnlocked(parentMod.id);
   };
 
   const handleMarkContentComplete = async (contentId: string) => {
+    if (courseLocked) return; // Review Mode: progress bar and DB state frozen
     if (completedContentIds.has(contentId)) return;
 
     const updated = new Set(completedContentIds);
@@ -543,19 +546,19 @@ export const CoursePlayer: React.FC = () => {
     const currentItem = flatContents[activeContentIndex];
     
     // Graded quiz lock enforcement: cannot bypass quiz without submitting answers
-    if (currentItem && currentItem.type === 'quiz' && !quizSubmitted) {
+    if (currentItem && currentItem.type === 'quiz' && !quizSubmitted && !courseLocked) {
       alert('Module Test Locked: You must answer all questions and submit the assessment before advancing to the next module!');
       return;
     }
 
-    if (currentItem && !completedContentIds.has(currentItem.id)) {
+    if (currentItem && !completedContentIds.has(currentItem.id) && !courseLocked) {
       await handleMarkContentComplete(currentItem.id);
     }
 
     if (activeContentIndex < flatContents.length - 1) {
       const nextIndex = activeContentIndex + 1;
       const nextItem = flatContents[nextIndex];
-      if (isItemUnlocked(nextItem.id)) {
+      if (isItemUnlocked(nextItem.id) || courseLocked) {
         setActiveContentIndex(nextIndex);
       } else {
         alert('This module is locked. You must complete the current module assessment first!');
@@ -997,32 +1000,24 @@ export const CoursePlayer: React.FC = () => {
       <div className="player-layout-grid">
         {/* Left Side: Viewer & Progression (65%) */}
         <div className="player-main-content">
-          {courseLocked ? (
-            <div className="course-locked-overlay-panel" style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
-              padding: '60px 40px',
-              height: '100%',
-              minHeight: '400px',
-              background: 'rgba(225, 29, 72, 0.05)',
-              border: '1px solid rgba(225, 29, 72, 0.15)',
-              borderRadius: 'var(--border-radius-lg)',
-              margin: '20px'
-            }}>
-              <Lock size={64} style={{ color: 'var(--neon-coral)', marginBottom: '24px' }} />
-              <h2 style={{ fontSize: '1.8rem', fontWeight: '800', marginBottom: '12px' }}>Course Access Locked</h2>
-              <p style={{ color: 'var(--text-secondary)', maxWidth: '500px', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '24px' }}>
-                The access deadline for this course has passed. Your progress updates have been frozen. Please contact your L&D administrator to request an enrollment extension or unlock.
-              </p>
-              <Button variant="outline" onClick={() => navigate(-1)}>
-                Return to Dashboard
-              </Button>
-            </div>
-          ) : (
-            <div className="study-content-scroll">
+          <div className="study-content-scroll">
+            {courseLocked && (
+              <div className="form-info-banner" style={{ 
+                backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                color: '#ef4444', 
+                border: '1px solid rgba(239, 68, 68, 0.2)', 
+                marginBottom: '16px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px', 
+                padding: '12px 16px', 
+                borderRadius: '6px', 
+                fontSize: '0.88rem' 
+              }}>
+                <Lock size={16} />
+                <span><strong>Review Mode:</strong> This course is locked. Your learning progress is frozen, but you can review all materials and attempt assessments.</span>
+              </div>
+            )}
             <div className="lesson-heading-container">
               <span className="lesson-module-tag">{activeModule?.title}</span>
               <h2 className="lesson-title">{activeContent?.title}</h2>
@@ -1307,9 +1302,15 @@ export const CoursePlayer: React.FC = () => {
                               <span>Status: Completed. Next module is unlocked!</span>
                             </div>
                             {activeContentIndex === flatContents.length - 1 ? (
-                              <Button variant="primary" onClick={handleFinalCompleteCourse} style={{ width: '100%', padding: '14px' }}>
-                                Complete Course & Claim Certificate
-                              </Button>
+                              courseLocked ? (
+                                <div style={{ color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.88rem', marginTop: '16px', fontWeight: 700 }}>
+                                  🔒 Course is locked. You are viewing it in Review Mode and cannot complete it.
+                                </div>
+                              ) : (
+                                <Button variant="primary" onClick={handleFinalCompleteCourse} style={{ width: '100%', padding: '14px' }}>
+                                  Complete Course & Claim Certificate
+                                </Button>
+                              )
                             ) : (
                               <Button variant="primary" onClick={handleNextSection} style={{ width: '100%', padding: '14px' }}>
                                 Proceed to Next Module
@@ -1328,7 +1329,7 @@ export const CoursePlayer: React.FC = () => {
               )}
             </div>
           </div>
-        )}
+
       </div>
 
         {/* Right Side: Notes Notepad Panel (35%) */}

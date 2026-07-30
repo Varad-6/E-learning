@@ -668,6 +668,8 @@ interface ProgressItem {
 
   is_mandatory?: boolean;
 
+  is_locked?: boolean;
+
 }
 
 
@@ -1157,7 +1159,9 @@ export const Dashboard: React.FC = () => {
 
             difficulty: 'Beginner' as const,
 
-            is_mandatory: e.is_mandatory || false
+            is_mandatory: e.is_mandatory || false,
+
+            is_locked: e.is_locked || false
 
           };
 
@@ -3959,13 +3963,13 @@ export const Dashboard: React.FC = () => {
                   {empDashboardData.next_badge_milestone.tier_name ? (
                     <div style={{ width: '100%', marginTop: '12px', background: 'var(--accent-glow)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: 'var(--border-radius-md)', textAlign: 'center' }}>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '700' }}>
-                        🎯 Next Badge: <strong>{empDashboardData.next_badge_milestone.tier_name}</strong> ({empDashboardData.next_badge_milestone.courses_remaining} course left!)
+                        <Target size={14} style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }} /> Next Badge: <strong>{empDashboardData.next_badge_milestone.tier_name}</strong> ({empDashboardData.next_badge_milestone.courses_remaining} course left!)
                       </span>
                     </div>
                   ) : (
                     <div style={{ width: '100%', marginTop: '12px', background: 'var(--accent-glow)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: 'var(--border-radius-md)', textAlign: 'center' }}>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '700' }}>
-                        👑 You've unlocked the highest badge tier!
+                        <Award size={14} style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }} /> You've unlocked the highest badge tier!
                       </span>
                     </div>
                   )}
@@ -4287,7 +4291,11 @@ export const Dashboard: React.FC = () => {
                     );
                   } else {
                     const filteredShown = myProgress.filter(p => {
-                      return activeMyCoursesTab === 'completed' ? p.progressPercent === 100 : p.progressPercent < 100;
+                      if (activeMyCoursesTab === 'completed') {
+                        return p.progressPercent === 100 || p.is_locked;
+                      } else {
+                        return p.progressPercent < 100;
+                      }
                     });
 
                     const shownCourses = [...filteredShown].sort((a: any, b: any) => {
@@ -4381,7 +4389,7 @@ export const Dashboard: React.FC = () => {
                                 onClick={() => navigate(`/course-player/${item.id}`)}
                                 style={{ width: '100%', height: '40px', fontWeight: '700' }}
                               >
-                                {item.progressPercent === 100 ? 'Review Course' : (item.progressPercent > 0 ? 'Resume Course' : 'Start Course')}
+                                {item.is_locked ? 'Review Course' : (item.progressPercent === 100 ? 'Review Course' : (item.progressPercent > 0 ? 'Resume Course' : 'Start Course'))}
                               </Button>
                             </div>
                           </div>
@@ -5074,7 +5082,7 @@ export const Dashboard: React.FC = () => {
                       </div>
                     ) : (
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', color: '#10b981' }}>
-                        <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>✅</span>
+                        <CheckCircle size={20} />
                         <div>
                           <strong>All Submissions Graded</strong>
                           <p style={{ margin: '3px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
@@ -5103,8 +5111,8 @@ export const Dashboard: React.FC = () => {
             {/* Right Column (span 4): Top Performers Showcase (Global Podium) */}
             <div style={{ gridColumn: 'span 4' }}>
               <div className="widget-card">
-                <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>
-                  🏆 Top Performers Showcase
+                <h4 style={{ fontSize: '1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Trophy size={18} style={{ color: 'var(--accent-color)' }} /> Top Performers Showcase
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '10px' }}>
                   {topPerformersData && topPerformersData.length > 0 ? (
@@ -5180,7 +5188,7 @@ export const Dashboard: React.FC = () => {
 
           <>
 
-            {selectedCourseForModules && selectedCourseForModules.progressPercent < 100 && (
+            {selectedCourseForModules && (selectedCourseForModules.progressPercent < 100 || selectedCourseForModules.is_locked) && (
 
               <Button 
 
@@ -5188,21 +5196,29 @@ export const Dashboard: React.FC = () => {
 
                 onClick={() => {
 
-                  handleStudyIncrement(selectedCourseForModules.id);
+                  if (selectedCourseForModules.is_locked) {
 
-                  setSelectedCourseForModules(prev => {
+                    navigate(`/course-player/${selectedCourseForModules.id}`);
 
-                    if (!prev) return null;
+                  } else {
 
-                    return { ...prev, progressPercent: Math.min(prev.progressPercent + 20, 100) };
+                    handleStudyIncrement(selectedCourseForModules.id);
 
-                  });
+                    setSelectedCourseForModules(prev => {
+
+                      if (!prev) return null;
+
+                      return { ...prev, progressPercent: Math.min(prev.progressPercent + 20, 100) };
+
+                    });
+
+                  }
 
                 }}
 
               >
 
-                Resume Study
+                {selectedCourseForModules.is_locked ? 'Review Study' : 'Resume Study'}
 
               </Button>
 
