@@ -61,20 +61,15 @@ def create_exam(
         # Managers must create exams for their own department
         exam_in.department_id = current_user.department_id
 
-    # Create Exam — directly published vs. submitted for approval are two distinct paths
-    if exam_in.is_published:
-        # "Publish Directly" path: immediately live, no approval workflow
-        exam_status = "published"
-    else:
-        # "Submit for Approval" path: goes into review queue
-        exam_status = "pending"
+    # Create Exam — exams are always published directly, no approval workflow exists
+    exam_status = "published"
 
     new_exam = Exam(
         course_id=exam_in.course_id,
         department_id=exam_in.department_id,
         title=exam_in.title,
         duration_minutes=exam_in.duration_minutes,
-        is_published=exam_in.is_published,
+        is_published=True,
         status=exam_status,
         created_by=current_user.id
     )
@@ -87,17 +82,6 @@ def create_exam(
         department_id=new_exam.department_id
     )
     db.add(assignment)
-
-    # Only create ExamReview when submitting for approval — NOT when publishing directly.
-    # Directly published exams are already live and require no further approval step.
-    if not exam_in.is_published:
-        new_review = ExamReview(
-            exam_id=new_exam.id,
-            submitted_by=current_user.id,
-            status="pending",
-            department_id=new_exam.department_id
-        )
-        db.add(new_review)
 
     # Add questions
     for q in exam_in.questions:

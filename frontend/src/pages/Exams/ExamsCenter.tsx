@@ -100,10 +100,24 @@ export const ExamsCenter: React.FC = () => {
   }, [uploadedFiles]);
 
   useEffect(() => {
-    // Intercept client-side navigation unmounts
+    // Sync answers in real-time to sessionStorage
+    if (activeSubmission) {
+      sessionStorage.setItem('active_exam_answers', JSON.stringify(answers));
+    }
+  }, [answers, activeSubmission]);
+
+  useEffect(() => {
+    // Sync files in real-time to sessionStorage
+    if (activeSubmission) {
+      sessionStorage.setItem('active_exam_files', JSON.stringify(uploadedFiles));
+    }
+  }, [uploadedFiles, activeSubmission]);
+
+  useEffect(() => {
+    // Intercept client-side navigation unmounts (fallback if navigate gets through somehow without check)
     return () => {
       const sub = activeSubmissionRef.current;
-      if (sub) {
+      if (sub && sessionStorage.getItem('active_exam_id')) {
         // Collect answers at unmount time
         const finalAnswers: { [key: string]: string } = { ...answersRef.current };
         Object.keys(uploadedFilesRef.current).forEach(qId => {
@@ -117,11 +131,60 @@ export const ExamsCenter: React.FC = () => {
           keepalive: true
         } as any).catch(err => console.error('Auto-submitting on exit failed:', err));
 
+        // Clear session storage
+        sessionStorage.removeItem('active_exam_id');
+        sessionStorage.removeItem('active_exam_answers');
+        sessionStorage.removeItem('active_exam_files');
+
         // Alert user
         alert('You exited the exam workspace. Any marked answers have been automatically submitted, and the exam is now closed.');
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!activeSubmission) return;
+
+    // Push a dummy state to block the first back button click
+    window.history.pushState(null, '', window.location.href);
+
+    const handlePopState = async () => {
+      const confirm = window.confirm("This may lead to exiting the exam. Your answers will be saved. Do you still want to exit?");
+      if (confirm) {
+        // Submit the exam!
+        const finalAnswers: { [key: string]: string } = { ...answersRef.current };
+        Object.keys(uploadedFilesRef.current).forEach(qId => {
+          finalAnswers[qId] = JSON.stringify(uploadedFilesRef.current[qId]);
+        });
+
+        try {
+          await apiCall(`/api/exams/${activeSubmission.exam_id}/submit`, {
+            method: 'POST',
+            body: JSON.stringify(finalAnswers),
+            keepalive: true
+          });
+        } catch (e) {
+          console.error(e);
+        }
+
+        // Clear session storage so unmount cleanup doesn't double-submit
+        sessionStorage.removeItem('active_exam_id');
+        sessionStorage.removeItem('active_exam_answers');
+        sessionStorage.removeItem('active_exam_files');
+
+        // Allow navigation by going back
+        window.history.go(-1);
+      } else {
+        // Push state again to keep user on the page
+        window.history.pushState(null, '', window.location.href);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [activeSubmission]);
 
   useEffect(() => {
     // Alert browser reload / close tab
@@ -131,9 +194,58 @@ export const ExamsCenter: React.FC = () => {
         e.returnValue = 'You are in the middle of an exam. If you reload or close this page, your answers will not be saved.';
       }
     };
+
+    const handleUnloadOrPageHide = () => {
+      const sub = activeSubmissionRef.current;
+      if (sub && sessionStorage.getItem('active_exam_id')) {
+        // Collect answers at unload time
+        const finalAnswers: { [key: string]: string } = { ...answersRef.current };
+        Object.keys(uploadedFilesRef.current).forEach(qId => {
+          finalAnswers[qId] = JSON.stringify(uploadedFilesRef.current[qId]);
+        });
+
+        // Trigger background submission request with keepalive via raw fetch to ensure it is kept alive after page close
+        const accessToken = localStorage.getItem('access_token');
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json'
+        };
+        if (accessToken) {
+          headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+
+        // Get API base URL
+        const getApiBaseUrl = () => {
+          if (import.meta.env.VITE_API_BASE_URL) {
+            return import.meta.env.VITE_API_BASE_URL;
+          }
+          const port = window.location.port === '5180' || window.location.port === '5181' ? '8081' : '8000';
+          return `${window.location.protocol}//${window.location.hostname}:${port}`;
+        };
+
+        const url = `${getApiBaseUrl()}/api/exams/${sub.exam_id}/submit`;
+
+        fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(finalAnswers),
+          keepalive: true
+        }).catch(err => console.error('Unload submit failed:', err));
+
+        // Clear session storage
+        sessionStorage.removeItem('active_exam_id');
+        sessionStorage.removeItem('active_exam_answers');
+        sessionStorage.removeItem('active_exam_files');
+      }
+    };
+
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleUnloadOrPageHide);
+    window.addEventListener('unload', handleUnloadOrPageHide);
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleUnloadOrPageHide);
+      window.removeEventListener('unload', handleUnloadOrPageHide);
     };
   }, []);
 
@@ -178,6 +290,12 @@ export const ExamsCenter: React.FC = () => {
         
         setAnswers(initialAnswers);
         setUploadedFiles(initialFiles);
+
+        // Sync to session storage for the Navbar to block/intercept exits
+        sessionStorage.setItem('active_exam_id', sub.exam_id);
+        sessionStorage.setItem('active_exam_answers', JSON.stringify(initialAnswers));
+        sessionStorage.setItem('active_exam_files', JSON.stringify(initialFiles));
+
         startCountdown(updatedSub, details.duration_minutes);
       }
     } catch (e) {
@@ -264,6 +382,9 @@ export const ExamsCenter: React.FC = () => {
         body: JSON.stringify(finalAnswers)
       });
       alert('Time limit expired. Your exam answers have been auto-submitted.');
+      sessionStorage.removeItem('active_exam_id');
+      sessionStorage.removeItem('active_exam_answers');
+      sessionStorage.removeItem('active_exam_files');
       setActiveSubmission(null);
       setExamDetails(null);
       fetchCategorizedExams();
@@ -310,6 +431,9 @@ export const ExamsCenter: React.FC = () => {
       if (res.ok) {
         if (timerRef.current) clearInterval(timerRef.current);
         alert('Exam submitted successfully. Under review by Administrations.');
+        sessionStorage.removeItem('active_exam_id');
+        sessionStorage.removeItem('active_exam_answers');
+        sessionStorage.removeItem('active_exam_files');
         setActiveSubmission(null);
         setExamDetails(null);
         fetchCategorizedExams();
@@ -531,6 +655,9 @@ export const ExamsCenter: React.FC = () => {
           <Button variant="outline" onClick={() => {
             if (window.confirm('Discard active session? Answers will not be saved.')) {
               if (timerRef.current) clearInterval(timerRef.current);
+              sessionStorage.removeItem('active_exam_id');
+              sessionStorage.removeItem('active_exam_answers');
+              sessionStorage.removeItem('active_exam_files');
               setActiveSubmission(null);
               setExamDetails(null);
               fetchCategorizedExams();

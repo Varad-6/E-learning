@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { Navbar } from './components/Navbar/Navbar';
@@ -20,6 +20,18 @@ import { ReportingDashboard } from './pages/Reporting/ReportingDashboard';
 import { Leaderboard } from './pages/Leaderboard/Leaderboard';
 import './styles/index.css';
 
+// Clear old credentials on fresh session loads (tab/browser restarts)
+if (typeof window !== 'undefined' && !sessionStorage.getItem('is_session_active')) {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('isLoggedInEmail');
+  localStorage.removeItem('isLoggedInRole');
+  localStorage.removeItem('isLoggedInDept');
+  localStorage.removeItem('profileName');
+  localStorage.removeItem('profileEmpId');
+  sessionStorage.setItem('is_session_active', 'true');
+}
+
 const AppContent: React.FC = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/login';
@@ -30,8 +42,22 @@ const AppContent: React.FC = () => {
       {!isAuthPage && !isPlayerPage && <Navbar />}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
+          <Route 
+            path="/" 
+            element={
+              localStorage.getItem('access_token') 
+                ? <Navigate to="/dashboard" replace /> 
+                : <Navigate to="/login" replace />
+            } 
+          />
+          <Route 
+            path="/login" 
+            element={
+              localStorage.getItem('access_token')
+                ? <Navigate to="/dashboard" replace />
+                : <Login />
+            } 
+          />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/creator/dashboard" element={<CreatorDashboard />} />
           <Route path="/creator/course/:courseId" element={<CourseSyllabus />} />

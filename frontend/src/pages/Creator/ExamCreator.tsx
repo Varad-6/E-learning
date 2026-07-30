@@ -870,25 +870,7 @@ export const ExamCreator: React.FC = () => {
                   transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                 }}
               >
-                {saveLoading ? <><Spinner /> Publishing…</> : `🚀 Publish Directly${questions.length > 0 ? ` (${questions.length} Q)` : ''}`}
-              </button>
-
-              <button
-                onClick={() => handleSaveExam(false)}
-                disabled={saveLoading || questions.length === 0}
-                style={{
-                  width: '100%', padding: '12px',
-                  borderRadius: '12px', fontWeight: 700, fontSize: '0.88rem',
-                  border: '1px solid var(--border-color)',
-                  background: 'var(--bg-card)',
-                  color: (saveLoading || questions.length === 0) ? 'var(--text-muted)' : 'var(--text-primary)',
-                  cursor: (saveLoading || questions.length === 0) ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                }}
-                onMouseEnter={e => { if (!saveLoading && questions.length > 0) e.currentTarget.style.background = 'var(--bg-card-hover)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-card)'; }}
-              >
-                📥 Submit for Approval
+                {saveLoading ? <><Spinner /> Publishing…</> : `🚀 Publish Exam${questions.length > 0 ? ` (${questions.length} Q)` : ''}`}
               </button>
             </div>
 

@@ -384,58 +384,8 @@ export const ExamReviewer: React.FC = () => {
         </Button>
         <div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>🧑‍🏫 Exam Grading & Review Studio</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Grade employee exam submissions or approve newly constructed exam templates.</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Grade employee exam submissions.</p>
         </div>
-      </div>
-
-      {/* Selector Tabs */}
-      <div className="catalog-tabs-container" style={{ display: 'flex', gap: '20px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveSectionTab('submissions');
-            setSelectedSub(null);
-            setSelectedReview(null);
-            setExamDetails(null);
-          }}
-          style={{
-            border: 'none',
-            background: 'none',
-            fontSize: '1.05rem',
-            fontWeight: 700,
-            color: activeSectionTab === 'submissions' ? 'var(--accent-color)' : 'var(--text-secondary)',
-            cursor: 'pointer',
-            padding: '4px 12px',
-            borderBottom: activeSectionTab === 'submissions' ? '2px solid var(--accent-color)' : 'none',
-            marginBottom: '-12px',
-            transition: 'all 0.2s'
-          }}
-        >
-          Student Submissions
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveSectionTab('approvals');
-            setSelectedSub(null);
-            setSelectedReview(null);
-            setExamDetails(null);
-          }}
-          style={{
-            border: 'none',
-            background: 'none',
-            fontSize: '1.05rem',
-            fontWeight: 700,
-            color: activeSectionTab === 'approvals' ? 'var(--accent-color)' : 'var(--text-secondary)',
-            cursor: 'pointer',
-            padding: '4px 12px',
-            borderBottom: activeSectionTab === 'approvals' ? '2px solid var(--accent-color)' : 'none',
-            marginBottom: '-12px',
-            transition: 'all 0.2s'
-          }}
-        >
-          Exam Approvals
-        </button>
       </div>
 
       {activeSectionTab === 'submissions' ? (

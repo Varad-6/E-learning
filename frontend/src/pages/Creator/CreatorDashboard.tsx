@@ -632,7 +632,7 @@ export const CreatorDashboard: React.FC = () => {
             onClick={() => navigate('/creator/exams/review')}
             leftIcon={<CheckCircle2 size={16} />}
           >
-            Review Exams
+            Grade Submissions
           </Button>
           <Button 
             variant="primary" 

@@ -21,6 +21,69 @@ interface AppNotification {
 export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const safeNavigate = async (path: string, isLogoutClick: boolean = false) => {
+    const activeExamId = sessionStorage.getItem('active_exam_id');
+    if (activeExamId) {
+      const confirm = window.confirm("This may lead to exiting the exam. Your answers will be saved. Do you still want to exit?");
+      if (!confirm) {
+        return;
+      }
+
+      // Auto submit answers
+      const answersStr = sessionStorage.getItem('active_exam_answers') || '{}';
+      const filesStr = sessionStorage.getItem('active_exam_files') || '{}';
+
+      let finalAnswers: any = {};
+      try {
+        finalAnswers = JSON.parse(answersStr);
+      } catch (e) {
+        console.error(e);
+      }
+
+      try {
+        const uploadedFiles = JSON.parse(filesStr);
+        Object.keys(uploadedFiles).forEach(qId => {
+          finalAnswers[qId] = JSON.stringify(uploadedFiles[qId]);
+        });
+      } catch (e) {
+        console.error(e);
+      }
+
+      try {
+        await apiCall(`/api/exams/${activeExamId}/submit`, {
+          method: 'POST',
+          body: JSON.stringify(finalAnswers),
+          keepalive: true
+        });
+      } catch (err) {
+        console.error("Exit-submit failed:", err);
+      }
+
+      sessionStorage.removeItem('active_exam_id');
+      sessionStorage.removeItem('active_exam_answers');
+      sessionStorage.removeItem('active_exam_files');
+    }
+
+    if (isLogoutClick) {
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (refreshToken) {
+        try {
+          await apiCall('/api/auth/logout', {
+            method: 'POST',
+            body: JSON.stringify({ refresh_token: refreshToken }),
+          });
+        } catch (err) {
+          console.error('Logout API call failed:', err);
+        }
+      }
+      handleLogoutLocal();
+      setUserEmail(null);
+      navigate('/');
+    } else {
+      navigate(path);
+    }
+  };
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('Employee');
   const [userDept, setUserDept] = useState<string>('AI');
@@ -149,20 +212,7 @@ export const Navbar: React.FC = () => {
   }, [isNotifOpen]);
 
   const handleLogout = async () => {
-    const refreshToken = localStorage.getItem('refresh_token');
-    if (refreshToken) {
-      try {
-        await apiCall('/api/auth/logout', {
-          method: 'POST',
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        });
-      } catch (err) {
-        console.error('Logout API call failed:', err);
-      }
-    }
-    handleLogoutLocal();
-    setUserEmail(null);
-    navigate('/');
+    await safeNavigate('/', true);
   };
 
   const getNotifIcon = (type: string) => {
@@ -229,20 +279,20 @@ export const Navbar: React.FC = () => {
     // Navigate to related views
     if (notif.type.includes('course')) {
       if (userRole === 'Employee') {
-        navigate('/dashboard?tab=my-courses');
+        safeNavigate('/dashboard?tab=my-courses');
       } else {
-        navigate('/creator/dashboard?tab=my_courses');
+        safeNavigate('/creator/dashboard?tab=my_courses');
       }
     } else if (notif.type.includes('exam') || notif.type.includes('review')) {
       if (userRole === 'Employee') {
-        navigate('/exams');
+        safeNavigate('/exams');
       } else {
-        navigate('/creator/dashboard?tab=approvals');
+        safeNavigate('/creator/dashboard?tab=approvals');
       }
     } else if (notif.type.includes('manager')) {
-      navigate('/creator/dashboard?tab=approvals');
+      safeNavigate('/creator/dashboard?tab=approvals');
     } else {
-      navigate('/dashboard');
+      safeNavigate('/dashboard');
     }
   };
 
@@ -295,7 +345,7 @@ export const Navbar: React.FC = () => {
     <header className="navbar-header glass-panel">
       <div className="navbar-container">
         <div 
-          onClick={() => navigate('/')} 
+          onClick={() => safeNavigate('/')} 
           className="navbar-logo" 
           style={{ cursor: 'pointer' }}
           role="button"
@@ -306,7 +356,7 @@ export const Navbar: React.FC = () => {
         <nav className="navbar-links">
           {!userEmail && (
             <div 
-              onClick={() => navigate('/')} 
+              onClick={() => safeNavigate('/')} 
               className={`nav-link ${location.pathname === '/' ? 'active' : ''}`} 
               style={{ cursor: 'pointer' }}
               role="button"
@@ -317,7 +367,7 @@ export const Navbar: React.FC = () => {
           {userEmail && (
             <>
               <div 
-                onClick={() => navigate('/dashboard')} 
+                onClick={() => safeNavigate('/dashboard')} 
                 className={`nav-link ${location.pathname === '/dashboard' && !location.search.includes('tab=my-courses') ? 'active' : ''}`} 
                 style={{ cursor: 'pointer' }}
                 role="button"
@@ -327,7 +377,7 @@ export const Navbar: React.FC = () => {
               {userRole === 'Employee' && (
                 <>
                   <div 
-                    onClick={() => navigate('/dashboard?tab=my-courses')} 
+                    onClick={() => safeNavigate('/dashboard?tab=my-courses')} 
                     className={`nav-link ${location.pathname === '/dashboard' && location.search.includes('tab=my-courses') ? 'active' : ''}`} 
                     style={{ cursor: 'pointer' }}
                     role="button"
@@ -335,7 +385,7 @@ export const Navbar: React.FC = () => {
                     My Courses
                   </div>
                   <div 
-                    onClick={() => navigate('/exams')} 
+                    onClick={() => safeNavigate('/exams')} 
                     className={`nav-link ${location.pathname === '/exams' ? 'active' : ''}`} 
                     style={{ cursor: 'pointer' }}
                     role="button"
@@ -353,7 +403,7 @@ export const Navbar: React.FC = () => {
             if (!hasAccess) return null;
             return (
               <div 
-                onClick={() => navigate('/creator/dashboard')} 
+                onClick={() => safeNavigate('/creator/dashboard')} 
                 className={`nav-link ${location.pathname.startsWith('/creator') ? 'active' : ''}`} 
                 style={{ cursor: 'pointer' }}
                 role="button"
@@ -370,7 +420,7 @@ export const Navbar: React.FC = () => {
             if (!isAdminRole) return null;
             return (
               <div 
-                onClick={() => navigate('/admin/users')} 
+                onClick={() => safeNavigate('/admin/users')} 
                 className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`} 
                 style={{ cursor: 'pointer' }}
                 role="button"
@@ -381,7 +431,7 @@ export const Navbar: React.FC = () => {
           })()}
           {userEmail && (userRole === 'Admin' || userRole === 'HR Admin' || userRole === 'HR Manager' || userRole === 'HR' || userRole === 'Manager') && (
             <div 
-              onClick={() => navigate('/reporting')} 
+              onClick={() => safeNavigate('/reporting')} 
               className={`nav-link ${location.pathname.startsWith('/reporting') ? 'active' : ''}`} 
               style={{ cursor: 'pointer' }}
               role="button"
@@ -391,7 +441,7 @@ export const Navbar: React.FC = () => {
           )}
           {userEmail && (
             <div 
-              onClick={() => navigate('/leaderboard')} 
+              onClick={() => safeNavigate('/leaderboard')} 
               className={`nav-link ${location.pathname.startsWith('/leaderboard') ? 'active' : ''}`} 
               style={{ cursor: 'pointer' }}
               role="button"
@@ -483,7 +533,7 @@ export const Navbar: React.FC = () => {
           {userEmail ? (
             <div className="user-profile-menu">
               <div 
-                onClick={() => navigate('/dashboard?tab=profile')} 
+                onClick={() => safeNavigate('/dashboard?tab=profile')} 
                 className="user-badge" 
                 style={{ cursor: 'pointer' }}
                 role="button"
@@ -501,7 +551,7 @@ export const Navbar: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <Button variant="primary" onClick={() => navigate('/login')} className="signin-btn">
+            <Button variant="primary" onClick={() => safeNavigate('/login')} className="signin-btn">
               Sign In
             </Button>
           )}
