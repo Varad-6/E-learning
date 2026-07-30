@@ -38,6 +38,7 @@ class EnrollmentResponse(BaseModel):
     completed_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     is_locked: bool = False
+    is_mandatory: bool = False
     progress_records: List[UserProgressResponse] = []
 
     class Config:

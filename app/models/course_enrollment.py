@@ -36,3 +36,9 @@ class CourseEnrollment(Base):
         if self.course:
             return self.course.title
         return ""
+
+    @property
+    def is_mandatory(self) -> bool:
+        if self.course:
+            return self.course.is_mandatory
+        return False

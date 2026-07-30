@@ -37,7 +37,8 @@ def update_tracker():
         ["Phase 5", "AI PDF Exam Generation: pypdf parsing, LLM/NLP prompt, staging review", "AI / Backend / UI", "COMPLETED", "AIExamService parsing, pending_ai_questions staging table, upload button & review in ExamCreator."],
         ["Phase 6", "Employee Leaderboard Tab: Department scoping & self-rank highlighting", "Frontend / API", "COMPLETED", "Enabled Leaderboard link in Navbar for Employee, department scoping, (YOU) badge."],
         ["Phase 7", "Badge System Verification: Milestone triggers (courses & exams)", "Backend / Services", "COMPLETED", "BadgeService milestone evaluation across course completions and graded exams."],
-        ["Phase 8", "Seed AI Department Test Data: AI dept, 5 courses, 5 exams, 5 users", "Database / Seed", "COMPLETED", "Created seed_ai_department.py and seeded complete AI dataset with attempt history."]
+        ["Phase 8", "Seed AI Department Test Data: AI dept, 5 courses, 5 exams, 5 users", "Database / Seed", "COMPLETED", "Created seed_ai_department.py and seeded complete AI dataset with attempt history."],
+        ["Phase 9", "Console & Network Cleanup", "Full-stack Cleanup", "COMPLETED", "Removed unused difficulty-distribution api call, fixed NameError in exams API for Employee/Manager, and cleaned up console logs."]
     ]
 
     pass_fill = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")

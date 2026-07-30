@@ -666,6 +666,8 @@ interface ProgressItem {
 
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
 
+  is_mandatory?: boolean;
+
 }
 
 
@@ -843,8 +845,10 @@ export const Dashboard: React.FC = () => {
     } else if (tab === 'my-courses') {
 
       setActiveMainView('my-courses');
-      if (sub === 'mandatory' || sub === 'available' || sub === 'in_progress' || sub === 'completed') {
+      if (sub === 'available' || sub === 'in_progress' || sub === 'completed') {
         setActiveMyCoursesTab(sub);
+      } else if (sub === 'mandatory') {
+        setActiveMyCoursesTab('available');
       } else {
         setActiveMyCoursesTab('in_progress');
       }
@@ -938,8 +942,8 @@ export const Dashboard: React.FC = () => {
 
   const [managedCourses, setManagedCourses] = useState<Course[]>(DEFAULT_COURSES);
 
-  const [activeCatalogTab, setActiveCatalogTab] = useState<'mandatory' | 'available'>('available');
-  const [activeMyCoursesTab, setActiveMyCoursesTab] = useState<'mandatory' | 'available' | 'in_progress' | 'completed'>('in_progress');
+  const [activeCatalogTab, setActiveCatalogTab] = useState<'available'>('available');
+  const [activeMyCoursesTab, setActiveMyCoursesTab] = useState<'available' | 'in_progress' | 'completed'>('in_progress');
 
 
 
@@ -1019,8 +1023,6 @@ export const Dashboard: React.FC = () => {
 
   const [topPerformersData, setTopPerformersData] = useState<any[]>([]);
 
-  const [difficultyData, setDifficultyData] = useState<any[]>([]);
-
   const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(false);
 
   const [analyticsError, setAnalyticsError] = useState<boolean>(false);
@@ -1037,7 +1039,7 @@ export const Dashboard: React.FC = () => {
 
       const [
 
-        sumRes, compRes, trendRes, deptRes, actRes, topCRes, pfRes, pendRes, topPRes, diffRes
+        sumRes, compRes, trendRes, deptRes, actRes, topCRes, pfRes, pendRes, topPRes
 
       ] = await Promise.all([
 
@@ -1057,9 +1059,7 @@ export const Dashboard: React.FC = () => {
 
         apiCall('/api/dashboard/pending-approvals'),
 
-        apiCall('/api/dashboard/top-performers'),
-
-        apiCall('/api/dashboard/difficulty-distribution')
+        apiCall('/api/dashboard/top-performers')
 
       ]);
 
@@ -1082,8 +1082,6 @@ export const Dashboard: React.FC = () => {
       if (pendRes.ok) setPendingApprovalsData(await pendRes.json());
 
       if (topPRes.ok) setTopPerformersData(await topPRes.json());
-
-      if (diffRes.ok) setDifficultyData(await diffRes.json());
 
     } catch (err) {
 
@@ -1157,7 +1155,9 @@ export const Dashboard: React.FC = () => {
 
             progressPercent: e.progress_percent !== undefined ? e.progress_percent : (e.status === 'completed' ? 100 : 0),
 
-            difficulty: 'Beginner' as const
+            difficulty: 'Beginner' as const,
+
+            is_mandatory: e.is_mandatory || false
 
           };
 
@@ -3163,18 +3163,12 @@ export const Dashboard: React.FC = () => {
 
               <span className="badge role">
 
-                {role === 'Admin' || role === 'SYSTEM_ADMIN' 
-
-                  ? 'System Admin Workspace' 
-
-                  : role === 'HR' || role === 'HR_ADMIN' 
-
-                  ? 'HR Workspace' 
-
-                  : role === 'Manager' || role === 'COURSE_MANAGER' 
-
-                  ? 'Department Head Workspace' 
-
+                {role === 'Admin'
+                  ? 'System Admin Workspace'
+                  : (role === 'HR Admin' || role === 'HR Manager')
+                  ? 'HR Admin Workspace'
+                  : role === 'Manager'
+                  ? 'Department Head Workspace'
                   : 'Employee Workspace'}
 
               </span>
@@ -3315,74 +3309,6 @@ export const Dashboard: React.FC = () => {
 
               <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
 
-                <div className="catalog-tabs-container" style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-
-                  <button
-
-                    type="button"
-
-                    onClick={() => setActiveCatalogTab('mandatory')}
-
-                    style={{
-
-                      border: 'none',
-
-                      background: 'none',
-
-                      fontSize: '1.05rem',
-
-                      fontWeight: 700,
-
-                      color: activeCatalogTab === 'mandatory' ? 'var(--accent-color)' : 'var(--text-secondary)',
-
-                      borderBottom: activeCatalogTab === 'mandatory' ? '2px solid var(--accent-color)' : 'none',
-
-                      paddingBottom: '8px',
-
-                      cursor: 'pointer'
-
-                    }}
-
-                  >
-
-                    Mandatory
-
-                  </button>
-
-                  <button
-
-                    type="button"
-
-                    onClick={() => setActiveCatalogTab('available')}
-
-                    style={{
-
-                      border: 'none',
-
-                      background: 'none',
-
-                      fontSize: '1.05rem',
-
-                      fontWeight: 700,
-
-                      color: activeCatalogTab === 'available' ? 'var(--accent-color)' : 'var(--text-secondary)',
-
-                      borderBottom: activeCatalogTab === 'available' ? '2px solid var(--accent-color)' : 'none',
-
-                      paddingBottom: '8px',
-
-                      cursor: 'pointer'
-
-                    }}
-
-                  >
-
-                    Available
-
-                  </button>
-
-                </div>
-
                 {/* Courses Grid */}
 
                 {(() => {
@@ -3391,13 +3317,17 @@ export const Dashboard: React.FC = () => {
 
                     const isPublished = c.status === 'published' || c.status === 'approved' || c.is_published;
 
-                    if (!isPublished) return false;
-
-                    return activeCatalogTab === 'mandatory' ? c.is_mandatory : !c.is_mandatory;
+                    return isPublished;
 
                   });
 
-                  if (filtered.length === 0) {
+                  const sortedFiltered = [...filtered].sort((a: any, b: any) => {
+                    const aMand = a.is_mandatory ? 1 : 0;
+                    const bMand = b.is_mandatory ? 1 : 0;
+                    return bMand - aMand;
+                  });
+
+                  if (sortedFiltered.length === 0) {
 
                     return (
 
@@ -3417,7 +3347,7 @@ export const Dashboard: React.FC = () => {
 
                     <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
 
-                      {filtered.map((course) => {
+                      {sortedFiltered.map((course) => {
 
                         const enrollmentItem = myProgress.find((p: any) => p.courseId === course.id);
 
@@ -3441,9 +3371,11 @@ export const Dashboard: React.FC = () => {
 
                               overflow: 'hidden', 
 
-                              background: 'var(--bg-card)', 
+                              background: course.is_mandatory ? 'linear-gradient(to bottom right, var(--bg-card), rgba(239, 68, 68, 0.05))' : 'var(--bg-card)', 
 
-                              border: '1px solid var(--border-color)',
+                              border: course.is_mandatory ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)',
+
+                              boxShadow: course.is_mandatory ? '0 0 12px rgba(239, 68, 68, 0.08)' : 'none',
 
                               transition: 'all 0.3s ease',
 
@@ -3459,33 +3391,53 @@ export const Dashboard: React.FC = () => {
 
                             <div>
 
-                              <span 
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
 
-                                className="course-code-tag" 
+                                <span 
 
-                                style={{ 
+                                  className="course-code-tag" 
 
-                                  padding: '2px 8px', 
+                                  style={{ 
 
-                                  borderRadius: '12px', 
+                                    padding: '2px 8px', 
 
-                                  background: 'var(--accent-glow)', 
+                                    borderRadius: '12px', 
 
-                                  color: 'var(--accent-color)', 
+                                    background: 'var(--accent-glow)', 
 
-                                  fontSize: '0.7rem', 
+                                    color: 'var(--accent-color)', 
 
-                                  fontWeight: '800',
+                                    fontSize: '0.7rem', 
 
-                                  textTransform: 'uppercase'
+                                    fontWeight: '800',
 
-                                }}
+                                    textTransform: 'uppercase'
 
-                              >
+                                  }}
 
-                                {course.course_code}
+                                >
 
-                              </span>
+                                  {course.course_code}
+
+                                </span>
+
+                                {course.is_mandatory && (
+                                  <span 
+                                    style={{ 
+                                      padding: '2px 8px', 
+                                      borderRadius: '12px', 
+                                      background: 'rgba(239, 68, 68, 0.1)', 
+                                      color: '#ef4444', 
+                                      fontSize: '0.7rem', 
+                                      fontWeight: '800',
+                                      border: '1px solid rgba(239, 68, 68, 0.2)'
+                                    }}
+                                  >
+                                    Mandatory
+                                  </span>
+                                )}
+
+                              </div>
 
                               <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
 
@@ -4146,26 +4098,9 @@ export const Dashboard: React.FC = () => {
             <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
 
               
-              {/* Sub-tabs for Mandatory, Available, In Progress & Completed */}
+              {/* Sub-tabs for Available, In Progress & Completed */}
               <div className="catalog-tabs-container" style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
 
-                <button
-
-                  type="button"
-                  onClick={() => setActiveMyCoursesTab('mandatory')}
-                  style={{
-                    border: 'none',
-                    background: 'none',
-                    fontSize: '1.05rem',
-                    fontWeight: 700,
-                    color: activeMyCoursesTab === 'mandatory' ? 'var(--accent-color)' : 'var(--text-secondary)',
-                    borderBottom: activeMyCoursesTab === 'mandatory' ? '2px solid var(--accent-color)' : 'none',
-                    paddingBottom: '8px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Mandatory
-                </button>
                 <button
                   type="button"
                   onClick={() => setActiveMyCoursesTab('available')}
@@ -4250,13 +4185,17 @@ export const Dashboard: React.FC = () => {
               <div className="enrolled-courses-section" style={{ width: '100%' }}>
 
                 {(() => {
-                  if (activeMyCoursesTab === 'mandatory' || activeMyCoursesTab === 'available') {
+                  if (activeMyCoursesTab === 'available') {
                     const filtered = managedCourses.filter((c: any) => {
                       const isPublished = c.status === 'published' || c.status === 'approved' || c.is_published;
-                      if (!isPublished) return false;
-                      return activeMyCoursesTab === 'mandatory' ? c.is_mandatory : !c.is_mandatory;
+                      return isPublished;
                     });
-                    if (filtered.length === 0) {
+                    const sortedFiltered = [...filtered].sort((a: any, b: any) => {
+                      const aMand = a.is_mandatory ? 1 : 0;
+                      const bMand = b.is_mandatory ? 1 : 0;
+                      return bMand - aMand;
+                    });
+                    if (sortedFiltered.length === 0) {
                       return (
                         <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)', width: '100%' }}>
                           <BookOpen size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
@@ -4266,7 +4205,7 @@ export const Dashboard: React.FC = () => {
                     }
                     return (
                       <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
-                        {filtered.map((course) => {
+                        {sortedFiltered.map((course) => {
                           const enrollmentItem = myProgress.find((p: any) => p.courseId === course.id);
                           const isEnrolled = !!enrollmentItem;
                           return (
@@ -4278,8 +4217,9 @@ export const Dashboard: React.FC = () => {
                                 flexDirection: 'column', 
                                 borderRadius: 'var(--border-radius-lg)', 
                                 overflow: 'hidden', 
-                                background: 'var(--bg-card)', 
-                                border: '1px solid var(--border-color)',
+                                background: course.is_mandatory ? 'linear-gradient(to bottom right, var(--bg-card), rgba(239, 68, 68, 0.05))' : 'var(--bg-card)', 
+                                border: course.is_mandatory ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)',
+                                boxShadow: course.is_mandatory ? '0 0 12px rgba(239, 68, 68, 0.08)' : 'none',
                                 transition: 'all 0.3s ease',
                                 padding: '20px',
                                 justifyContent: 'space-between',
@@ -4287,20 +4227,37 @@ export const Dashboard: React.FC = () => {
                               }}
                             >
                               <div>
-                                <span 
-                                  className="course-code-tag" 
-                                  style={{ 
-                                    padding: '2px 8px', 
-                                    borderRadius: '12px', 
-                                    background: 'var(--accent-glow)', 
-                                    color: 'var(--accent-color)', 
-                                    fontSize: '0.7rem', 
-                                    fontWeight: '800',
-                                    textTransform: 'uppercase'
-                                  }}
-                                >
-                                  {course.course_code}
-                                </span>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                  <span 
+                                    className="course-code-tag" 
+                                    style={{ 
+                                      padding: '2px 8px', 
+                                      borderRadius: '12px', 
+                                      background: 'var(--accent-glow)', 
+                                      color: 'var(--accent-color)', 
+                                      fontSize: '0.7rem', 
+                                      fontWeight: '800',
+                                      textTransform: 'uppercase'
+                                    }}
+                                  >
+                                    {course.course_code}
+                                  </span>
+                                  {course.is_mandatory && (
+                                    <span 
+                                      style={{ 
+                                        padding: '2px 8px', 
+                                        borderRadius: '12px', 
+                                        background: 'rgba(239, 68, 68, 0.1)', 
+                                        color: '#ef4444', 
+                                        fontSize: '0.7rem', 
+                                        fontWeight: '800',
+                                        border: '1px solid rgba(239, 68, 68, 0.2)'
+                                      }}
+                                    >
+                                      Mandatory
+                                    </span>
+                                  )}
+                                </div>
                                 <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
                                   {course.title}
                                 </h4>
@@ -4329,8 +4286,14 @@ export const Dashboard: React.FC = () => {
                       </div>
                     );
                   } else {
-                    const shownCourses = myProgress.filter(p => {
+                    const filteredShown = myProgress.filter(p => {
                       return activeMyCoursesTab === 'completed' ? p.progressPercent === 100 : p.progressPercent < 100;
+                    });
+
+                    const shownCourses = [...filteredShown].sort((a: any, b: any) => {
+                      const aMand = a.is_mandatory ? 1 : 0;
+                      const bMand = b.is_mandatory ? 1 : 0;
+                      return bMand - aMand;
                     });
 
                     if (shownCourses.length === 0) {
@@ -4357,8 +4320,9 @@ export const Dashboard: React.FC = () => {
                               flexDirection: 'column', 
                               borderRadius: 'var(--border-radius-lg)', 
                               overflow: 'hidden', 
-                              background: 'var(--bg-card)', 
-                              border: '1px solid var(--border-color)',
+                              background: item.is_mandatory ? 'linear-gradient(to bottom right, var(--bg-card), rgba(239, 68, 68, 0.05))' : 'var(--bg-card)', 
+                              border: item.is_mandatory ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)',
+                              boxShadow: item.is_mandatory ? '0 0 12px rgba(239, 68, 68, 0.08)' : 'none',
                               transition: 'all 0.3s ease',
                               padding: '20px',
                               justifyContent: 'space-between',
@@ -4366,20 +4330,37 @@ export const Dashboard: React.FC = () => {
                             }}
                           >
                             <div>
-                              <span 
-                                className="course-code-tag" 
-                                style={{ 
-                                  padding: '2px 8px', 
-                                  borderRadius: '12px', 
-                                  background: 'var(--accent-glow)', 
-                                  color: 'var(--accent-color)', 
-                                  fontSize: '0.7rem', 
-                                  fontWeight: '800',
-                                  textTransform: 'uppercase'
-                                }}
-                              >
-                                {item.courseCode}
-                              </span>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <span 
+                                  className="course-code-tag" 
+                                  style={{ 
+                                    padding: '2px 8px', 
+                                    borderRadius: '12px', 
+                                    background: 'var(--accent-glow)', 
+                                    color: 'var(--accent-color)', 
+                                    fontSize: '0.7rem', 
+                                    fontWeight: '800',
+                                    textTransform: 'uppercase'
+                                  }}
+                                >
+                                  {item.courseCode}
+                                </span>
+                                {item.is_mandatory && (
+                                  <span 
+                                    style={{ 
+                                      padding: '2px 8px', 
+                                      borderRadius: '12px', 
+                                      background: 'rgba(239, 68, 68, 0.1)', 
+                                      color: '#ef4444', 
+                                      fontSize: '0.7rem', 
+                                      fontWeight: '800',
+                                      border: '1px solid rgba(239, 68, 68, 0.2)'
+                                    }}
+                                  >
+                                    Mandatory
+                                  </span>
+                                )}
+                              </div>
                               <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
                                 {item.title}
                               </h4>
@@ -4914,7 +4895,11 @@ export const Dashboard: React.FC = () => {
             }}>
               <div>
                 <h3 style={{ fontSize: '1.6rem', fontWeight: 850, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  System Admin Workspace 🛡️
+                  {role === 'Admin'
+                    ? 'System Admin Workspace'
+                    : (role === 'HR Admin' || role === 'HR Manager')
+                    ? 'HR Admin Workspace'
+                    : 'Workspace'}
                 </h3>
                 <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                   Real-time corporate analytics, curriculum drop-off statistics, and department evaluations.

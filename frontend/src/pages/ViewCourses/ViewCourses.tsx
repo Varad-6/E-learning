@@ -105,7 +105,8 @@ export const ViewCourses: React.FC = () => {
             courseCode: e.course_code || '',
             title: e.course_title || 'Enrolled Course',
             progressPercent: progress,
-            difficulty: 'Beginner' as const
+            difficulty: 'Beginner' as const,
+            is_mandatory: e.is_mandatory || false
           };
         });
         setMyProgress(mappedProgress);
@@ -172,16 +173,29 @@ export const ViewCourses: React.FC = () => {
   }
 
   // Enrolled list
-  const activeEnrollments = myProgress.filter(p => p.progressPercent < 100);
-  const completedEnrollments = myProgress.filter(p => p.progressPercent === 100);
+  const activeEnrollments = [...myProgress.filter(p => p.progressPercent < 100)].sort((a, b) => {
+    const aMand = a.is_mandatory ? 1 : 0;
+    const bMand = b.is_mandatory ? 1 : 0;
+    return bMand - aMand;
+  });
+  const completedEnrollments = [...myProgress.filter(p => p.progressPercent === 100)].sort((a, b) => {
+    const aMand = a.is_mandatory ? 1 : 0;
+    const bMand = b.is_mandatory ? 1 : 0;
+    return bMand - aMand;
+  });
 
   // Available list
-  const availableCourses = courses.filter(c => {
+  const filteredAvailable = courses.filter(c => {
     const isApproved = c.status === 'Approved' || c.is_published;
     if (!isApproved) return false;
     const isAlreadyEnrolled = myProgress.some(p => p.courseId === c.id);
     if (isAlreadyEnrolled) return false;
     return true;
+  });
+  const availableCourses = [...filteredAvailable].sort((a, b) => {
+    const aMand = a.is_mandatory ? 1 : 0;
+    const bMand = b.is_mandatory ? 1 : 0;
+    return bMand - aMand;
   });
 
   return (
@@ -282,8 +296,9 @@ export const ViewCourses: React.FC = () => {
                       flexDirection: 'column', 
                       borderRadius: 'var(--border-radius-lg)', 
                       overflow: 'hidden', 
-                      background: 'var(--bg-card)', 
-                      border: '1px solid var(--border-color)',
+                      background: item.is_mandatory ? 'linear-gradient(to bottom right, var(--bg-card), rgba(239, 68, 68, 0.05))' : 'var(--bg-card)', 
+                      border: item.is_mandatory ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)',
+                      boxShadow: item.is_mandatory ? '0 0 12px rgba(239, 68, 68, 0.08)' : 'none',
                       transition: 'all 0.3s ease',
                       padding: '20px',
                       justifyContent: 'space-between',
@@ -291,20 +306,37 @@ export const ViewCourses: React.FC = () => {
                     }}
                   >
                     <div>
-                      <span 
-                        className="course-code-tag" 
-                        style={{ 
-                          padding: '2px 8px', 
-                          borderRadius: '12px', 
-                          background: 'var(--accent-glow)', 
-                          color: 'var(--accent-color)', 
-                          fontSize: '0.7rem', 
-                          fontWeight: '800',
-                          textTransform: 'uppercase'
-                        }}
-                      >
-                        {item.courseCode}
-                      </span>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <span 
+                          className="course-code-tag" 
+                          style={{ 
+                            padding: '2px 8px', 
+                            borderRadius: '12px', 
+                            background: 'var(--accent-glow)', 
+                            color: 'var(--accent-color)', 
+                            fontSize: '0.7rem', 
+                            fontWeight: '800',
+                            textTransform: 'uppercase'
+                          }}
+                        >
+                          {item.courseCode}
+                        </span>
+                        {item.is_mandatory && (
+                          <span 
+                            style={{ 
+                              padding: '2px 8px', 
+                              borderRadius: '12px', 
+                              background: 'rgba(239, 68, 68, 0.1)', 
+                              color: '#ef4444', 
+                              fontSize: '0.7rem', 
+                              fontWeight: '800',
+                              border: '1px solid rgba(239, 68, 68, 0.2)'
+                            }}
+                          >
+                            Mandatory
+                          </span>
+                        )}
+                      </div>
                       <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
                         {item.title}
                       </h4>
@@ -351,8 +383,9 @@ export const ViewCourses: React.FC = () => {
                       flexDirection: 'column', 
                       borderRadius: 'var(--border-radius-lg)', 
                       overflow: 'hidden', 
-                      background: 'var(--bg-card)', 
-                      border: '1px solid var(--border-color)',
+                      background: item.is_mandatory ? 'linear-gradient(to bottom right, var(--bg-card), rgba(239, 68, 68, 0.05))' : 'var(--bg-card)', 
+                      border: item.is_mandatory ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)',
+                      boxShadow: item.is_mandatory ? '0 0 12px rgba(239, 68, 68, 0.08)' : 'none',
                       transition: 'all 0.3s ease',
                       padding: '20px',
                       justifyContent: 'space-between',
@@ -360,20 +393,37 @@ export const ViewCourses: React.FC = () => {
                     }}
                   >
                     <div>
-                      <span 
-                        className="course-code-tag" 
-                        style={{ 
-                          padding: '2px 8px', 
-                          borderRadius: '12px', 
-                          background: 'var(--accent-glow)', 
-                          color: 'var(--accent-color)', 
-                          fontSize: '0.7rem', 
-                          fontWeight: '800',
-                          textTransform: 'uppercase'
-                        }}
-                      >
-                        {item.courseCode}
-                      </span>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <span 
+                          className="course-code-tag" 
+                          style={{ 
+                            padding: '2px 8px', 
+                            borderRadius: '12px', 
+                            background: 'var(--accent-glow)', 
+                            color: 'var(--accent-color)', 
+                            fontSize: '0.7rem', 
+                            fontWeight: '800',
+                            textTransform: 'uppercase'
+                          }}
+                        >
+                          {item.courseCode}
+                        </span>
+                        {item.is_mandatory && (
+                          <span 
+                            style={{ 
+                              padding: '2px 8px', 
+                              borderRadius: '12px', 
+                              background: 'rgba(239, 68, 68, 0.1)', 
+                              color: '#ef4444', 
+                              fontSize: '0.7rem', 
+                              fontWeight: '800',
+                              border: '1px solid rgba(239, 68, 68, 0.2)'
+                            }}
+                          >
+                            Mandatory
+                          </span>
+                        )}
+                      </div>
                       <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
                         {item.title}
                       </h4>
@@ -420,8 +470,9 @@ export const ViewCourses: React.FC = () => {
                       flexDirection: 'column', 
                       borderRadius: 'var(--border-radius-lg)', 
                       overflow: 'hidden', 
-                      background: 'var(--bg-card)', 
-                      border: '1px solid var(--border-color)',
+                      background: course.is_mandatory ? 'linear-gradient(to bottom right, var(--bg-card), rgba(239, 68, 68, 0.05))' : 'var(--bg-card)', 
+                      border: course.is_mandatory ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)',
+                      boxShadow: course.is_mandatory ? '0 0 12px rgba(239, 68, 68, 0.08)' : 'none',
                       transition: 'all 0.3s ease',
                       padding: '20px',
                       justifyContent: 'space-between',

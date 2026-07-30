@@ -1,5 +1,13 @@
 # Changelog
 
+## [2026-07-29] Kaizen LMS — Console & Network Cleanup Sprint
+- **Task 1 (Vite & Console Cleanup)**:
+  - Removed the unused `difficultyData` state and the associated fetch request to the non-existent `/api/dashboard/difficulty-distribution` endpoint in `Dashboard.tsx` to eliminate the 404 network error.
+  - Corrected the import of the `or_` function from `sqlalchemy` at the module level in `app/api/exam.py` to fix the NameError causing 500 internal server errors when non-admin users fetched exams.
+  - Stripped diagnostic emojis and exclamation symbols from user role titles in `Dashboard.tsx` to align with strict compliance guidelines.
+  - Configured employee and manager leaderboard initial loading to dynamically match the `department_id` returned by the backend response instead of defaulting to the first department index.
+  - Verified compilation and production bundle build cleanliness, resolving all remaining console and network failures.
+
 ## [2026-07-28] Kaizen LMS — Course Department Filtering & Exam Grading Fix Sprint
 - **Task 1 (Course Department Filtering)**:
   - Updated `/api/courses/available` endpoint in `app/api/course.py` to accept an optional `department_id` query parameter.

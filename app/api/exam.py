@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, status, HTTPException, File, UploadFile, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from uuid import UUID
 from typing import List, Dict, Any, Optional
 import datetime
