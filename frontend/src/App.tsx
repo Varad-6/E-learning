@@ -21,7 +21,10 @@ import { Leaderboard } from './pages/Leaderboard/Leaderboard';
 import './styles/index.css';
 
 // Clear old credentials on fresh session loads (tab/browser restarts)
-if (typeof window !== 'undefined' && !sessionStorage.getItem('is_session_active')) {
+// We use a session cookie instead of sessionStorage because sessionStorage is isolated per tab.
+// This prevents logging the user out in all tabs when they open a new tab.
+const hasSessionCookie = typeof document !== 'undefined' && document.cookie.includes('kaizen_session_active=true');
+if (typeof window !== 'undefined' && !hasSessionCookie) {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('isLoggedInEmail');
@@ -29,7 +32,7 @@ if (typeof window !== 'undefined' && !sessionStorage.getItem('is_session_active'
   localStorage.removeItem('isLoggedInDept');
   localStorage.removeItem('profileName');
   localStorage.removeItem('profileEmpId');
-  sessionStorage.setItem('is_session_active', 'true');
+  document.cookie = "kaizen_session_active=true; path=/";
 }
 
 const AppContent: React.FC = () => {
