@@ -274,26 +274,32 @@ def approve_course(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
-    course = CourseService.approve_course(db, course_id=course_id, reviewer_id=current_user.id)
+    approval = CourseService.approve_course(db, course_id=course_id, reviewer_id=current_user.id)
+    course = db.query(Course).filter(Course.id == course_id).first()
+    course_title = course.title if course else "Course"
+    course_code = (course.course_code or str(course_id)) if course else str(course_id)
+    creator_id = course.created_by if course else None
+
     AuditService.create_entry(
         db=db,
         actor=current_user.email,
         action="APPROVE_COURSE",
-        target=course.course_code or str(course.id),
-        details=f"Approved course: '{course.title}'"
+        target=course_code,
+        details=f"Approved course: '{course_title}'"
     )
     
     # 🟢 Trigger notifications
     # Creator notification
-    NotificationService.create_notification(
-        db,
-        user_id=course.creator_id,
-        type="course_approved",
-        title="Course Approved! 🎉",
-        message=f"Your course '{course.title}' has been approved and published by the managers.",
-        related_entity_id=course.id
-    )
-    return course
+    if creator_id:
+        NotificationService.create_notification(
+            db,
+            user_id=creator_id,
+            type="course_approved",
+            title="Course Approved! 🎉",
+            message=f"Your course '{course_title}' has been approved and published by the managers.",
+            related_entity_id=course_id
+        )
+    return approval
 
 @router.post(
     "/{course_id}/reject",
@@ -307,25 +313,31 @@ def reject_course(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
-    course = CourseService.reject_course(
+    approval = CourseService.reject_course(
         db, course_id=course_id, reviewer_id=current_user.id, rejection_reason=rejection_reason
     )
+    course = db.query(Course).filter(Course.id == course_id).first()
+    course_title = course.title if course else "Course"
+    course_code = (course.course_code or str(course_id)) if course else str(course_id)
+    creator_id = course.created_by if course else None
+
     AuditService.create_entry(
         db=db,
         actor=current_user.email,
         action="REJECT_COURSE",
-        target=course.course_code or str(course.id),
-        details=f"Rejected course '{course.title}'. Reason: {rejection_reason}"
+        target=course_code,
+        details=f"Rejected course '{course_title}'. Reason: {rejection_reason}"
     )
     
     # 🟢 Trigger notifications
     # Creator notification
-    NotificationService.create_notification(
-        db,
-        user_id=course.creator_id,
-        type="course_rejected",
-        title="Course Rejected ❌",
-        message=f"Your course '{course.title}' was rejected. Reason: {rejection_reason}",
-        related_entity_id=course.id
-    )
-    return course
+    if creator_id:
+        NotificationService.create_notification(
+            db,
+            user_id=creator_id,
+            type="course_rejected",
+            title="Course Rejected ❌",
+            message=f"Your course '{course_title}' was rejected. Reason: {rejection_reason}",
+            related_entity_id=course_id
+        )
+    return approval

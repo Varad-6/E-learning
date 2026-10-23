@@ -5,7 +5,7 @@ import os
 SERVER = os.environ.get("DEPLOY_SERVER", "root@192.168.50.55")
 PROJECT_ROOT = os.environ.get("DEPLOY_PROJECT_ROOT", "/var/www/kaizen")
 
-# Complete List of all 48 files modified/created in deployment phase 1 + hardening
+# Complete List of all 49 files modified/created in deployment phase 1 + hardening
 FILES_TO_COPY = [
     # 1. Database Migrations & Alembic
     ("alembic/env.py", f"{PROJECT_ROOT}/alembic/"),
@@ -44,6 +44,7 @@ FILES_TO_COPY = [
     ("app/api/employee_dashboard.py", f"{PROJECT_ROOT}/app/api/"),
     ("app/api/enrollment.py", f"{PROJECT_ROOT}/app/api/"),
     ("app/api/module.py", f"{PROJECT_ROOT}/app/api/"),
+    ("app/api/quiz.py", f"{PROJECT_ROOT}/app/api/"),
 
     # 7. Frontend Source Pages & Components
     ("frontend/src/App.tsx", f"{PROJECT_ROOT}/frontend/src/"),
@@ -89,9 +90,10 @@ def main():
 
         remote_path = f"{SERVER}:{remote_dir}"
         cmd = ["scp", local_file, remote_path]
-
+        
         print(f"📤 Transferring: {local_file} -> {remote_dir}")
         try:
+            # Run SCP command
             result = subprocess.run(cmd, check=True)
             if result.returncode == 0:
                 print(f"✅ Successfully copied {local_file}")
@@ -105,13 +107,12 @@ def main():
     print(f"   Successful Transfers: {success_count}")
     print(f"   Failed/Skipped: {fail_count}")
     print("=" * 60)
-    print("Next Steps on Remote Server:")
+    print("Next Steps on Remote Host:")
     print("1. SSH into the server: ssh " + SERVER)
-    print("2. Navigate to project root: cd " + PROJECT_ROOT)
+    print("2. Navigate to directory: cd " + PROJECT_ROOT)
     print("3. Run database migrations: alembic upgrade head")
-    print("4. Build frontend: cd frontend && npm run build")
-    print("5. Restart services: systemctl restart kaizen-backend kaizen-frontend")
-    print("=" * 60)
+    print("4. Restart backend: sudo systemctl restart kaizen-backend (or restart docker/pm2)")
+    print("5. Rebuild frontend if needed: cd frontend && npm run build")
 
 if __name__ == "__main__":
     main()
