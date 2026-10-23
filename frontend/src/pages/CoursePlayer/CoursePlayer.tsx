@@ -506,17 +506,23 @@ export const CoursePlayer: React.FC = () => {
     }
   };
 
-  // Completion & unlock helpers: All course levels, modules, and sub-modules are optional and unlocked
+  // Completion & sequential unlock helpers
   const isModuleCompleted = (mod: Module) => {
     return mod.contents.every(item => completedContentIds.has(item.id));
   };
 
-  const isModuleUnlocked = (_modId: string) => {
-    return true; // All modules are optional with no compulsory locks
+  const isModuleUnlocked = (modId: string) => {
+    if (courseLocked) return true; // Review Mode: all modules unlocked
+    const modIndex = modules.findIndex(m => m.id === modId);
+    if (modIndex <= 0) return true; // First module is always unlocked
+    return isModuleCompleted(modules[modIndex - 1]);
   };
 
-  const isItemUnlocked = (_itemId: string) => {
-    return true; // All sub-modules and topics are freely accessible
+  const isItemUnlocked = (itemId: string) => {
+    if (courseLocked) return true; // Review Mode: all items unlocked
+    const parentMod = modules.find(m => m.contents.some(item => item.id === itemId));
+    if (!parentMod) return true;
+    return isModuleUnlocked(parentMod.id);
   };
 
   const handleMarkContentComplete = async (contentId: string) => {
@@ -558,7 +564,13 @@ export const CoursePlayer: React.FC = () => {
     }
 
     if (activeContentIndex < flatContents.length - 1) {
-      setActiveContentIndex(activeContentIndex + 1);
+      const nextIndex = activeContentIndex + 1;
+      const nextItem = flatContents[nextIndex];
+      if (isItemUnlocked(nextItem.id) || courseLocked) {
+        setActiveContentIndex(nextIndex);
+      } else {
+        alert('This module is locked. You must complete the preceding module first!');
+      }
     }
   };
 

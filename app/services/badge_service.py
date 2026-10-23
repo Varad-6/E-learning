@@ -21,7 +21,7 @@ class BadgeService:
         ).count()
 
         # Also count graded exam submissions and compute performance scores
-        from app.models.exam import ExamSubmission
+        from app.models.exam import ExamSubmission, ExamGrade
         from app.models.quiz_attempt import QuizAttempt
         from sqlalchemy import func, or_
 
@@ -34,7 +34,9 @@ class BadgeService:
 
         # Calculate average score percentage across quizzes and exams
         avg_quiz = db.query(func.avg(QuizAttempt.score)).filter(QuizAttempt.user_id == user_id).scalar()
-        avg_exam = db.query(func.avg(ExamSubmission.total_score)).filter(
+        avg_exam = db.query(func.avg(ExamGrade.overall_score * 10)).join(
+            ExamSubmission, ExamGrade.submission_id == ExamSubmission.id
+        ).filter(
             ExamSubmission.user_id == user_id,
             ExamSubmission.status == "graded"
         ).scalar()

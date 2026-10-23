@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-10-23] Deployment Readiness & Sequential Module Progression Hardening
+- Problem: Commit 7f0703c deleted backend sequential module validation from app/services/enrollment_service.py and hardcoded frontend unlock bypass in CoursePlayer.tsx when making course tiers nullable, creating an API skip-ahead exploit risk. In addition, production API origin fallback in frontend/src/services/api.ts was hardcoding port 8000 instead of dynamically utilizing window.location.origin. During live Playwright test pass, an AttributeError on ExamSubmission.total_score was also discovered in BadgeService.check_and_award_badges.
+- Changed:
+  - app/services/enrollment_service.py: Restored server-side sequential module locking in EnrollmentService.update_progress with safe handling of nullable tier and untiered sequences.
+  - app/services/badge_service.py: Corrected query from non-existent ExamSubmission.total_score to join ExamGrade.overall_score * 10, properly scaling exam averages to percentages.
+  - frontend/src/pages/CoursePlayer/CoursePlayer.tsx: Restored isModuleUnlocked and isItemUnlocked sequential checks to enforce that locked modules remain locked unless in Review Mode.
+  - frontend/src/services/api.ts: Updated getApiBaseUrl() to fall back to window.location.origin in production/reverse-proxy deployments while retaining port 8000 for local dev server ports.
+  - deploy.py & zip_updates.py: Parameterized deployment server and added enrollment_service.py, badge_service.py, and migration 9738474ae94d to transfer manifests.
+- Tests added: Automated sequential lock sorting test; full 13-stage Playwright E2E visible Chromium test pass verifying Admin, Manager, and Employee end-to-end flows; frontend production build verification (tsc -b && vite build).
+- Migration: No new migration (applied and documented migration 9738474ae94d_optional_courses_quizzes_and_badge_ in deployment scripts).
+- Known risk/follow-up: Ensure lembic upgrade head is executed on the deployment host before starting backend services.
+
 ## [2026-07-29] Kaizen LMS — Console & Network Cleanup Sprint
 - **Task 1 (Vite & Console Cleanup)**:
   - Removed the unused `difficultyData` state and the associated fetch request to the non-existent `/api/dashboard/difficulty-distribution` endpoint in `Dashboard.tsx` to eliminate the 404 network error.

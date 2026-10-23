@@ -3,8 +3,11 @@ const getApiBaseUrl = () => {
     return import.meta.env.VITE_API_BASE_URL;
   }
   if (typeof window !== 'undefined') {
-    const port = window.location.port === '5180' || window.location.port === '5181' ? '8000' : '8000';
-    return `${window.location.protocol}//${window.location.hostname}:${port}`;
+    const isDevServer = ['5173', '5174', '5180', '5181', '3000'].includes(window.location.port);
+    if (isDevServer) {
+      return `${window.location.protocol}//${window.location.hostname}:8000`;
+    }
+    return window.location.origin;
   }
   return 'http://127.0.0.1:8000';
 };
