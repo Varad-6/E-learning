@@ -1,5 +1,6 @@
 import zipfile
 import os
+import shutil
 
 # Pure Application Code & Migrations for Deployment Handoff
 FILES_TO_ZIP = [
@@ -40,8 +41,12 @@ FILES_TO_ZIP = [
     "app/api/employee_dashboard.py",
     "app/api/enrollment.py",
     "app/api/module.py",
+    "app/api/quiz.py",
 
-    # 7. Frontend Source Pages & Components
+    # 7. Deployment Script
+    "deploy.py",
+
+    # 8. Frontend Source Pages & Components
     "frontend/src/App.tsx",
     "frontend/src/components/Navbar/Navbar.tsx",
     "frontend/src/pages/Admin/UserAdminStudio.tsx",
@@ -59,9 +64,19 @@ FILES_TO_ZIP = [
     "frontend/src/services/api.ts",
     "frontend/src/styles/theme.css",
 
-    # 8. Frontend Config
+    # 9. Frontend Config
     "frontend/vite.config.ts",
 ]
+
+def get_desktop_path():
+    userprofile = os.environ.get("USERPROFILE", "")
+    onedrive_desktop = os.path.join(userprofile, "OneDrive - Abhiyanta India Solutions Pvt Ltd", "Desktop")
+    if os.path.exists(onedrive_desktop):
+        return onedrive_desktop
+    regular_desktop = os.path.join(userprofile, "Desktop")
+    if os.path.exists(regular_desktop):
+        return regular_desktop
+    return None
 
 def main():
     zip_filename = "update.zip"
@@ -82,7 +97,7 @@ def main():
                 print(f"  ! Missing: {file_path}")
                 missing_count += 1
 
-        # Add pre-built production frontend dist assets
+        # Add pre-built production frontend dist assets if present
         if os.path.exists("frontend/dist"):
             print("  + Packaging frontend/dist production bundle...")
             for root, _, files in os.walk("frontend/dist"):
@@ -93,7 +108,18 @@ def main():
                     added_count += 1
 
     print("=" * 60)
-    print(f"SUCCESS: Created {zip_filename} with {added_count} files ({missing_count} missing)")
+    print(f"SUCCESS: Created local {zip_filename} with {added_count} files ({missing_count} missing)")
+
+    desktop = get_desktop_path()
+    if desktop:
+        desktop_zip = os.path.join(desktop, "Kaizen_Deployment_Updates.zip")
+        try:
+            shutil.copy2(zip_filename, desktop_zip)
+            print(f"[SUCCESS] Also saved to Desktop: {desktop_zip}")
+        except Exception as e:
+            print(f"[WARNING] Could not copy to Desktop ({desktop_zip}): {e}")
+    else:
+        print("[WARNING] Could not locate Desktop path.")
     print("=" * 60)
 
 if __name__ == "__main__":
