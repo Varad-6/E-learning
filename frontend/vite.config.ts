@@ -6,11 +6,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    port: 5173,
-    strictPort: true,
-    hmr: {
-      clientPort: 5173,
-    },
+    port: 5180,
+    strictPort: false,
     watch: {
       usePolling: true,
     }

@@ -32,6 +32,9 @@ export const ModuleEditor: React.FC = () => {
 
   // State
   const [moduleTitle, setModuleTitle] = useState('Explore Module');
+  const [moduleDescription, setModuleDescription] = useState('');
+  const [isQuizOptional, setIsQuizOptional] = useState(true);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [notes, setNotes] = useState('');
   const [quizzes, setQuizzes] = useState<QuizQuestion[]>([]);
@@ -40,6 +43,8 @@ export const ModuleEditor: React.FC = () => {
   // Drag and Drop States
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dragAllowed, setDragAllowed] = useState(false);
+  const [courseIsPublished, setCourseIsPublished] = useState(false);
   
   // Right Tab View State
   const [activeTab, setActiveTab] = useState<'preview' | 'quiz' | 'notes'>('preview');
@@ -54,11 +59,21 @@ export const ModuleEditor: React.FC = () => {
   const fetchModuleWorkspace = async () => {
     if (!moduleId) return;
     try {
+      // 0. Fetch parent course status to check if published
+      if (courseId) {
+        const courseRes = await apiCall(`/api/courses/${courseId}`);
+        if (courseRes.ok) {
+          const courseData = await courseRes.json();
+          setCourseIsPublished(!!courseData.is_published || courseData.status?.toLowerCase() === 'published');
+        }
+      }
+
       // 1. Fetch Module details
       const modRes = await apiCall(`/api/modules/${moduleId}`);
       if (modRes.ok) {
         const modData = await modRes.json();
-        setModuleTitle(modData.title);
+        setModuleTitle(modData.title || '');
+        if (modData.description) setModuleDescription(modData.description);
       }
 
       // 2. Fetch Module Blocks Content
@@ -154,12 +169,22 @@ export const ModuleEditor: React.FC = () => {
       return true;
     }
 
+    // Direct uploaded media paths are always valid
+    if (value.trim().startsWith('/uploads/')) {
+      setValidationErrors(prev => {
+        const copy = { ...prev };
+        delete copy[blockId];
+        return copy;
+      });
+      return true;
+    }
+
     let errorMsg = '';
     const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?/;
     const isUrl = urlPattern.test(value.trim());
 
     if (!value.trim().startsWith('http://') && !value.trim().startsWith('https://')) {
-      errorMsg = 'URL must start with http:// or https://';
+      errorMsg = 'URL must start with http://, https:// or be an uploaded /uploads/ file';
     } else if (!isUrl) {
       errorMsg = 'Please enter a valid URL';
     } else if (type === 'youtube') {
@@ -179,6 +204,35 @@ export const ModuleEditor: React.FC = () => {
         return copy;
       });
       return true;
+    }
+  };
+
+  // Direct media upload handler
+  const handleUploadFileForBlock = async (blockId: string, file: File, mediaType: 'video' | 'image') => {
+    setIsUploadingMedia(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      const res = await fetch(`/api/modules/${moduleId}/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      if (res.ok) {
+        const data = await res.json();
+        updateBlockValue(blockId, data.file_path);
+        triggerToast(`Direct ${mediaType} uploaded and embedded successfully!`, 'success');
+      } else {
+        const err = await res.json();
+        triggerToast(err.detail || 'Failed to upload media file', 'error');
+      }
+    } catch (e: any) {
+      triggerToast('Upload failed: ' + (e.message || 'Server error'), 'error');
+    } finally {
+      setIsUploadingMedia(false);
     }
   };
 
@@ -202,6 +256,17 @@ export const ModuleEditor: React.FC = () => {
     }
 
     try {
+      // 0. Save Module Name and Details
+      if (moduleTitle.trim()) {
+        await apiCall(`/api/modules/${moduleId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            title: moduleTitle.trim(),
+            description: moduleDescription.trim()
+          })
+        });
+      }
+
       // 1. Save Content Blocks (Delete all existing contents first, then recreate them)
       const existingRes = await apiCall(`/api/modules/${moduleId}/contents`);
       if (existingRes.ok) {
@@ -244,6 +309,7 @@ export const ModuleEditor: React.FC = () => {
           passing_score: 70,
           time_limit_minutes: 15,
           is_published: true,
+          is_optional: isQuizOptional,
           questions: quizzes.map((q) => {
             let correct_answer = "";
             if (q.question_type === 'msq') {
@@ -408,17 +474,64 @@ export const ModuleEditor: React.FC = () => {
           variant="primary" 
           onClick={handleSave}
           leftIcon={<Save size={16} />}
+          disabled={courseIsPublished}
+          title={courseIsPublished ? 'Revert course to draft to save changes' : undefined}
         >
           Save Workspace
         </Button>
       </div>
 
-      <div className="creator-header" style={{ marginBottom: '32px' }}>
-        <div>
-          <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-color)', fontWeight: '700' }}>Module Editor</span>
-          <h1 style={{ fontSize: '1.8rem', marginTop: '4px' }}>{moduleTitle}</h1>
+      <div className="creator-header glass-panel" style={{ marginBottom: '24px', padding: '20px 24px' }}>
+        <div style={{ width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-color)', fontWeight: '700' }}>
+              Module Editor • Editable Module Details
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Edit3 size={18} style={{ color: 'var(--accent-color)', flexShrink: 0 }} />
+              <input 
+                type="text"
+                className="form-input-styled"
+                value={moduleTitle}
+                onChange={(e) => setModuleTitle(e.target.value)}
+                placeholder="Module Name (e.g. Continuous Improvement Foundations)"
+                style={{ fontSize: '1.3rem', fontWeight: '700', padding: '8px 12px' }}
+                disabled={courseIsPublished}
+              />
+            </div>
+            <textarea 
+              className="form-input-styled"
+              value={moduleDescription}
+              onChange={(e) => setModuleDescription(e.target.value)}
+              placeholder="Module description and overview notes..."
+              style={{ minHeight: '60px', fontSize: '0.9rem', padding: '8px 12px' }}
+              disabled={courseIsPublished}
+            />
+          </div>
         </div>
       </div>
+
+      {courseIsPublished && (
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.08)',
+          border: '1px solid rgba(245, 158, 11, 0.2)',
+          color: 'var(--text-primary)',
+          padding: '16px 20px',
+          borderRadius: 'var(--border-radius-md)',
+          marginBottom: '24px',
+          fontSize: '0.88rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+          <div>
+            <strong>Course is currently Published & Live.</strong> Content blocks and assessment inputs are locked in read-only mode. Please revert the course to a Draft in the Syllabus workspace if you need to modify its curriculum.
+          </div>
+        </div>
+      )}
 
       {/* Editor Main Grid (65% Editor Workspace, 35% Utilities Panel) */}
       <div className="editor-workspace-layout">
@@ -433,12 +546,13 @@ export const ModuleEditor: React.FC = () => {
               Create and reorder headers, textual descriptions, links, attachments, and videos. Use the ↑ and ↓ cursor control arrows to shift element hierarchy.
             </p>
 
-            <div className="content-blocks-list">
+            <fieldset disabled={courseIsPublished} style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
+              <div className="content-blocks-list">
               {blocks.map((block, index) => (
                 <div 
                   key={block.id} 
                   className={`block-editor-item ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
-                  draggable
+                  draggable={dragAllowed || draggedIndex !== null}
                   onDragStart={(e) => handleDragStart(e, index)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDrop={(e) => handleDrop(e, index)}
@@ -446,7 +560,13 @@ export const ModuleEditor: React.FC = () => {
                 >
                   
                   {/* Drag Grip Handle */}
-                  <div className="block-drag-handle" style={{ cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px' }} title="Drag block to reorder">
+                  <div 
+                    className="block-drag-handle" 
+                    style={{ cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px' }} 
+                    title="Drag block to reorder"
+                    onMouseEnter={() => setDragAllowed(true)}
+                    onMouseLeave={() => setDragAllowed(false)}
+                  >
                     <GripVertical size={18} />
                   </div>
 
@@ -537,14 +657,34 @@ export const ModuleEditor: React.FC = () => {
                     )}
 
                     {block.type === 'image' && (
-                      <div style={{ width: '100%' }}>
-                        <input 
-                          type="url" 
-                          className="form-input-styled" 
-                          placeholder="Image Link or URL (e.g. https://domain.com/picture.png)..."
-                          value={block.value}
-                          onChange={(e) => updateBlockValue(block.id, e.target.value)}
-                        />
+                      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <input 
+                            type="text" 
+                            className="form-input-styled" 
+                            placeholder="Direct image path (/uploads/...) or Image URL..."
+                            value={block.value}
+                            onChange={(e) => updateBlockValue(block.id, e.target.value)}
+                            style={{ flex: 1 }}
+                          />
+                          <label className="add-block-btn" style={{ margin: 0, padding: '10px 14px', cursor: 'pointer', background: 'var(--accent-glow)', border: '1px solid var(--accent-color)', color: 'var(--accent-color)', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            <FileUp size={15} /> Upload Image
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUploadFileForBlock(block.id, f, 'image');
+                              }}
+                            />
+                          </label>
+                        </div>
+                        {block.value && (
+                          <div style={{ maxWidth: '280px', maxHeight: '140px', overflow: 'hidden', borderRadius: '8px', border: '1px solid var(--border-color)', marginTop: '4px' }}>
+                            <img src={block.value} alt="Preview" style={{ width: '100%', height: 'auto', display: 'block' }} />
+                          </div>
+                        )}
                         {validationErrors[block.id] && (
                           <span style={{ color: 'var(--neon-coral, #ef4444)', fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', display: 'block' }}>
                             ⚠️ {validationErrors[block.id]}
@@ -554,14 +694,34 @@ export const ModuleEditor: React.FC = () => {
                     )}
 
                     {block.type === 'video' && (
-                      <div style={{ width: '100%' }}>
-                        <input 
-                          type="url" 
-                          className="form-input-styled" 
-                          placeholder="Video Embed Link or Direct URL (e.g. MP4 link)..."
-                          value={block.value}
-                          onChange={(e) => updateBlockValue(block.id, e.target.value)}
-                        />
+                      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <input 
+                            type="text" 
+                            className="form-input-styled" 
+                            placeholder="Direct video path (/uploads/...) or MP4/WebM video URL..."
+                            value={block.value}
+                            onChange={(e) => updateBlockValue(block.id, e.target.value)}
+                            style={{ flex: 1 }}
+                          />
+                          <label className="add-block-btn" style={{ margin: 0, padding: '10px 14px', cursor: 'pointer', background: 'var(--accent-glow)', border: '1px solid var(--accent-color)', color: 'var(--accent-color)', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            <Video size={15} /> Upload Video
+                            <input 
+                              type="file" 
+                              accept="video/*" 
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUploadFileForBlock(block.id, f, 'video');
+                              }}
+                            />
+                          </label>
+                        </div>
+                        {block.value && (
+                          <div style={{ maxWidth: '320px', maxHeight: '180px', overflow: 'hidden', borderRadius: '8px', border: '1px solid var(--border-color)', marginTop: '4px' }}>
+                            <video src={block.value} controls style={{ width: '100%', height: 'auto', display: 'block' }} />
+                          </div>
+                        )}
                         {validationErrors[block.id] && (
                           <span style={{ color: 'var(--neon-coral, #ef4444)', fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', display: 'block' }}>
                             ⚠️ {validationErrors[block.id]}
@@ -587,6 +747,12 @@ export const ModuleEditor: React.FC = () => {
                 <button type="button" onClick={() => addBlock('text')} className="add-block-btn">
                   <FileText size={14} /> Text Info
                 </button>
+                <button type="button" onClick={() => addBlock('image')} className="add-block-btn">
+                  <FileUp size={14} /> Direct Image
+                </button>
+                <button type="button" onClick={() => addBlock('video')} className="add-block-btn">
+                  <Video size={14} /> Direct Video
+                </button>
                 <button type="button" onClick={() => addBlock('youtube')} className="add-block-btn">
                   <Video size={14} /> YouTube
                 </button>
@@ -599,14 +765,9 @@ export const ModuleEditor: React.FC = () => {
                 <button type="button" onClick={() => addBlock('attachment')} className="add-block-btn">
                   <FileUp size={14} /> Attachment
                 </button>
-                <button type="button" onClick={() => addBlock('image')} className="add-block-btn">
-                  <FileUp size={14} /> Image URL
-                </button>
-                <button type="button" onClick={() => addBlock('video')} className="add-block-btn">
-                  <Video size={14} /> Video URL
-                </button>
               </div>
             </div>
+            </fieldset>
           </div>
         </div>
 
@@ -679,21 +840,21 @@ export const ModuleEditor: React.FC = () => {
                       {block.type === 'blog' && block.value.trim() && (
                         <div className="preview-block-link-row">
                           <a href={block.value} target="_blank" rel="noopener noreferrer" className="preview-block-link">
-                            🔗 {block.value}
+                            {block.value}
                           </a>
                         </div>
                       )}
                       {block.type === 'website' && block.value.trim() && (
                         <div className="preview-block-link-row">
                           <a href={block.value} target="_blank" rel="noopener noreferrer" className="preview-block-link">
-                            🌐 {block.value}
+                            {block.value}
                           </a>
                         </div>
                       )}
                       {block.type === 'attachment' && block.value.trim() && (
                         <div>
                           <a href={block.value} target="_blank" rel="noopener noreferrer" className="preview-block-attachment-btn">
-                            📎 {block.label || 'Download Course PDF Attachment'}
+                            {block.label || 'Download Course PDF Attachment'}
                           </a>
                         </div>
                       )}
@@ -714,134 +875,159 @@ export const ModuleEditor: React.FC = () => {
             )}
             {activeTab === 'quiz' && (
               <div className="quiz-builder-workspace animate-fade-in">
-                {/* List of current questions */}
-                <h4 style={{ marginBottom: '12px', fontWeight: '700', fontSize: '0.95rem' }}>Added Assessment Questions ({quizzes.length})</h4>
-                
-                {quizzes.length === 0 ? (
-                  <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', marginBottom: '24px' }}>
-                    No quiz questions established yet. Use the constructor below.
-                  </p>
-                ) : (
-                  <div className="quiz-questions-list">
-                    {quizzes.map((q, idx) => (
-                      <div key={q.id} className="quiz-question-item">
-                        <div className="quiz-question-header">
-                          <div>
-                            <span style={{ 
-                              padding: '2px 6px', 
-                              borderRadius: '4px', 
-                              background: 'var(--accent-glow)', 
-                              color: 'var(--accent-color)', 
-                              fontSize: '0.65rem', 
-                              fontWeight: '800',
-                              marginRight: '8px',
-                              textTransform: 'uppercase'
-                            }}>
-                              {q.question_type || 'mcq'}
-                            </span>
-                            <span style={{ fontSize: '0.82rem', fontWeight: '600' }}>Q{idx + 1}: {q.question}</span>
-                          </div>
-                          <button onClick={() => deleteQuizQuestion(q.id)} className="delete-block-btn" style={{ marginLeft: '10px' }}>
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                        {q.question_type !== 'notes' && (
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                            {q.options.map((opt, oIdx) => {
-                              const isCorrect = q.question_type === 'msq' 
-                                ? (q.correctOptions || []).includes(opt) 
-                                : oIdx === q.correctOptionIndex;
-                              return (
-                                <span key={oIdx} style={{ color: isCorrect ? 'var(--neon-teal)' : 'inherit', fontWeight: isCorrect ? '700' : 'normal' }}>
-                                  {String.fromCharCode(65 + oIdx)}) {opt} {isCorrect ? ' (Correct)' : ''}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Form to construct a new question */}
-                <form onSubmit={handleAddQuizSubmit} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
-                  <h4 style={{ marginBottom: '14px', fontSize: '0.9rem', fontWeight: '700' }}>+ Create Question</h4>
-                  
-                  <div className="form-group-spaced" style={{ marginBottom: '16px' }}>
-                    <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Question Type</label>
-                    <select 
-                      className="form-input-styled"
-                      value={quizQuestionType}
-                      onChange={(e) => setQuizQuestionType(e.target.value as any)}
-                    >
-                      <option value="mcq">MCQ (Single Choice)</option>
-                      <option value="msq">MSQ (Multiple Select)</option>
-                      <option value="notes">Notes (Descriptive Response)</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group-spaced">
-                    <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Question Statement</label>
+                <fieldset disabled={courseIsPublished} style={{ border: 'none', padding: 0, margin: 0 }}>
+                  {/* Optional Quiz Configuration */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    marginBottom: '18px',
+                    padding: '12px 16px',
+                    background: 'var(--bg-card-hover)',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)'
+                  }}>
                     <input 
-                      type="text" 
-                      className="form-input-styled" 
-                      placeholder="e.g. Which algorithm is used to adjust weights?"
-                      value={quizQuestionText}
-                      onChange={(e) => setQuizQuestionText(e.target.value)}
-                      required
+                      type="checkbox" 
+                      id="opt-quiz-check" 
+                      checked={isQuizOptional} 
+                      onChange={(e) => setIsQuizOptional(e.target.checked)} 
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-color)' }}
                     />
+                    <label htmlFor="opt-quiz-check" style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer' }}>
+                      Make Module Quiz Questions Optional for Learners
+                    </label>
                   </div>
 
-                  {quizQuestionType !== 'notes' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
-                      <label className="form-label-styled" style={{ fontSize: '0.78rem', marginBottom: '0' }}>Options & Correct Answer Selection</label>
-                      {quizOptions.map((option, index) => (
-                        <div key={index} className="option-builder-row">
-                          {quizQuestionType === 'msq' ? (
-                            <input 
-                              type="checkbox" 
-                              className="correct-option-checkbox"
-                              checked={quizCorrectIndices[index]}
-                              onChange={(e) => {
-                                const newCorrects = [...quizCorrectIndices];
-                                newCorrects[index] = e.target.checked;
-                                setQuizCorrectIndices(newCorrects);
-                              }}
-                              title="Mark as correct choice"
-                              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                            />
-                          ) : (
-                            <input 
-                              type="radio" 
-                              name="correct_answer_select" 
-                              className="correct-option-radio"
-                              checked={quizCorrectIndex === index}
-                              onChange={() => setQuizCorrectIndex(index)}
-                              title="Mark as correct answer"
-                            />
+                  {/* List of current questions */}
+                  <h4 style={{ marginBottom: '12px', fontWeight: '700', fontSize: '0.95rem' }}>Added Assessment Questions ({quizzes.length})</h4>
+                  
+                  {quizzes.length === 0 ? (
+                    <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', marginBottom: '24px' }}>
+                      No quiz questions established yet. Use the constructor below.
+                    </p>
+                  ) : (
+                    <div className="quiz-questions-list">
+                      {quizzes.map((q, idx) => (
+                        <div key={q.id} className="quiz-question-item">
+                          <div className="quiz-question-header">
+                            <div>
+                              <span style={{ 
+                                padding: '2px 6px', 
+                                borderRadius: '4px', 
+                                background: 'var(--accent-glow)', 
+                                color: 'var(--accent-color)', 
+                                fontSize: '0.65rem', 
+                                fontWeight: '800',
+                                marginRight: '8px',
+                                textTransform: 'uppercase'
+                              }}>
+                                {q.question_type || 'mcq'}
+                              </span>
+                              <span style={{ fontSize: '0.82rem', fontWeight: '600' }}>Q{idx + 1}: {q.question}</span>
+                            </div>
+                            <button onClick={() => deleteQuizQuestion(q.id)} className="delete-block-btn" style={{ marginLeft: '10px' }}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                          {q.question_type !== 'notes' && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {q.options.map((opt, oIdx) => {
+                                const isCorrect = q.question_type === 'msq' 
+                                  ? (q.correctOptions || []).includes(opt) 
+                                  : oIdx === q.correctOptionIndex;
+                                return (
+                                  <span key={oIdx} style={{ color: isCorrect ? 'var(--neon-teal)' : 'inherit', fontWeight: isCorrect ? '700' : 'normal' }}>
+                                    {String.fromCharCode(65 + oIdx)}) {opt} {isCorrect ? ' (Correct)' : ''}
+                                  </span>
+                                );
+                              })}
+                            </div>
                           )}
-                          <input 
-                            type="text" 
-                            className="form-input-styled" 
-                            placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                            value={option}
-                            onChange={(e) => {
-                              const newOpts = [...quizOptions];
-                              newOpts[index] = e.target.value;
-                              setQuizOptions(newOpts);
-                            }}
-                            required
-                          />
                         </div>
                       ))}
                     </div>
                   )}
 
-                  <Button variant="primary" type="submit" style={{ width: '100%' }}>
-                    Add Question to Quiz
-                  </Button>
-                </form>
+                  {/* Form to construct a new question */}
+                  <form onSubmit={handleAddQuizSubmit} style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                    <h4 style={{ marginBottom: '14px', fontSize: '0.9rem', fontWeight: '700' }}>+ Create Question</h4>
+                    
+                    <div className="form-group-spaced" style={{ marginBottom: '16px' }}>
+                      <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Question Type</label>
+                      <select 
+                        className="form-input-styled"
+                        value={quizQuestionType}
+                        onChange={(e) => setQuizQuestionType(e.target.value as any)}
+                      >
+                        <option value="mcq">MCQ (Single Choice)</option>
+                        <option value="msq">MSQ (Multiple Select)</option>
+                        <option value="notes">Notes (Descriptive Response)</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group-spaced">
+                      <label className="form-label-styled" style={{ fontSize: '0.78rem' }}>Question Statement</label>
+                      <input 
+                        type="text" 
+                        className="form-input-styled" 
+                        placeholder="e.g. Which algorithm is used to adjust weights?"
+                        value={quizQuestionText}
+                        onChange={(e) => setQuizQuestionText(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    {quizQuestionType !== 'notes' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                        <label className="form-label-styled" style={{ fontSize: '0.78rem', marginBottom: '0' }}>Options & Correct Answer Selection</label>
+                        {quizOptions.map((option, index) => (
+                          <div key={index} className="option-builder-row">
+                            {quizQuestionType === 'msq' ? (
+                              <input 
+                                type="checkbox" 
+                                className="correct-option-checkbox"
+                                checked={quizCorrectIndices[index]}
+                                onChange={(e) => {
+                                  const newCorrects = [...quizCorrectIndices];
+                                  newCorrects[index] = e.target.checked;
+                                  setQuizCorrectIndices(newCorrects);
+                                }}
+                                title="Mark as correct choice"
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                              />
+                            ) : (
+                              <input 
+                                type="radio" 
+                                name="correct_answer_select" 
+                                className="correct-option-radio"
+                                checked={quizCorrectIndex === index}
+                                onChange={() => setQuizCorrectIndex(index)}
+                                title="Mark as correct answer"
+                              />
+                            )}
+                            <input 
+                              type="text" 
+                              className="form-input-styled" 
+                              placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                              value={option}
+                              onChange={(e) => {
+                                const newOpts = [...quizOptions];
+                                newOpts[index] = e.target.value;
+                                setQuizOptions(newOpts);
+                              }}
+                              required
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <Button variant="primary" type="submit" style={{ width: '100%' }}>
+                      Add Question to Quiz
+                    </Button>
+                  </form>
+                </fieldset>
               </div>
             )}
 
@@ -852,12 +1038,14 @@ export const ModuleEditor: React.FC = () => {
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>
                   Document curriculum objectives, reference papers, and reminders. These notes are saved locally with your project workspace drafts.
                 </p>
-                <textarea 
-                  className="creator-notes-textarea"
-                  placeholder="Take private module notes here..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
+                <fieldset disabled={courseIsPublished} style={{ border: 'none', padding: 0, margin: 0 }}>
+                  <textarea 
+                    className="creator-notes-textarea"
+                    placeholder="Take private module notes here..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                  />
+                </fieldset>
               </div>
             )}
           </div>

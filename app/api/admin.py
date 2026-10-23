@@ -53,6 +53,8 @@ def create_user(
     db.add(history)
     db.commit()
 
+    AuditService.log_model_event(user, event_type="CREATE", performed_by=current_user.id)
+
     AuditService.create_entry(
         db=db,
         actor=current_user.email,
@@ -123,6 +125,7 @@ def update_user(
         target=user.employee_code,
         details=details
     )
+    AuditService.log_model_event(user, event_type="UPDATE", performed_by=current_user.id)
     return user
 
 @router.get(
@@ -168,6 +171,7 @@ def assign_role(
         target=user.email,
         details=f"Assigned roles: {', '.join(request.roles)}"
     )
+    AuditService.log_model_event(user, event_type="UPDATE", performed_by=current_user.id)
     
     # 🟢 Trigger account roles update notification
     NotificationService.create_notification(
@@ -191,21 +195,63 @@ def delete_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
-    user = db.query(User).filter(User.id == user_id, User.is_deleted == False).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User with ID {user_id} not found."
         )
-    user.is_deleted = True
-    user.is_active = False
+    
+    # Store fields before deletion to avoid DetachedInstanceError
+    user_email = user.email
+    user_code = user.employee_code
+    user_name = f"{user.first_name} {user.last_name}"
+
+    # Eager load relationships before deleting
+    for rel_name in ["roles", "enrollments", "quiz_attempts", "badges", "notifications", "department"]:
+        if hasattr(user, rel_name):
+            rel_val = getattr(user, rel_name)
+            if rel_name == "enrollments" and rel_val:
+                for enroll in rel_val:
+                    _ = enroll.progress_records
+
+    # Write deletion event to Backup DB
+    AuditService.log_model_event(user, event_type="DELETE", performed_by=current_user.id)
+
+    # Hard delete from Live DB
+    db.delete(user)
     db.commit()
 
     AuditService.create_entry(
         db=db,
         actor=current_user.email,
         action="USER_DELETE",
-        target=user.employee_code,
-        details=f"Soft-deleted user {user.first_name} {user.last_name} ({user.email})"
+        target=user_code,
+        details=f"Hard-deleted user {user_name} ({user_email})"
     )
-    return {"message": f"User {user.email} successfully deleted.", "user_id": str(user_id)}
+    return {"message": f"User {user_email} successfully deleted.", "user_id": str(user_id)}
+
+@router.post(
+    "/generate-employee-emails",
+    status_code=status.HTTP_200_OK,
+    summary="Generate Corporate Email IDs For Employees",
+    description="Automatically provision and standardize corporate email IDs for all employees."
+)
+def generate_employee_emails(
+    domain: str = "kaizen.com",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
+):
+    updated = AdminService.generate_employee_emails(db, domain=domain)
+    AuditService.create_entry(
+        db=db,
+        actor=current_user.email,
+        action="BULK_GENERATE_EMAILS",
+        target=domain,
+        details=f"Generated corporate emails for {len(updated)} employees under @{domain}"
+    )
+    return {
+        "message": f"Successfully generated corporate emails for {len(updated)} employees.",
+        "updated_count": len(updated),
+        "updated_users": updated
+    }

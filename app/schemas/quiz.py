@@ -10,6 +10,7 @@ class QuizQuestionCreate(BaseModel):
     explanation: Optional[str] = Field(None, description="Explanation for the correct answer")
     points: int = Field(1, ge=1, description="Points awarded for the correct answer")
     question_type: Optional[str] = Field("mcq", description="Type of question (mcq, msq, notes)")
+    is_required: bool = Field(False, description="Whether this question is required to be answered")
 
 class QuizQuestionResponse(BaseModel):
     id: UUID
@@ -20,6 +21,7 @@ class QuizQuestionResponse(BaseModel):
     explanation: Optional[str] = None
     points: int
     question_type: str
+    is_required: bool = False
 
     class Config:
         from_attributes = True
@@ -30,6 +32,7 @@ class QuizCreate(BaseModel):
     passing_score: int = Field(..., ge=0, description="Passing score (percentage or points)")
     time_limit_minutes: Optional[int] = Field(None, ge=1, description="Time limit for the quiz in minutes")
     is_published: bool = Field(False, description="Whether the quiz is published")
+    is_optional: bool = Field(True, description="Whether the quiz is optional")
     questions: List[QuizQuestionCreate] = Field(default=[], description="List of questions in this quiz")
 
 class QuizResponse(BaseModel):
@@ -39,6 +42,7 @@ class QuizResponse(BaseModel):
     passing_score: int
     time_limit_minutes: Optional[int] = None
     is_published: bool
+    is_optional: bool = True
     questions: List[QuizQuestionResponse] = []
 
     class Config:

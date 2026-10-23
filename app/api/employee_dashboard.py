@@ -123,6 +123,17 @@ def get_employee_dashboard(
         Course.id.notin_(enrolled_course_ids)
     )
 
+    # Scoping: Non-admin users are strictly scoped to their department or company-wide (NULL) courses
+    user_roles = [r.name for r in current_user.roles]
+    is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles
+    if not is_global_admin and current_user.department_id:
+        from sqlalchemy import or_
+        available_query = available_query.filter(
+            or_(
+                Course.department_id == current_user.department_id,
+                Course.department_id.is_(None)
+            )
+        )
 
     db_available = available_query.limit(4).all()
     available_courses = [

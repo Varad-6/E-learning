@@ -206,7 +206,7 @@ export const ExamCreator: React.FC = () => {
     const isPdfOrDocx = /\.(pdf|docx)$/i.test(file.name);
     setUploadBanner({
       status: 'processing',
-      message: `⚡ Parsing "${file.name}" document format…`,
+      message: `Parsing "${file.name}" document format…`,
     });
 
     const formData = new FormData();
@@ -234,10 +234,10 @@ export const ExamCreator: React.FC = () => {
         setCurrentPage(1);
 
         const methodLabel = method === 'template_structured'
-          ? '⚡ Fast Template Parse'
+          ? 'Fast Template Parse'
           : method === 'template_partial'
-          ? '⚡ Standard Pattern Parse'
-          : '📄 Format Extracted';
+          ? 'Standard Pattern Parse'
+          : 'Format Extracted';
 
         setUploadBanner({
           status: 'done',
@@ -323,7 +323,7 @@ export const ExamCreator: React.FC = () => {
         {/* Title */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2 style={{ fontSize: '1.45rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
-            🛠️ Exam Creator Studio
+            Exam Creator Studio
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.83rem', margin: '2px 0 0' }}>
             Build manually · Upload template · Direct PDF/DOCX import — all questions land here for review.
@@ -464,9 +464,9 @@ export const ExamCreator: React.FC = () => {
                 : 'color-mix(in srgb, #f97316 15%, transparent)',
               color: uploadBanner.method.startsWith('template') ? '#065f46' : '#c2410c',
             }}>
-              {uploadBanner.method === 'template_structured' ? '⚡ Template'
-                : uploadBanner.method === 'template_partial' ? '⚡ Standard'
-                : '📄 Extracted'}
+              {uploadBanner.method === 'template_structured' ? 'Template'
+                : uploadBanner.method === 'template_partial' ? 'Standard'
+                : 'Extracted'}
             </span>
           )}
           <button
@@ -485,7 +485,6 @@ export const ExamCreator: React.FC = () => {
           background: 'var(--bg-card)', borderRadius: '20px',
           border: '1px solid var(--border-color)',
         }}>
-          <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🎉</div>
           <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-color)', margin: '0 0 8px' }}>
             Exam Created Successfully!
           </h3>
@@ -507,7 +506,7 @@ export const ExamCreator: React.FC = () => {
               background: 'var(--bg-card)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>📝 Questions</h3>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>Questions</h3>
                 {questions.length > 0 && (
                   <span style={{
                     fontSize: '0.75rem', fontWeight: 700,
@@ -529,12 +528,12 @@ export const ExamCreator: React.FC = () => {
                   )}
                   {aiCount > 0 && (
                     <span style={{ color: '#2563eb', background: 'color-mix(in srgb, #3b82f6 10%, transparent)', padding: '2px 8px', borderRadius: '12px' }}>
-                      ⚡ {aiCount} extracted
+                      {aiCount} extracted
                     </span>
                   )}
                   {manualCount > 0 && (
                     <span style={{ color: 'var(--text-secondary)', background: 'var(--bg-main)', padding: '2px 8px', borderRadius: '12px' }}>
-                      ✎ {manualCount} manual
+                      {manualCount} manual
                     </span>
                   )}
                 </div>
@@ -775,7 +774,7 @@ export const ExamCreator: React.FC = () => {
               border: '1px solid var(--border-color)', padding: '20px',
             }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: 800, margin: '0 0 18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                ⚙️ Exam Settings
+                Exam Settings
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -800,7 +799,7 @@ export const ExamCreator: React.FC = () => {
                       cursor: userRole === 'Manager' ? 'not-allowed' : 'default'
                     }}
                   >
-                    {userRole !== 'Manager' && <option value="all">🌟 All Departments</option>}
+                    {userRole !== 'Manager' && <option value="all">All Departments</option>}
                     {departments
                       .filter(d => userRole !== 'Manager' || d.id === userDeptId)
                       .map(d => (
@@ -870,7 +869,7 @@ export const ExamCreator: React.FC = () => {
                   transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                 }}
               >
-                {saveLoading ? <><Spinner /> Publishing…</> : `🚀 Publish Exam${questions.length > 0 ? ` (${questions.length} Q)` : ''}`}
+                {saveLoading ? <><Spinner /> Publishing…</> : `Publish Exam${questions.length > 0 ? ` (${questions.length} Q)` : ''}`}
               </button>
             </div>
 
@@ -880,7 +879,7 @@ export const ExamCreator: React.FC = () => {
               background: 'color-mix(in srgb, var(--accent-color) 5%, transparent)',
               border: '1px solid color-mix(in srgb, var(--accent-color) 18%, transparent)',
             }}>
-              <p style={{ margin: '0 0 6px', fontWeight: 800, fontSize: '0.8rem', color: 'var(--accent-color)' }}>💡 Bulk Upload Tip</p>
+              <p style={{ margin: '0 0 6px', fontWeight: 800, fontSize: '0.8rem', color: 'var(--accent-color)' }}>Bulk Upload Tip</p>
               <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                 Click <strong>Download Template</strong> → fill in your questions using the [BRACKET] tags → re-upload. 500 questions parse in seconds with no limit.
               </p>

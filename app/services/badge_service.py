@@ -20,8 +20,11 @@ class BadgeService:
             Course.status == "published"
         ).count()
 
-        # Also count graded exam submissions
+        # Also count graded exam submissions and compute performance scores
         from app.models.exam import ExamSubmission
+        from app.models.quiz_attempt import QuizAttempt
+        from sqlalchemy import func, or_
+
         graded_exams = db.query(ExamSubmission).filter(
             ExamSubmission.user_id == user_id,
             ExamSubmission.status == "graded"
@@ -29,9 +32,28 @@ class BadgeService:
 
         total_milestones = completed_count + graded_exams
 
-        # Fetch all eligible tiers
+        # Calculate average score percentage across quizzes and exams
+        avg_quiz = db.query(func.avg(QuizAttempt.score)).filter(QuizAttempt.user_id == user_id).scalar()
+        avg_exam = db.query(func.avg(ExamSubmission.total_score)).filter(
+            ExamSubmission.user_id == user_id,
+            ExamSubmission.status == "graded"
+        ).scalar()
+
+        scores = []
+        if avg_quiz is not None:
+            scores.append(float(avg_quiz))
+        if avg_exam is not None:
+            scores.append(float(avg_exam))
+
+        user_score_pct = (sum(scores) / len(scores)) if scores else 100.0
+
+        # Fetch all eligible tiers meeting both milestone count and score threshold
         eligible_tiers = db.query(BadgeTier).filter(
-            BadgeTier.courses_required_cumulative <= total_milestones
+            BadgeTier.courses_required_cumulative <= total_milestones,
+            or_(
+                BadgeTier.min_score_percent == None,
+                BadgeTier.min_score_percent <= user_score_pct
+            )
         ).all()
 
         awarded = []

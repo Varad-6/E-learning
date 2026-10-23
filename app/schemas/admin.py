@@ -11,14 +11,14 @@ class UserCreate(BaseModel):
     employee_code: str = Field(..., description="Unique employee code of the user")
     first_name: str = Field(..., description="First name of the user")
     last_name: str = Field(..., description="Last name of the user")
-    email: EmailStr = Field(..., description="Email address of the user")
+    email: Optional[EmailStr] = Field(None, description="Email address of the user (auto-generated if omitted)")
     password: str = Field(..., description="Plaintext initial password for the user")
     department_id: Optional[UUID] = Field(None, description="ID of the department to assign the user to")
     roles: Optional[List[str]] = Field(default=["EMPLOYEE"], description="List of role names (e.g. SYSTEM_ADMIN, HR_ADMIN, COURSE_MANAGER, EMPLOYEE)")
 
     @field_validator("email")
     @classmethod
-    def validate_email_format(cls, v: str) -> str:
+    def validate_email_format(cls, v: Optional[str]) -> Optional[str]:
         if v and not EMAIL_REGEX.match(v):
             raise ValueError("Email format is invalid. Domains ending in numbers or invalid suffixes (like .1com) are not allowed.")
         return v

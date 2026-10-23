@@ -383,8 +383,7 @@ export const ExamReviewer: React.FC = () => {
           <ArrowLeft size={16} />
         </Button>
         <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>🧑‍🏫 Exam Grading & Review Studio</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>Grade employee exam submissions.</p>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Exam Grading & Review Studio</h2>
         </div>
       </div>
 

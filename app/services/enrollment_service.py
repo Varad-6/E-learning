@@ -235,39 +235,6 @@ class EnrollmentService:
         # Check deadline locking
         EnrollmentService._check_and_lock(db, enrollment)
 
-        # Enforce sequential lock
-        course_id = module.course_id
-        modules = db.query(CourseModule).filter(CourseModule.course_id == course_id).all()
-
-        # Sort modules: Beginner -> Intermediate -> Advanced
-        def get_tier_rank(tier: str) -> int:
-            t = tier.lower() if tier else ""
-            if t == "intermediate": return 1
-            elif t == "advanced": return 2
-            return 0 # beginner
-
-        modules.sort(key=lambda m: (get_tier_rank(m.tier), m.sequence_no))
-
-        mod_index = next((i for i, m in enumerate(modules) if m.id == module.id), -1)
-        if mod_index > 0:
-            prev_mod = modules[mod_index - 1]
-            # Check if prev_mod is completed
-            total_prev_contents = db.query(ModuleContent).filter(
-                ModuleContent.module_id == prev_mod.id, 
-                ModuleContent.is_active == True
-            ).count()
-            completed_prev_contents = db.query(UserCourseProgress).filter(
-                UserCourseProgress.enrollment_id == enrollment.id,
-                UserCourseProgress.module_id == prev_mod.id,
-                UserCourseProgress.completed == True
-            ).count()
-
-            if completed_prev_contents < total_prev_contents:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Module '{module.title}' is locked. You must complete '{prev_mod.title}' first."
-                )
-
         # Update enrollment status to in_progress if currently enrolled
         if enrollment.status == "enrolled":
             enrollment.status = "in_progress"

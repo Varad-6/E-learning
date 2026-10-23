@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Users, UserPlus, Search, Building2, RefreshCw, 
   Shield, CheckCircle2, AlertCircle, Plus, Eye, EyeOff,
-  UserCheck, UserX, Trash2, ArrowLeft, BarChart3, Award
+  UserCheck, UserX, Trash2, ArrowLeft, BarChart3, Award, Mail
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
@@ -172,6 +172,37 @@ export const UserAdminStudio: React.FC = () => {
     setPassword(pass.split('').sort(() => 0.5 - Math.random()).join(''));
   };
 
+  const handleAutoGenerateEmail = () => {
+    if (!firstName.trim()) {
+      triggerToast('Please enter the employee First Name first.', 'warning');
+      return;
+    }
+    const cleanFn = firstName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanLn = (lastName.trim() || 'user').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const generated = `${cleanFn}.${cleanLn}@kaizen.com`;
+    setEmail(generated);
+    setIsEmailVerified(true);
+    triggerToast(`Generated corporate email ID: ${generated}`, 'success');
+  };
+
+  const handleBulkGenerateEmails = async () => {
+    try {
+      const res = await apiCall('/api/admin/generate-employee-emails', {
+        method: 'POST'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        triggerToast(data.message || 'Successfully generated corporate emails!', 'success');
+        await loadData();
+      } else {
+        const err = await res.json();
+        triggerToast(err.detail || 'Failed to generate corporate emails', 'error');
+      }
+    } catch (e: any) {
+      triggerToast('Server error generating emails', 'error');
+    }
+  };
+
   const handleSendVerificationOtp = async () => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!email.trim() || !emailRegex.test(email)) {
@@ -235,7 +266,6 @@ export const UserAdminStudio: React.FC = () => {
     if (!employeeCode.trim()) errors.employeeCode = 'Required.';
     if (!firstName.trim()) errors.firstName = 'Required.';
     if (!lastName.trim()) errors.lastName = 'Required.';
-    if (!email.trim()) errors.email = 'Required.';
     if (!password) errors.password = 'Required.';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -246,11 +276,15 @@ export const UserAdminStudio: React.FC = () => {
     if (!validateForm()) return;
     setFormLoading(true);
     try {
+      const cleanFn = firstName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cleanLn = (lastName.trim() || 'user').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const finalEmail = email.trim() || `${cleanFn}.${cleanLn}@kaizen.com`;
+
       const payload = {
         employee_code: employeeCode,
         first_name: firstName,
         last_name: lastName,
-        email: email,
+        email: finalEmail,
         password: password,
         department_id: selectedDeptId || null,
         roles: selectedRoles
@@ -355,7 +389,6 @@ export const UserAdminStudio: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '24px', marginBottom: '32px' }}>
           <div>
             <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>User Administration</h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginTop: '6px', marginBottom: 0 }}>Manage departments, personnel, and analytics.</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             <Button 
@@ -490,6 +523,13 @@ export const UserAdminStudio: React.FC = () => {
               <span style={{ fontSize: '0.92rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
                 {users.length} Registered Users
               </span>
+              <Button 
+                variant="outline" 
+                onClick={handleBulkGenerateEmails} 
+                leftIcon={<Mail size={16} />}
+              >
+                Generate Corporate Emails
+              </Button>
               <Button 
                 id="btn-nav-add-user" 
                 variant="primary" 
@@ -638,7 +678,6 @@ export const UserAdminStudio: React.FC = () => {
             <Building2 size={28} style={{ color: 'var(--accent-color)' }} />
             <div>
               <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>Create New Department</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', margin: '4px 0 0 0' }}>Establish a new operational department entity for user grouping, course scoping, and analytics tracking.</p>
             </div>
           </div>
 
@@ -712,13 +751,22 @@ export const UserAdminStudio: React.FC = () => {
                 {formErrors.employeeCode && <span className="input-error-msg" style={{ color: 'var(--danger-color)', fontSize: '0.8rem' }}>{formErrors.employeeCode}</span>}
               </div>
               <div>
-                <label className="form-label-styled">Email Address <span className="required-star">*</span></label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label className="form-label-styled" style={{ marginBottom: 0 }}>Corporate Email ID</label>
+                  <button
+                    type="button"
+                    onClick={handleAutoGenerateEmail}
+                    style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    + Auto-Generate
+                  </button>
+                </div>
                 <input 
                   className="form-input-styled" 
                   type="email" 
                   value={email} 
                   onChange={e => handleEmailChange(e.target.value)} 
-                  placeholder="employee@company.com" 
+                  placeholder="Auto-generated if left blank (e.g. first.last@kaizen.com)" 
                 />
                 {formErrors.email && <span className="input-error-msg" style={{ color: 'var(--danger-color)', fontSize: '0.8rem' }}>{formErrors.email}</span>}
               </div>

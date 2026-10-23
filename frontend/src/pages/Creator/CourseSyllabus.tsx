@@ -245,16 +245,18 @@ export const CourseSyllabus: React.FC = () => {
             <input 
               type="text" 
               className="form-input-styled" 
-              placeholder={`Create a new ${activeTier} module (e.g. Module 1: Introduction)...`} 
+              placeholder={course.is_published ? "Revert this course to draft to add new modules..." : `Create a new ${activeTier} module (e.g. Module 1: Introduction)...`} 
               value={newModuleTitle}
               onChange={(e) => setNewModuleTitle(e.target.value)}
-              required
+              required={!course.is_published}
+              disabled={course.is_published}
               style={{ flex: 1 }}
             />
             <Button 
               variant="primary" 
               type="submit"
               leftIcon={<Plus size={18} />}
+              disabled={course.is_published}
             >
               Add Module
             </Button>

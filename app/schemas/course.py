@@ -41,7 +41,7 @@ class CourseModuleCreate(BaseModel):
     title: str = Field(..., description="Title of the course module")
     description: Optional[str] = Field(None, description="Detailed description of the module")
     sequence_no: int = Field(..., description="Display order sequence number")
-    tier: str = Field(..., description="Tier name: beginner, intermediate, advanced")
+    tier: Optional[str] = Field("all_levels", description="Tier name (optional)")
 
 class CourseModuleResponse(BaseModel):
     id: UUID
@@ -49,7 +49,7 @@ class CourseModuleResponse(BaseModel):
     title: str
     description: Optional[str] = None
     sequence_no: int
-    tier: str
+    tier: Optional[str] = "all_levels"
     created_at: datetime
     contents: List[ModuleContentResponse] = []
 
@@ -60,7 +60,7 @@ class CourseCreate(BaseModel):
     course_code: str = Field(..., description="Unique code identifying the course")
     title: str = Field(..., description="Title of the course")
     description: Optional[str] = Field(None, description="Detailed description of the course")
-    difficulty_level: str = Field(..., description="Difficulty level (e.g., beginner, intermediate, advanced)")
+    difficulty_level: Optional[str] = Field("all_levels", description="Difficulty level (optional)")
     department_id: Optional[UUID] = Field(None, description="Associated department ID")
     duration: Optional[str] = Field(None, description="Duration of the course")
     priority: Optional[str] = Field(None, description="Priority of the course")
@@ -83,7 +83,7 @@ class CourseResponse(BaseModel):
     course_code: str
     title: str
     description: Optional[str] = None
-    difficulty_level: str
+    difficulty_level: Optional[str] = "all_levels"
     is_published: bool
     created_by: Optional[UUID] = None
     department_id: Optional[UUID] = None
@@ -112,7 +112,7 @@ class ModuleCreate(BaseModel):
     title: str = Field(..., description="Title of the course module")
     description: Optional[str] = Field(None, description="Detailed description of the module")
     sequence_no: int = Field(..., description="Display order sequence number")
-    tier: str = Field(..., description="Tier name: beginner, intermediate, advanced")
+    tier: Optional[str] = Field("all_levels", description="Tier name (optional)")
 
 class ModuleUpdate(BaseModel):
     title: Optional[str] = Field(None, description="Title of the course module")
@@ -126,7 +126,7 @@ class ModuleResponse(BaseModel):
     title: str
     description: Optional[str] = None
     sequence_no: int
-    tier: str
+    tier: Optional[str] = "all_levels"
     created_at: datetime
     contents: List[ModuleContentResponse] = []
 

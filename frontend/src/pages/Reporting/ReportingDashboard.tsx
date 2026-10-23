@@ -446,7 +446,7 @@ export const ReportingDashboard: React.FC = () => {
               onClick={() => navigate('/reporting')}
               style={{ color: 'var(--accent-color)', cursor: 'pointer' }}
             >
-              📊 Reporting & Analytics
+              Reporting & Analytics
             </span>
             <ChevronRight size={14} style={{ color: 'var(--text-secondary)' }} />
             {selectedDept && (
@@ -831,7 +831,7 @@ export const ReportingDashboard: React.FC = () => {
             onClick={() => { setLevel(1); setSelectedDept(null); }}
             style={{ color: level === 1 ? 'var(--text-primary)' : 'var(--accent-color)', cursor: level > 1 ? 'pointer' : 'default' }}
           >
-            📊 Reporting & Analytics
+            Reporting & Analytics
           </span>
 
           {level >= 2 && selectedDept && (
@@ -873,10 +873,7 @@ export const ReportingDashboard: React.FC = () => {
           {level === 1 && (
             <div>
               <div style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '1.6rem', fontWeight: 800 }}>🏛️ Department Reporting & Scoped Analytics</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-                  Overview of company departments, exam scores, course completion ratios, and review status.
-                </p>
+                <h2 style={{ fontSize: '1.6rem', fontWeight: 800 }}>Department Reporting & Scoped Analytics</h2>
               </div>
 
               {/* Mandatory Compliance Widget */}
@@ -970,8 +967,7 @@ export const ReportingDashboard: React.FC = () => {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>👥 {selectedDept.name} — Employee Reporting</h2>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>See scores, course progress, and recent activity.</p>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{selectedDept.name} — Employee Reporting</h2>
                 </div>
 
                 <div style={{ position: 'relative', width: '280px' }}>

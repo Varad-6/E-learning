@@ -13,6 +13,7 @@ class Quiz(Base):
     passing_score = Column(Integer, nullable=False)
     time_limit_minutes = Column(Integer, nullable=True)
     is_published = Column(Boolean, default=False, nullable=False)
+    is_optional = Column(Boolean, default=True, nullable=False)
 
     # Relationships
     module = relationship("CourseModule", back_populates="quizzes")

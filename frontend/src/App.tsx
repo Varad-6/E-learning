@@ -39,24 +39,18 @@ const AppContent: React.FC = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/login';
   const isPlayerPage = location.pathname.startsWith('/course-player');
+  const isLandingPage = location.pathname === '/';
 
   return (
     <div className="app-container" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {!isAuthPage && !isPlayerPage && <Navbar />}
+      {!isAuthPage && !isPlayerPage && !isLandingPage && <Navbar />}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Routes>
-          <Route 
-            path="/" 
-            element={
-              localStorage.getItem('access_token') 
-                ? <Navigate to="/dashboard" replace /> 
-                : <Navigate to="/login" replace />
-            } 
-          />
+          <Route path="/" element={<Landing />} />
           <Route 
             path="/login" 
             element={
-              localStorage.getItem('access_token')
+              (localStorage.getItem('access_token') && localStorage.getItem('isLoggedInEmail'))
                 ? <Navigate to="/dashboard" replace />
                 : <Login />
             } 
@@ -76,7 +70,7 @@ const AppContent: React.FC = () => {
           <Route path="/leaderboard" element={<Leaderboard />} />
         </Routes>
       </main>
-      {!isAuthPage && !isPlayerPage && <Footer />}
+      {!isAuthPage && !isPlayerPage && !isLandingPage && <Footer />}
     </div>
   );
 };

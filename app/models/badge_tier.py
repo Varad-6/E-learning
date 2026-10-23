@@ -12,6 +12,7 @@ class BadgeTier(Base):
     tier_order = Column(Integer, nullable=False, unique=True) # order of progression (1 to 20)
     icon_asset_ref = Column(String, nullable=False) # e.g. "bronze_1", "ruby_crest"
     courses_required_cumulative = Column(Integer, nullable=False) # cumulative threshold
+    min_score_percent = Column(Integer, nullable=True, default=0) # minimum score percentage required
 
     # Relationships
     user_badges = relationship("UserBadge", back_populates="badge_tier", cascade="all, delete-orphan")

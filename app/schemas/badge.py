@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 from uuid import UUID
 from datetime import datetime
 
@@ -8,6 +9,7 @@ class BadgeTierBase(BaseModel):
     tier_order: int
     icon_asset_ref: str
     courses_required_cumulative: int
+    min_score_percent: Optional[int] = 0
 
     class Config:
         from_attributes = True

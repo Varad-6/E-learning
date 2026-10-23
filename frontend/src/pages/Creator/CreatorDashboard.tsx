@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Plus, BookOpen, Clock, X, AlertTriangle, ShieldAlert,
-  ArrowLeft, Layers, ChevronRight, CheckCircle2
+  ArrowLeft, Layers, ChevronRight, CheckCircle2, Edit3
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
@@ -160,6 +160,60 @@ export const CreatorDashboard: React.FC = () => {
   };
 
   const [myEnrollments, setMyEnrollments] = useState<any[]>([]);
+
+  // Edit Course Modal States
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editDuration, setEditDuration] = useState('');
+  const [editPriority, setEditPriority] = useState('Medium');
+  const [editDifficulty, setEditDifficulty] = useState('All Levels');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const handleOpenEditCourse = (course: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingCourseId(course.id);
+    setEditTitle(course.title || '');
+    setEditDescription(course.description || '');
+    setEditDuration(course.duration || '');
+    setEditPriority(course.priority || 'Medium');
+    setEditDifficulty(course.difficulty_level || 'All Levels');
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveCourseEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCourseId || !editTitle.trim()) {
+      triggerToast('Course Title is required.', 'error');
+      return;
+    }
+    setIsSavingEdit(true);
+    try {
+      const res = await apiCall(`/api/courses/${editingCourseId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDescription.trim(),
+          duration: editDuration.trim(),
+          priority: editPriority,
+          difficulty_level: editDifficulty
+        })
+      });
+      if (res.ok) {
+        triggerToast('Course details updated successfully!', 'success');
+        setIsEditModalOpen(false);
+        fetchDBCourses();
+      } else {
+        const err = await res.json();
+        triggerToast(err.detail || 'Failed to update course', 'error');
+      }
+    } catch (err: any) {
+      triggerToast('Error: ' + (err.message || 'Server error'), 'error');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   const fetchMyEnrollments = async () => {
     try {
@@ -326,9 +380,41 @@ export const CreatorDashboard: React.FC = () => {
     }, 4000);
   };
 
+  const getBaseCodeOffset = (code: string) => {
+    const u = (code || '').toUpperCase().trim();
+    if (u === 'GENERAL' || u === 'ALL' || u === 'GEN') return 101;
+    if (u === 'AI') return 201;
+    if (u === 'HR') return 301;
+    if (u === 'FICO') return 401;
+    if (u === 'ABAP') return 501;
+    if (u === 'SD') return 601;
+    if (u === 'PP') return 701;
+    if (u === 'MM') return 801;
+    if (u === 'QM') return 901;
+    return 101;
+  };
+
+  const getSuggestedCourseCode = (targetDept: string) => {
+    const deptKey = (targetDept || dept || 'COURSE').toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9]/gi, '');
+    const base = getBaseCodeOffset(deptKey);
+    let count = 0;
+    if (courses && courses.length > 0) {
+      for (const c of courses) {
+        if (!c.course_code) continue;
+        const parts = c.course_code.split('-');
+        if (parts.length === 2 && parts[0].toUpperCase() === deptKey) {
+          count++;
+        }
+      }
+    }
+    return `${deptKey}-${base + count}`;
+  };
+
   const handleOpenCreateModal = () => {
     setCreatorNameInput(profileName);
-    setTargetDeptInput(dept);
+    const initialDept = targetDeptInput || dept || 'AI';
+    setTargetDeptInput(initialDept);
+    setCourseCode(getSuggestedCourseCode(initialDept));
     setIsCreateModalOpen(true);
     setErrors({});
   };
@@ -1023,6 +1109,15 @@ export const CreatorDashboard: React.FC = () => {
                           }
                           return null;
                         })()}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => handleOpenEditCourse(course, e)}
+                          leftIcon={<Edit3 size={13} />}
+                          style={{ fontSize: '0.75rem', padding: '6px 12px', marginLeft: '6px' }}
+                        >
+                          Edit Course
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -1574,6 +1669,87 @@ export const CreatorDashboard: React.FC = () => {
         </div>
       </Modal>
 
+      {/* Edit Course Details Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title="Edit Course Details"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={isSavingEdit}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleSaveCourseEdit} disabled={isSavingEdit}>
+              {isSavingEdit ? 'Saving Changes...' : 'Save Changes'}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleSaveCourseEdit}>
+          <div className="form-group-spaced">
+            <label className="form-label-styled">Course Title <span className="required-star">*</span></label>
+            <input 
+              type="text" 
+              className="form-input-styled" 
+              placeholder="e.g. Advanced Production Design"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-group-spaced">
+            <label className="form-label-styled">Course Description</label>
+            <textarea 
+              className="form-textarea-styled" 
+              placeholder="Detailed syllabus notes and objectives..."
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              style={{ minHeight: '80px' }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div>
+              <label className="form-label-styled">Difficulty Level (Optional)</label>
+              <select 
+                className="form-select-styled"
+                value={editDifficulty}
+                onChange={(e) => setEditDifficulty(e.target.value)}
+              >
+                <option value="All Levels">All Levels (Optional)</option>
+                <option value="Beginner">Beginner</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Advanced">Advanced</option>
+              </select>
+            </div>
+            <div>
+              <label className="form-label-styled">Priority</label>
+              <select 
+                className="form-select-styled"
+                value={editPriority}
+                onChange={(e) => setEditPriority(e.target.value as any)}
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-group-spaced">
+            <label className="form-label-styled">Course Duration</label>
+            <input 
+              type="text" 
+              className="form-input-styled" 
+              placeholder="e.g. 5d 2h 30m"
+              value={editDuration}
+              onChange={(e) => setEditDuration(e.target.value)}
+            />
+          </div>
+        </form>
+      </Modal>
+
       {/* Course Creation Modal Overlay */}
       <Modal
         isOpen={isCreateModalOpen}
@@ -1624,6 +1800,17 @@ export const CreatorDashboard: React.FC = () => {
                 value={courseCode}
                 onChange={(e) => setCourseCode(e.target.value)}
               />
+              <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Suggested next sequential code:{' '}
+                <span 
+                  onClick={() => setCourseCode(getSuggestedCourseCode(targetDeptInput))}
+                  style={{ color: 'var(--accent-color)', fontWeight: '700', cursor: 'pointer', textDecoration: 'underline' }}
+                  title="Click to automatically fill this code"
+                >
+                  {getSuggestedCourseCode(targetDeptInput)}
+                </span>{' '}
+                (Click to auto-fill)
+              </p>
               {errors.courseCode && (
                 <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.courseCode}</p>
               )}
@@ -1637,7 +1824,11 @@ export const CreatorDashboard: React.FC = () => {
               <select 
                 className="form-select-styled"
                 value={targetDeptInput}
-                onChange={(e) => setTargetDeptInput(e.target.value)}
+                onChange={(e) => {
+                  const newDept = e.target.value;
+                  setTargetDeptInput(newDept);
+                  setCourseCode(getSuggestedCourseCode(newDept));
+                }}
                 disabled={role === 'Manager'}
                 style={{
                   opacity: role === 'Manager' ? 0.6 : 1,

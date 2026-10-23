@@ -1,5 +1,6 @@
-from typing import List
+from typing import List, Optional
 from uuid import UUID
+import re
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -21,12 +22,24 @@ class AdminService:
                 detail=f"Employee code '{request.employee_code}' already exists."
             )
 
-        existing_email = db.query(User).filter(User.email == request.email).first()
-        if existing_email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Email '{request.email}' already exists."
-            )
+        user_email = request.email
+        if not user_email or not str(user_email).strip():
+            clean_fn = re.sub(r'[^a-zA-Z0-9]', '', request.first_name.lower()) or "user"
+            clean_ln = re.sub(r'[^a-zA-Z0-9]', '', request.last_name.lower()) or "emp"
+            candidate_email = f"{clean_fn}.{clean_ln}@kaizen.com"
+            existing = db.query(User).filter(User.email == candidate_email).first()
+            if existing:
+                clean_code = re.sub(r'[^a-zA-Z0-9]', '', request.employee_code.lower())
+                candidate_email = f"{clean_fn}.{clean_ln}.{clean_code}@kaizen.com"
+            user_email = candidate_email
+        else:
+            user_email = str(request.email).strip().lower()
+            existing_email = db.query(User).filter(User.email == user_email).first()
+            if existing_email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Email '{user_email}' already exists."
+                )
 
 
 
@@ -55,7 +68,7 @@ class AdminService:
             employee_code=request.employee_code,
             first_name=request.first_name,
             last_name=request.last_name,
-            email=request.email,
+            email=user_email,
             password_hash=password_hash,
             department_id=request.department_id,
             is_active=True,
@@ -142,3 +155,32 @@ class AdminService:
     @staticmethod
     def list_users(db: Session, skip: int = 0, limit: int = 100) -> List[User]:
         return db.query(User).filter(User.is_deleted == False).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def generate_employee_emails(db: Session, domain: str = "kaizen.com") -> List[dict]:
+        """Automatically create/standardize corporate email IDs for all active employees."""
+        users = db.query(User).filter(User.is_deleted == False).all()
+        updated = []
+        for user in users:
+            # Check if email is missing or placeholder @lms.com
+            needs_update = not user.email or user.email.endswith("@lms.com")
+            if needs_update:
+                clean_fn = re.sub(r'[^a-zA-Z0-9]', '', (user.first_name or '').lower()) or "emp"
+                clean_ln = re.sub(r'[^a-zA-Z0-9]', '', (user.last_name or '').lower()) or "user"
+                clean_code = re.sub(r'[^a-zA-Z0-9]', '', (user.employee_code or '').lower())
+                candidate = f"{clean_fn}.{clean_ln}@{domain}"
+                existing = db.query(User).filter(User.email == candidate, User.id != user.id).first()
+                if existing:
+                    candidate = f"{clean_fn}.{clean_ln}.{clean_code}@{domain}"
+                old_email = user.email
+                user.email = candidate
+                user.email_verified = True
+                updated.append({
+                    "employee_code": user.employee_code,
+                    "name": f"{user.first_name} {user.last_name}",
+                    "old_email": old_email,
+                    "new_email": candidate
+                })
+        if updated:
+            db.commit()
+        return updated

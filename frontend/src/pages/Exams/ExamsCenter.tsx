@@ -218,7 +218,7 @@ export const ExamsCenter: React.FC = () => {
           if (import.meta.env.VITE_API_BASE_URL) {
             return import.meta.env.VITE_API_BASE_URL;
           }
-          const port = window.location.port === '5180' || window.location.port === '5181' ? '8081' : '8000';
+          const port = window.location.port === '5180' || window.location.port === '5181' ? '8000' : '8000';
           return `${window.location.protocol}//${window.location.hostname}:${port}`;
         };
 
@@ -666,7 +666,7 @@ export const ExamsCenter: React.FC = () => {
             Quit Exam
           </Button>
           <Button variant="primary" onClick={handleSubmitExam} style={{ height: '44px', fontWeight: '700', padding: '0 32px' }}>
-            🚀 Submit Answers for Grading
+            Submit Answers for Grading
           </Button>
         </div>
 
@@ -1159,8 +1159,8 @@ export const ExamsCenter: React.FC = () => {
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 12px 0' }}>{sub.course_title || 'Standalone Exam'}</p>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '10px' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>⏱️ Limit: {sub.duration_minutes || 60} mins</span>
-                          {sub.due_date && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>📅 Due: {new Date(sub.due_date).toLocaleDateString()}</span>}
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Limit: {sub.duration_minutes || 60} mins</span>
+                          {sub.due_date && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Due: {new Date(sub.due_date).toLocaleDateString()}</span>}
                         </div>
                       </div>
 
@@ -1206,7 +1206,7 @@ export const ExamsCenter: React.FC = () => {
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 12px 0' }}>{sub.course_title || 'Standalone Exam'}</p>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '10px' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>📤 Submitted: {formatDate(sub.submitted_at)}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Submitted: {formatDate(sub.submitted_at)}</span>
                         </div>
                       </div>
                     </div>
@@ -1257,7 +1257,7 @@ export const ExamsCenter: React.FC = () => {
                           </div>
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '10px' }}>
-                            <span>📅 Graded: {formatDate(sub.graded_at)}</span>
+                            <span>Graded: {formatDate(sub.graded_at)}</span>
                           </div>
                         </div>
 

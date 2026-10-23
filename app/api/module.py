@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File
+import os
+import uuid
+import shutil
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List
@@ -13,6 +16,7 @@ from app.schemas.course import (
 from app.services.module_service import ModuleService
 from app.schemas.note import UserModuleNoteCreate, UserModuleNoteResponse
 from app.services.note_service import NoteService
+from app.services.audit_service import AuditService
 
 router = APIRouter(tags=["Modules"])
 
@@ -28,7 +32,9 @@ def create_module(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
-    return ModuleService.create_module(db, request=request)
+    module = ModuleService.create_module(db, request=request)
+    AuditService.log_model_event(module, event_type="CREATE", performed_by=current_user.id)
+    return module
 
 @router.get(
     "/api/modules",
@@ -74,7 +80,9 @@ def update_module(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
-    return ModuleService.update_module(db, module_id=module_id, request=request)
+    module = ModuleService.update_module(db, module_id=module_id, request=request)
+    AuditService.log_model_event(module, event_type="UPDATE", performed_by=current_user.id)
+    return module
 
 @router.delete(
     "/api/modules/{module_id}",
@@ -87,6 +95,14 @@ def delete_module(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
+    module = ModuleService.get_module(db, module_id=module_id)
+    
+    # Eager load relationships before deleting
+    for rel_name in ["progress_records", "contents"]:
+        if hasattr(module, rel_name):
+            _ = getattr(module, rel_name)
+
+    AuditService.log_model_event(module, event_type="DELETE", performed_by=current_user.id)
     ModuleService.delete_module(db, module_id=module_id)
     return None
 
@@ -118,6 +134,83 @@ def create_content(
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     return ModuleService.create_content(db, module_id=module_id, request=request)
+
+@router.post(
+    "/api/modules/{module_id}/upload",
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload Module Media File",
+    description="Upload a direct video or image file to be embedded into the course module."
+)
+async def upload_module_media(
+    module_id: UUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
+):
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    allowed_exts = {
+        ".mp4": "video", ".webm": "video", ".ogg": "video", ".mov": "video", ".m4v": "video",
+        ".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".webp": "image", ".svg": "image",
+        ".pdf": "document", ".docx": "document", ".pptx": "document"
+    }
+    if ext not in allowed_exts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file type '{ext}'. Allowed formats: MP4, WebM, PNG, JPG, JPEG, GIF, WebP, PDF"
+        )
+    media_type = allowed_exts[ext]
+    upload_dir = os.path.join("uploads", "courses", str(module_id))
+    os.makedirs(upload_dir, exist_ok=True)
+    clean_filename = f"{uuid.uuid4().hex[:12]}_{file.filename}"
+    file_dest = os.path.join(upload_dir, clean_filename)
+    with open(file_dest, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    web_path = f"/uploads/courses/{module_id}/{clean_filename}".replace("\\", "/")
+    return {
+        "file_path": web_path,
+        "filename": file.filename,
+        "content_type": media_type,
+        "media_type": media_type
+    }
+
+@router.post(
+    "/api/modules/upload-media",
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload Direct Course Media File",
+    description="Upload any course media file (video/image) directly."
+)
+async def upload_general_media(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
+):
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    allowed_exts = {
+        ".mp4": "video", ".webm": "video", ".ogg": "video", ".mov": "video", ".m4v": "video",
+        ".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".webp": "image", ".svg": "image",
+        ".pdf": "document", ".docx": "document", ".pptx": "document"
+    }
+    if ext not in allowed_exts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file type '{ext}'. Allowed formats: MP4, WebM, PNG, JPG, JPEG, GIF, WebP, PDF"
+        )
+    media_type = allowed_exts[ext]
+    upload_dir = os.path.join("uploads", "media")
+    os.makedirs(upload_dir, exist_ok=True)
+    clean_filename = f"{uuid.uuid4().hex[:12]}_{file.filename}"
+    file_dest = os.path.join(upload_dir, clean_filename)
+    with open(file_dest, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    web_path = f"/uploads/media/{clean_filename}".replace("\\", "/")
+    return {
+        "file_path": web_path,
+        "filename": file.filename,
+        "content_type": media_type,
+        "media_type": media_type
+    }
 
 @router.get(
     "/api/modules/{module_id}/contents",

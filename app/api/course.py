@@ -75,13 +75,23 @@ def get_available_courses(
         Course.status.in_(["approved", "published"])
     )
     
-    if department_id is not None:
-        query = query.filter(
-            or_(
-                Course.department_id == department_id,
-                Course.department_id.is_(None)
+    if not is_admin:
+        dept_id = current_user.department_id
+        if dept_id:
+            query = query.filter(
+                or_(
+                    Course.department_id == dept_id,
+                    Course.department_id.is_(None)
+                )
             )
-        )
+    else:
+        if department_id is not None:
+            query = query.filter(
+                or_(
+                    Course.department_id == department_id,
+                    Course.department_id.is_(None)
+                )
+            )
         
     courses = query.all()
     return CourseListResponse(courses=courses, total=len(courses))
@@ -114,6 +124,7 @@ def create_course(
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     course = CourseService.create_course(db, request=request, user_id=current_user.id)
+    AuditService.log_model_event(course, event_type="CREATE", performed_by=current_user.id)
     AuditService.create_entry(
         db=db,
         actor=current_user.email,
@@ -137,6 +148,7 @@ def update_course(
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     course = CourseService.update_course(db, course_id=course_id, request=request)
+    AuditService.log_model_event(course, event_type="UPDATE", performed_by=current_user.id)
     AuditService.create_entry(
         db=db,
         actor=current_user.email,
@@ -158,13 +170,26 @@ def delete_course(
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
     course = CourseService.get_course(db, course_id=course_id)
+    
+    # Store code and title before deletion
+    course_code = course.course_code or str(course_id)
+    course_title = course.title
+
+    # Eager load relationships before deleting
+    for rel_name in ["modules", "enrollments", "approvals"]:
+        if hasattr(course, rel_name):
+            _ = getattr(course, rel_name)
+
+    # Log deletion to Backup DB
+    AuditService.log_model_event(course, event_type="DELETE", performed_by=current_user.id)
+
     CourseService.delete_course(db, course_id=course_id)
     AuditService.create_entry(
         db=db,
         actor=current_user.email,
         action="DELETE_COURSE",
-        target=course.course_code or str(course_id),
-        details=f"Deleted course: '{course.title}'"
+        target=course_code,
+        details=f"Deleted course: '{course_title}'"
     )
     return None
 

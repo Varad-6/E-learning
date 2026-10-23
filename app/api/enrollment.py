@@ -45,6 +45,7 @@ def enroll_user(
         course_id=request.course_id,
         enrolled_by=current_user.id if target_user_id != current_user.id else None
     )
+    AuditService.log_model_event(enrollment, event_type="CREATE", performed_by=current_user.id)
     AuditService.create_entry(
         db=db,
         actor=current_user.email,
@@ -163,6 +164,7 @@ def complete_course(
             detail="Permission denied: Cannot modify completion status of another user's enrollment."
         )
     result = EnrollmentService.complete_course(db, enrollment_id=enrollment_id)
+    AuditService.log_model_event(result, event_type="UPDATE", performed_by=current_user.id)
     BadgeService.check_and_award_badges(db, enrollment.user_id)
     
     # 🟢 Trigger completion notification for learner
@@ -212,6 +214,7 @@ def update_progress_percent(
             detail="Permission denied: Cannot update progress for another user."
         )
     result = EnrollmentService.update_progress_percent(db, enrollment_id=enrollment_id, percent=percent)
+    AuditService.log_model_event(result, event_type="UPDATE", performed_by=current_user.id)
     if percent >= 100:
         BadgeService.check_and_award_badges(db, enrollment.user_id)
     return result
@@ -229,5 +232,7 @@ def unlock_enrollment(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
-    return EnrollmentService.unlock_enrollment(db, enrollment_id=enrollment_id, extension_days=extension_days)
+    result = EnrollmentService.unlock_enrollment(db, enrollment_id=enrollment_id, extension_days=extension_days)
+    AuditService.log_model_event(result, event_type="UPDATE", performed_by=current_user.id)
+    return result
 

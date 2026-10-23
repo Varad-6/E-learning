@@ -4,6 +4,7 @@ from typing import Optional
 class Settings(BaseSettings):
     # Database Settings
     DATABASE_URL: str = "postgresql://elearning_user:postgres@localhost:5433/elearning"
+    BACKUP_DATABASE_URL: Optional[str] = None
 
     # JWT Settings
     SECRET_KEY: str = "8af675b3c4109403d159e847c219a12c85e28a07c1266e74581f1816e8db2b53"

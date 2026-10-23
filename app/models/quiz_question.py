@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Integer, ForeignKey, JSON
+from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.database.base import Base
@@ -15,6 +15,7 @@ class QuizQuestion(Base):
     explanation = Column(String, nullable=True)
     points = Column(Integer, default=1, nullable=False)
     question_type = Column(String, nullable=False, server_default="mcq")
+    is_required = Column(Boolean, default=False, nullable=False)
 
     # Relationships
     quiz = relationship("Quiz", back_populates="questions")

@@ -826,13 +826,37 @@ export const Dashboard: React.FC = () => {
 
 
 
-  const [activeMainView, setActiveMainView] = useState<'dashboard' | 'profile' | 'my-courses'>('dashboard');
+  const [activeMainView, setActiveMainView] = useState<'dashboard' | 'profile' | 'my-courses' | 'badges'>('dashboard');
 
   const [celebratedBadge, setCelebratedBadge] = useState<Badge | null>(null);
 
   const [showBadgeOverlay, setShowBadgeOverlay] = useState(false);
 
+  const [badgeTiers, setBadgeTiers] = useState<any[]>([]);
+  const [userBadges, setUserBadges] = useState<any[]>([]);
+  const [badgesLoading, setBadgesLoading] = useState(false);
 
+  const fetchBadgesData = async () => {
+    try {
+      setBadgesLoading(true);
+      const [tiersRes, badgesRes] = await Promise.all([
+        apiCall('/api/badges/tiers'),
+        apiCall('/api/badges/my-badges')
+      ]);
+      if (tiersRes.ok) {
+        const tiersData = await tiersRes.json();
+        setBadgeTiers(tiersData);
+      }
+      if (badgesRes.ok) {
+        const badgesData = await badgesRes.json();
+        setUserBadges(badgesData);
+      }
+    } catch (err) {
+      console.error('Failed to fetch badges data', err);
+    } finally {
+      setBadgesLoading(false);
+    }
+  };
 
   useEffect(() => {
 
@@ -854,6 +878,9 @@ export const Dashboard: React.FC = () => {
       } else {
         setActiveMyCoursesTab('in_progress');
       }
+    } else if (tab === 'badges') {
+      setActiveMainView('badges');
+      fetchBadgesData();
     } else {
 
       setActiveMainView('dashboard');
@@ -2363,10 +2390,43 @@ export const Dashboard: React.FC = () => {
 
   };
 
+  const getBaseCodeOffset = (code: string) => {
+    const u = (code || '').toUpperCase().trim();
+    if (u === 'GENERAL' || u === 'ALL' || u === 'GEN') return 101;
+    if (u === 'AI') return 201;
+    if (u === 'HR') return 301;
+    if (u === 'FICO') return 401;
+    if (u === 'ABAP') return 501;
+    if (u === 'SD') return 601;
+    if (u === 'PP') return 701;
+    if (u === 'MM') return 801;
+    if (u === 'QM') return 901;
+    return 101;
+  };
 
+  const getSuggestedCourseCode = (targetDept: string) => {
+    const deptKey = (targetDept || dept || 'COURSE').toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9]/gi, '');
+    const base = getBaseCodeOffset(deptKey);
+    let count = 0;
+    if (managedCourses && managedCourses.length > 0) {
+      for (const c of managedCourses) {
+        if (!c.course_code) continue;
+        const parts = c.course_code.split('-');
+        if (parts.length === 2 && parts[0].toUpperCase() === deptKey) {
+          count++;
+        }
+      }
+    }
+    return `${deptKey}-${base + count}`;
+  };
+
+  useEffect(() => {
+    if (managerSubView === 'create_course' && !newCourseCode) {
+      setNewCourseCode(getSuggestedCourseCode(dept));
+    }
+  }, [managerSubView, managedCourses, dept]);
 
   // Handler: Creator Creates New Course
-
   const handleCreateNewCourseSubmit = (e: React.FormEvent) => {
 
     e.preventDefault();
@@ -3147,7 +3207,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Top Banner Common Details */}
 
-      {(activeMainView === 'dashboard' || activeMainView === 'my-courses') && (
+      {(activeMainView === 'dashboard' || activeMainView === 'my-courses' || activeMainView === 'badges') && (
 
         <section className="dashboard-hero-banner glass-panel">
 
@@ -3973,6 +4033,13 @@ export const Dashboard: React.FC = () => {
                       </span>
                     </div>
                   )}
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate('/dashboard?tab=badges')}
+                    style={{ width: '100%', marginTop: '12px', height: '36px', fontSize: '0.82rem', fontWeight: '700' }}
+                  >
+                    View All Badges & Requirements →
+                  </Button>
                 </div>
 
                 {/* ROW 3: DETAILED CHARTS */}
@@ -4411,7 +4478,175 @@ export const Dashboard: React.FC = () => {
 
       )}
 
+      {/* 1.5 EMPLOYEE BADGES & ACHIEVEMENTS DEDICATED VIEW */}
+      {activeMainView === 'badges' && (
+        <div className="animate-fade-in" style={{ padding: '0 0 40px 0', maxWidth: '1400px', margin: '0 auto' }}>
+          {/* Header Banner */}
+          <div style={{
+            background: 'var(--bg-card)',
+            borderRadius: 'var(--border-radius-lg)',
+            border: '1px solid var(--border-color)',
+            padding: '24px 30px',
+            marginBottom: '24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '16px',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Award size={28} style={{ color: '#d97706' }} />
+                <h2 style={{ fontSize: '1.6rem', fontWeight: 850, margin: 0, color: 'var(--text-primary)' }}>
+                  Kaizen Badges & Achievements
+                </h2>
+              </div>
+              <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
+                Badges are awarded automatically upon course completion based on both cumulative courses finished and your average score threshold.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div style={{
+                background: 'rgba(217, 119, 6, 0.1)',
+                border: '1px solid rgba(217, 119, 6, 0.3)',
+                padding: '8px 16px',
+                borderRadius: 'var(--border-radius-md)',
+                textAlign: 'right'
+              }}>
+                <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', fontWeight: 700 }}>Earned Badges</span>
+                <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#d97706' }}>
+                  {userBadges.length} / {badgeTiers.length || 20}
+                </span>
+              </div>
+              <Button variant="outline" onClick={() => navigate('/dashboard')}>
+                ← Back to Dashboard
+              </Button>
+            </div>
+          </div>
 
+          {/* Badges Grid Showcase */}
+          {badgesLoading ? (
+            <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+              Loading badges...
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+              gap: '20px'
+            }}>
+              {badgeTiers.map((tier: any) => {
+                const earned = userBadges.find((b: any) => b.badge_tier_id === tier.id || b.badge_tier?.name === tier.name);
+                const isEarned = !!earned;
+                return (
+                  <div
+                    key={tier.id}
+                    className="widget-card animate-fade-in"
+                    style={{
+                      background: isEarned
+                        ? 'linear-gradient(145deg, rgba(217, 119, 6, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)'
+                        : 'var(--bg-card)',
+                      borderColor: isEarned ? '#d97706' : 'var(--border-color)',
+                      boxShadow: isEarned ? '0 6px 20px rgba(217, 119, 6, 0.15)' : 'none',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      padding: '24px 20px',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    {isEarned && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        background: '#10b981',
+                        color: '#fff',
+                        fontSize: '0.7rem',
+                        fontWeight: 800,
+                        padding: '3px 8px',
+                        borderRadius: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <CheckCircle size={12} /> UNLOCKED
+                      </span>
+                    )}
+
+                    {/* Badge Image */}
+                    <div style={{
+                      width: '100px',
+                      height: '100px',
+                      margin: '12px 0 16px',
+                      filter: isEarned ? 'drop-shadow(0 4px 12px rgba(217, 119, 6, 0.35))' : 'grayscale(100%) opacity(0.35)',
+                      transition: 'filter 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <img
+                        src={`/badges/${tier.icon_asset_ref}.png`}
+                        alt={tier.name}
+                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+
+                    {/* Badge Info */}
+                    <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 4px 0', color: isEarned ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                      {tier.name}
+                    </h3>
+                    <span style={{ fontSize: '0.78rem', color: isEarned ? '#d97706' : 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Tier {tier.tier_order}
+                    </span>
+
+                    {/* Requirement Metrics */}
+                    <div style={{
+                      width: '100%',
+                      background: 'rgba(0, 0, 0, 0.04)',
+                      borderRadius: 'var(--border-radius-md)',
+                      padding: '12px',
+                      margin: '16px 0 12px',
+                      fontSize: '0.82rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                      textAlign: 'left'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                        <span>Courses Required:</span>
+                        <strong style={{ color: 'var(--text-primary)' }}>{tier.courses_required_cumulative}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                        <span>Min. Score Required:</span>
+                        <strong style={{ color: '#d97706' }}>{tier.min_score_percent || 0}%</strong>
+                      </div>
+                    </div>
+
+                    {/* Status footer */}
+                    {isEarned ? (
+                      <span style={{ fontSize: '0.76rem', color: '#10b981', fontWeight: 600, marginTop: 'auto' }}>
+                        Earned on {new Date(earned.earned_at).toLocaleDateString()}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: 'auto' }}>
+                        Complete {tier.courses_required_cumulative} courses with ≥{tier.min_score_percent || 0}% avg score
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 2. DEPARTMENT MANAGER (DEPARTMENT HEAD) VIEW */}
       {activeMainView === 'dashboard' && role === 'Manager' && (
@@ -4686,6 +4921,17 @@ export const Dashboard: React.FC = () => {
                           onChange={(e) => setNewCourseCode(e.target.value)}
                           style={{ width: '100%', padding: '12px 16px', boxSizing: 'border-box' }}
                         />
+                        <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          Suggested next sequential code:{' '}
+                          <span
+                            onClick={() => setNewCourseCode(getSuggestedCourseCode(dept))}
+                            style={{ color: 'var(--accent-color)', fontWeight: '700', cursor: 'pointer', textDecoration: 'underline' }}
+                            title="Click to automatically fill this code"
+                          >
+                            {getSuggestedCourseCode(dept)}
+                          </span>{' '}
+                          (Click to auto-fill)
+                        </p>
                       </div>
                       <div className="form-group-spaced" style={{ margin: 0 }}>
                         <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', textTransform: 'uppercase' }}>Course Description</label>

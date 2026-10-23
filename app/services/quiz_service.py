@@ -28,7 +28,8 @@ class QuizService:
             title=request.title,
             passing_score=request.passing_score,
             time_limit_minutes=request.time_limit_minutes,
-            is_published=request.is_published
+            is_published=request.is_published,
+            is_optional=request.is_optional
         )
         db.add(quiz)
         db.commit()
@@ -66,7 +67,9 @@ class QuizService:
             options=request.options,
             correct_answer=request.correct_answer,
             explanation=request.explanation,
-            points=request.points
+            points=request.points,
+            question_type=request.question_type or "mcq",
+            is_required=request.is_required if hasattr(request, 'is_required') else False
         )
         db.add(question)
         db.commit()
@@ -75,10 +78,10 @@ class QuizService:
 
     @staticmethod
     def verify_quiz_access(db: Session, user: User, quiz: Quiz) -> None:
-        """Enforce sequential lock and enrollment checks on quiz access for learners."""
+        """Enrollment check on quiz access for learners (all modules and quizzes optional/accessible)."""
         user_roles = [r.name for r in user.roles]
         if "SYSTEM_ADMIN" in user_roles or "COURSE_MANAGER" in user_roles:
-            return # Admins/Managers bypass lock checks
+            return # Admins/Managers bypass checks
 
         # Check enrollment
         enrollment = db.query(CourseEnrollment).join(
@@ -94,42 +97,6 @@ class QuizService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User is not enrolled in the course corresponding to this quiz."
             )
-
-        # Enforce sequential lock
-        module = db.query(CourseModule).filter(CourseModule.id == quiz.module_id).first()
-        if module:
-            course_id = module.course_id
-            modules_list = db.query(CourseModule).filter(CourseModule.course_id == course_id).all()
-            
-            def get_tier_rank(tier: str) -> int:
-                t = tier.lower() if tier else ""
-                if t == "intermediate": return 1
-                elif t == "advanced": return 2
-                return 0
-
-            modules_list.sort(key=lambda m: (get_tier_rank(m.tier), m.sequence_no))
-            
-            mod_index = next((i for i, m in enumerate(modules_list) if m.id == module.id), -1)
-            if mod_index > 0:
-                prev_mod = modules_list[mod_index - 1]
-                from app.models.module_content import ModuleContent
-                from app.models.user_course_progress import UserCourseProgress
-                
-                total_prev_contents = db.query(ModuleContent).filter(
-                    ModuleContent.module_id == prev_mod.id, 
-                    ModuleContent.is_active == True
-                ).count()
-                completed_prev_contents = db.query(UserCourseProgress).filter(
-                    UserCourseProgress.enrollment_id == enrollment.id,
-                    UserCourseProgress.module_id == prev_mod.id,
-                    UserCourseProgress.completed == True
-                ).count()
-
-                if completed_prev_contents < total_prev_contents:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Quiz is locked. You must complete the previous module '{prev_mod.title}' first."
-                    )
 
     @staticmethod
     def submit_attempt(db: Session, user_id: UUID, request: QuizAttemptCreate) -> QuizAttempt:

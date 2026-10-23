@@ -30,3 +30,4 @@ frontend/.vite/
 
 # Scratch & Temporary
 scratch/
+*.zip

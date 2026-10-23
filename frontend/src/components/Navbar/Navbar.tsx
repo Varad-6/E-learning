@@ -161,6 +161,10 @@ export const Navbar: React.FC = () => {
             localStorage.setItem('isLoggedInRole', mappedRole);
             setUserRole(mappedRole);
           }
+          if (user.department_id) {
+            localStorage.setItem('profileDeptId', user.department_id);
+            localStorage.setItem('isLoggedInDeptId', user.department_id);
+          }
           if (user.first_name) {
             const fullName = `${user.first_name} ${user.last_name}`.trim();
             localStorage.setItem('profileName', fullName);
@@ -368,7 +372,7 @@ export const Navbar: React.FC = () => {
             <>
               <div 
                 onClick={() => safeNavigate('/dashboard')} 
-                className={`nav-link ${location.pathname === '/dashboard' && !location.search.includes('tab=my-courses') ? 'active' : ''}`} 
+                className={`nav-link ${location.pathname === '/dashboard' && !location.search.includes('tab=my-courses') && !location.search.includes('tab=badges') ? 'active' : ''}`} 
                 style={{ cursor: 'pointer' }}
                 role="button"
               >
@@ -391,6 +395,14 @@ export const Navbar: React.FC = () => {
                     role="button"
                   >
                     Attempt Exam
+                  </div>
+                  <div 
+                    onClick={() => safeNavigate('/dashboard?tab=badges')} 
+                    className={`nav-link ${location.pathname === '/dashboard' && location.search.includes('tab=badges') ? 'active' : ''}`} 
+                    style={{ cursor: 'pointer' }}
+                    role="button"
+                  >
+                    Badges
                   </div>
                 </>
               )}

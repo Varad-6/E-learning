@@ -7,6 +7,7 @@ from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
 from app.schemas.department import DepartmentCreate, DepartmentUpdate, DepartmentResponse
 from app.services.department_service import DepartmentService
+from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/api/departments", tags=["Departments"])
 
@@ -50,7 +51,9 @@ def create_department(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
-    return DepartmentService.create_department(db, request=request)
+    dept = DepartmentService.create_department(db, request=request)
+    AuditService.log_model_event(dept, event_type="CREATE", performed_by=current_user.id)
+    return dept
 
 @router.put(
     "/{department_id}",
@@ -65,7 +68,9 @@ def update_department(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
-    return DepartmentService.update_department(db, department_id=department_id, request=request)
+    dept = DepartmentService.update_department(db, department_id=department_id, request=request)
+    AuditService.log_model_event(dept, event_type="UPDATE", performed_by=current_user.id)
+    return dept
 
 @router.delete(
     "/{department_id}",
@@ -78,5 +83,13 @@ def delete_department(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
+    dept = DepartmentService.get_department(db, department_id=department_id)
+    
+    # Eager load relationships before deleting
+    for rel_name in ["users", "courses"]:
+        if hasattr(dept, rel_name):
+            _ = getattr(dept, rel_name)
+
+    AuditService.log_model_event(dept, event_type="DELETE", performed_by=current_user.id)
     DepartmentService.delete_department(db, department_id=department_id)
     return None

@@ -201,7 +201,7 @@ export const ViewCourses: React.FC = () => {
   return (
     <div className="view-courses-canvas container animate-fade-in" style={{ paddingBottom: '60px' }}>
       <div className="pane-header" style={{ marginBottom: '24px' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>🎓 Curriculum Preview & Workspace</h2>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Curriculum Preview & Workspace</h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>Inspect, enroll, and study the interactive course curriculum from a learner perspective.</p>
       </div>
 

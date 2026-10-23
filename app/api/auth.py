@@ -11,6 +11,7 @@ from app.schemas.auth import (
 )
 from app.schemas.user import UserResponse
 from app.services.auth_service import AuthService
+from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -111,7 +112,9 @@ def update_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    return AuthService.update_profile(db, user=current_user, request=request)
+    user = AuthService.update_profile(db, user=current_user, request=request)
+    AuditService.log_model_event(user, event_type="UPDATE", performed_by=current_user.id)
+    return user
 
 @router.get(
     "/profile",

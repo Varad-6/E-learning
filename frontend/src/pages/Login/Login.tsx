@@ -129,6 +129,7 @@ export const Login: React.FC = () => {
       if (selectedDept) {
         localStorage.setItem('isLoggedInDept', selectedDept.code);
         localStorage.setItem('profileDeptId', selectedDept.id);
+        localStorage.setItem('isLoggedInDeptId', selectedDept.id);
       } else {
         localStorage.setItem('isLoggedInDept', 'General');
       }

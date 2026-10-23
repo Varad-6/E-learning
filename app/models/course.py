@@ -12,7 +12,7 @@ class Course(Base):
     course_code = Column(String, unique=True, index=True, nullable=False)
     title = Column(String, nullable=False)
     description = Column(String, nullable=True)
-    difficulty_level = Column(String, nullable=False)  # e.g., beginner, intermediate, advanced
+    difficulty_level = Column(String, nullable=True, default="all_levels")  # optional level: beginner, intermediate, advanced, all_levels
     is_published = Column(Boolean, default=False, nullable=False)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     department_id = Column(UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True)
@@ -48,7 +48,7 @@ class Course(Base):
     def department_name(self) -> str:
         if self.department:
             return self.department.name
-        return "General"
+        return "All Departments"
 
     @property
     def rejection_reason(self) -> str:
