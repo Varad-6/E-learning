@@ -15,9 +15,20 @@ class CourseService:
     def create_course(db: Session, request: CourseCreate, user_id: UUID) -> Course:
         existing_course = db.query(Course).filter(Course.course_code == request.course_code).first()
         if existing_course:
+            prefix = request.course_code.rsplit("-", 1)[0] if "-" in request.course_code else request.course_code
+            matching = db.query(Course.course_code).filter(Course.course_code.like(f"{prefix}-%")).all()
+            max_num = 100
+            for (c_code,) in matching:
+                try:
+                    num = int(c_code.rsplit("-", 1)[1])
+                    if num > max_num:
+                        max_num = num
+                except (ValueError, IndexError):
+                    pass
+            suggested = f"{prefix}-{max_num + 1}"
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Course code '{request.course_code}' already exists."
+                detail=f"Course code '{request.course_code}' already exists. Next available code is '{suggested}'."
             )
 
         if request.department_id:

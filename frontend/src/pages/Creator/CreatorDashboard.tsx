@@ -397,17 +397,32 @@ export const CreatorDashboard: React.FC = () => {
   const getSuggestedCourseCode = (targetDept: string) => {
     const deptKey = (targetDept || dept || 'COURSE').toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9]/gi, '');
     const base = getBaseCodeOffset(deptKey);
-    let count = 0;
+    let maxNum = base - 1;
+    const existingCodes = new Set<string>();
+
     if (courses && courses.length > 0) {
       for (const c of courses) {
         if (!c.course_code) continue;
-        const parts = c.course_code.split('-');
-        if (parts.length === 2 && parts[0].toUpperCase() === deptKey) {
-          count++;
+        const upper = c.course_code.toUpperCase().trim();
+        existingCodes.add(upper);
+        const parts = upper.split('-');
+        if (parts.length >= 2) {
+          const prefix = parts.slice(0, -1).join('-');
+          const lastPart = parts[parts.length - 1];
+          if (prefix === deptKey) {
+            const num = parseInt(lastPart, 10);
+            if (!isNaN(num) && num > maxNum) {
+              maxNum = num;
+            }
+          }
         }
       }
     }
-    return `${deptKey}-${base + count}`;
+    let candidate = Math.max(base, maxNum + 1);
+    while (existingCodes.has(`${deptKey}-${candidate}`)) {
+      candidate++;
+    }
+    return `${deptKey}-${candidate}`;
   };
 
   const handleOpenCreateModal = () => {
@@ -525,7 +540,14 @@ export const CreatorDashboard: React.FC = () => {
 
       if (!res.ok) {
         const errData = await res.json();
-        triggerToast(errData.detail || 'Could not create course. Please try again.', 'warning');
+        const detailMsg = errData.detail || 'Could not create course. Please try again.';
+        if (detailMsg.toLowerCase().includes('already exists')) {
+          const nextFree = getSuggestedCourseCode(targetDeptInput);
+          setCourseCode(nextFree);
+          triggerToast(`${detailMsg} We've auto-updated the code to '${nextFree}'. Click 'Create Modules' again to proceed.`, 'warning');
+        } else {
+          triggerToast(detailMsg, 'warning');
+        }
         return;
       }
 
