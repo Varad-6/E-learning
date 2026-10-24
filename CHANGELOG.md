@@ -1,5 +1,22 @@
 # Changelog
 
+## [2026-10-24] Production Packaging & Course Creation Remediation Bundle (update1.zip)
+- Problem: Deployed environment on remote host failed during course creation, syllabus publishing, and quiz assessments. Root causes identified:
+  1. Course publishing blocked by legacy check 'begCount < 2 || intCount < 2 || advCount < 2' in CourseSyllabus.tsx despite Row 1 change making tiers optional.
+  2. Quiz creation failed with 422 Unprocessable Content because QuizQuestionCreate strictly required correct_answer and options without defaults, rejecting notes/open-ended questions. Also, QuizService.create_quiz failed to persist question_type and is_required.
+  3. CourseResponse.status was typed as a strict CourseStatus enum, causing potential 500 serialization errors on case variations from the database.
+  4. The previous deployment archive (update (1).zip) was missing 150 essential project files (including module_service.py, module_content.py, course_approval.py, note_service.py, user_module_note.py, all 23 prior Alembic migration files, and full frontend source and CSS files).
+- Changed:
+  - frontend/src/pages/Creator/CourseSyllabus.tsx: Removed the 2-module per tier lock. Courses can now be published with whatever modules exist (requiring only at least 1 module total).
+  - app/schemas/quiz.py: Made options default to [] and correct_answer default to "" in QuizQuestionCreate.
+  - app/services/quiz_service.py: Persisted question_type and is_required in create_quiz.
+  - app/schemas/course.py: Changed CourseResponse.status to str for robust backward-compatible serialization.
+  - Rebuilt production frontend assets (frontend/dist/ with index-BTvEedNe.js).
+  - Packaged complete self-contained 220-file deployment archives: update.zip and update1.zip in C:\Users\Varad\Downloads\.
+  - Updated manifest in C:\Users\Varad\Downloads\deployment_files_list.txt.
+- Tests added: Automated end-to-end Course & Module Creation test script (tmp_test_course_creation.py) validating Course (201) -> Module (201) -> Content (201) -> Notes (200) -> Quiz (201) -> Publish -> Cleanup (204). All pass with zero errors.
+- Migration: All 24 Alembic migrations included in the bundle. Run alembic upgrade head.
+
 ## [2026-10-23] Deployment Readiness & Sequential Module Progression Hardening
 - Problem: Commit 7f0703c deleted backend sequential module validation from app/services/enrollment_service.py and hardcoded frontend unlock bypass in CoursePlayer.tsx when making course tiers nullable, creating an API skip-ahead exploit risk. In addition, production API origin fallback in frontend/src/services/api.ts was hardcoding port 8000 instead of dynamically utilizing window.location.origin. During live Playwright test pass, an AttributeError on ExamSubmission.total_score was also discovered in BadgeService.check_and_award_badges.
 - Changed:

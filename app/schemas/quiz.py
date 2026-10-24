@@ -5,8 +5,8 @@ from datetime import datetime
 
 class QuizQuestionCreate(BaseModel):
     question_text: str = Field(..., description="Text of the question")
-    options: List[str] = Field(..., description="List of options for the question")
-    correct_answer: str = Field(..., description="Correct option corresponding to options list")
+    options: List[str] = Field(default=[], description="List of options for the question")
+    correct_answer: str = Field(default="", description="Correct option corresponding to options list")
     explanation: Optional[str] = Field(None, description="Explanation for the correct answer")
     points: int = Field(1, ge=1, description="Points awarded for the correct answer")
     question_type: Optional[str] = Field("mcq", description="Type of question (mcq, msq, notes)")

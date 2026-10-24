@@ -41,10 +41,12 @@ class QuizService:
                 question = QuizQuestion(
                     quiz_id=quiz.id,
                     question_text=q_req.question_text,
-                    options=q_req.options,
-                    correct_answer=q_req.correct_answer,
+                    options=q_req.options if q_req.options is not None else [],
+                    correct_answer=q_req.correct_answer if q_req.correct_answer is not None else "",
                     explanation=q_req.explanation,
-                    points=q_req.points
+                    points=q_req.points,
+                    question_type=q_req.question_type or "mcq",
+                    is_required=q_req.is_required if hasattr(q_req, "is_required") else False
                 )
                 db.add(question)
             db.commit()

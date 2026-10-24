@@ -118,15 +118,10 @@ export const CourseSyllabus: React.FC = () => {
   const handleTogglePublish = async () => {
     if (!course || !courseId) return;
     
-    // Check if we are trying to publish
-    if (!course.is_published) {
-      const begCount = modules.filter(m => m.tier === 'beginner').length;
-      const intCount = modules.filter(m => m.tier === 'intermediate').length;
-      const advCount = modules.filter(m => m.tier === 'advanced').length;
-      if (begCount < 2 || intCount < 2 || advCount < 2) {
-        alert('Cannot publish course: Each difficulty tier (Beginner, Intermediate, Advanced) must have at least 2 modules.');
-        return;
-      }
+    // Check if we are trying to publish: require at least one module in the course
+    if (!course.is_published && modules.length === 0) {
+      alert('Cannot publish course: Please create at least one syllabus module before publishing.');
+      return;
     }
 
     try {

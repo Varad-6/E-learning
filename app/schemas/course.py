@@ -87,7 +87,7 @@ class CourseResponse(BaseModel):
     is_published: bool
     created_by: Optional[UUID] = None
     department_id: Optional[UUID] = None
-    status: CourseStatus
+    status: str
     duration: Optional[str] = None
     priority: Optional[str] = None
     creator_name: Optional[str] = None

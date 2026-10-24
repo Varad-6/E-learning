@@ -14,3 +14,9 @@ This file tracks all temporary/throwaway files created during development.
 | `scratch/tmp_api_audit.py` | Initial API route enumeration and status code test | After full QA pass |
 | `scratch/tmp_verify_final.py` | Comprehensive 45-point E2E verification test suite | After full QA pass |
 | `scratch/tmp_docker_test.py` | Docker container port and health verification script | After full QA pass |
+| `scratch/tmp_test_course_creation.py` | Course & Module end-to-end creation test script | After deployment bundle generation |
+| `scratch/tmp_find_missing_files.py` | Detect missing repository files in deployment zip | After deployment bundle generation |
+| `scratch/tmp_patch_quiz.py` | Patch quiz schemas & services for 422 fix | After deployment bundle generation |
+| `scratch/tmp_patch_course_schema.py` | Patch course schema status type | After deployment bundle generation |
+| `scratch/tmp_build_complete_zip.py` | Package complete self-contained update archives | After deployment bundle generation |
+| `scratch/tmp_update_changelog.py` | Update CHANGELOG.md with release notes | After deployment bundle generation |
