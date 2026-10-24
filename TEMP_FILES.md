@@ -20,3 +20,6 @@ This file tracks all temporary/throwaway files created during development.
 | `scratch/tmp_patch_course_schema.py` | Patch course schema status type | After deployment bundle generation |
 | `scratch/tmp_build_complete_zip.py` | Package complete self-contained update archives | After deployment bundle generation |
 | `scratch/tmp_update_changelog.py` | Update CHANGELOG.md with release notes | After deployment bundle generation |
+| `scratch/tmp_patch_course_code.py` | Patch smart non-colliding course code logic | After deployment bundle generation |
+| `scratch/all_users_dump.json` | Dump of all 105 enterprise seed users from Excel | After seeder verification |
+| `scratch/tmp_generate_full_seeder.py` | Generator for self-contained seed_selected_users.py | After seeder verification |
