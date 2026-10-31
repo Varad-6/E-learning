@@ -82,7 +82,7 @@ class QuizService:
     def verify_quiz_access(db: Session, user: User, quiz: Quiz) -> None:
         """Enrollment check on quiz access for learners (all modules and quizzes optional/accessible)."""
         user_roles = [r.name for r in user.roles]
-        if "SYSTEM_ADMIN" in user_roles or "COURSE_MANAGER" in user_roles:
+        if any(r in user_roles for r in ["SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER", "ADMIN"]):
             return # Admins/Managers bypass checks
 
         # Check enrollment

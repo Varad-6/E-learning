@@ -32,7 +32,7 @@ def enroll_user(
     target_user_id = current_user.id
     if request.user_id and request.user_id != current_user.id:
         user_roles = [r.name for r in current_user.roles]
-        if "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+        if not any(r in user_roles for r in ["SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER", "ADMIN"]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Permission denied: Cannot enroll other users."
@@ -112,7 +112,7 @@ def get_enrollment(
     
     # Permission check
     user_roles = [r.name for r in current_user.roles]
-    if enrollment.user_id != current_user.id and "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+    if enrollment.user_id != current_user.id and not any(r in user_roles for r in ["SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER", "ADMIN"]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied: Cannot view other users' enrollments."
@@ -158,7 +158,7 @@ def complete_course(
     
     # Permission check
     user_roles = [r.name for r in current_user.roles]
-    if enrollment.user_id != current_user.id and "SYSTEM_ADMIN" not in user_roles and "COURSE_MANAGER" not in user_roles:
+    if enrollment.user_id != current_user.id and not any(r in user_roles for r in ["SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER", "ADMIN"]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied: Cannot modify completion status of another user's enrollment."

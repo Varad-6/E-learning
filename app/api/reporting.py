@@ -5,7 +5,7 @@ from uuid import UUID
 from typing import List, Optional, Dict, Any
 import datetime
 
-from app.core.dependencies import get_db, get_current_user
+from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
 from app.models.department import Department
 from app.models.role import Role
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/api/reporting", tags=["Reporting"])
     summary="Level 1: Get Department Cards Summary Stats"
 )
 def get_departments_summary(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER")),
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
@@ -108,7 +108,7 @@ def get_departments_summary(
 )
 def get_department_employees(
     department_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER")),
     db: Session = Depends(get_db)
 ):
     user_roles = [r.name for r in current_user.roles]
@@ -242,8 +242,10 @@ def get_employee_detail_profile(
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    # Scoping check: users can view own profile; Admins/HR can view any; Managers/Employees can view within their department
+    # Scoping check: users can view own profile; Admins/HR can view any; Managers can view within their department
     if current_user.id != user_id and not is_global_admin:
+        if "COURSE_MANAGER" not in user_roles:
+            raise HTTPException(status_code=403, detail="Employees can only view their own profile.")
         if current_user.department_id and emp.department_id and current_user.department_id != emp.department_id:
             raise HTTPException(status_code=403, detail="Personnel can only view profiles within their department.")
 

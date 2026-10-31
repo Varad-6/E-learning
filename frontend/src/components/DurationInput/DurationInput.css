@@ -1,0 +1,100 @@
+.duration-input-wrapper {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.duration-inputs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.duration-inputs-row.has-days {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.duration-input-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.duration-number-input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+}
+
+.duration-number-input.has-error {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+}
+
+.duration-unit-badge {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+  margin-top: 2px;
+}
+
+.duration-presets-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.duration-preset-btn {
+  background: var(--bg-card, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  color: var(--text-primary, #ffffff);
+  border-radius: 14px;
+  padding: 3px 10px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.duration-preset-btn:hover {
+  border-color: var(--accent-color, #3b82f6);
+  color: var(--accent-color, #3b82f6);
+  background: var(--accent-glow, rgba(59, 130, 246, 0.1));
+}
+
+.duration-preset-btn.active {
+  background: var(--accent-color, #3b82f6);
+  border-color: var(--accent-color, #3b82f6);
+  color: #ffffff;
+}
+
+.duration-helper-note {
+  font-size: 0.78rem;
+  color: var(--text-secondary, #94a3b8);
+  margin: 6px 0 0 0;
+  line-height: 1.45;
+}
+
+.duration-error-text {
+  color: #ef4444;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 6px 0 0 0;
+  line-height: 1.4;
+}
+
+@media (max-width: 540px) {
+  .duration-inputs-row.has-days {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+}

@@ -5,11 +5,21 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.base import Base
 
+class CourseModuleAssociation(Base):
+    __tablename__ = "course_module_associations"
+
+    course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True)
+    module_id = Column(UUID(as_uuid=True), ForeignKey("course_modules.id", ondelete="CASCADE"), primary_key=True)
+    sequence_no = Column(Integer, default=1, nullable=False)
+
+    course = relationship("Course", backref="module_associations")
+    module = relationship("CourseModule", backref="course_associations")
+
 class CourseModule(Base):
     __tablename__ = "course_modules"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
+    course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id", ondelete="SET NULL"), nullable=True)
     title = Column(String, nullable=False)
     description = Column(String, nullable=True)
     sequence_no = Column(Integer, nullable=False)

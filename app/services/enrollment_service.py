@@ -54,37 +54,86 @@ def parse_duration(duration_str: str) -> timedelta:
 
 class EnrollmentService:
     @staticmethod
-    def auto_enroll_mandatory_course(db: Session, course_id: UUID) -> None:
-        """Auto enroll all matching employees in a published course."""
-        course = db.query(Course).filter(
-            Course.id == course_id,
-            Course.status.in_(["approved", "published"])
-        ).first()
+    def assign_course_to_departments(db: Session, course_id: UUID) -> int:
+        """Assign/enroll all matching employees in a course based on its target departments."""
+        course = db.query(Course).filter(Course.id == course_id).first()
         if not course:
-            return
-        query = db.query(User).filter(User.is_active == True, User.is_deleted == False)
-        if course.department_id:
-            query = query.filter(User.department_id == course.department_id)
-        users = query.all()
-        for u in users:
+            return 0
+
+        from app.models.course_department import CourseDepartment
+        from app.models.department import Department
+        from app.services.notification_service import NotificationService
+        
+        # Check if All Departments
+        dept_assocs = db.query(CourseDepartment).filter(CourseDepartment.course_id == course_id).all()
+        target_dept_ids = [da.department_id for da in dept_assocs]
+        total_dept_count = db.query(Department).count()
+
+        is_all_depts = False
+        if course.department_id is None:
+            is_all_depts = True
+        elif total_dept_count > 0 and len(target_dept_ids) >= total_dept_count:
+            is_all_depts = True
+
+        user_query = db.query(User).filter(User.is_active == True, User.is_deleted == False)
+        if not is_all_depts:
+            if target_dept_ids:
+                user_query = user_query.filter(User.department_id.in_(target_dept_ids))
+            elif course.department_id:
+                user_query = user_query.filter(User.department_id == course.department_id)
+
+        target_users = user_query.all()
+
+        # Clean up stale unstarted enrollments if targeting changed away from their department
+        if not is_all_depts:
+            target_user_ids = {u.id for u in target_users}
+            stale_enrollments = db.query(CourseEnrollment).filter(
+                CourseEnrollment.course_id == course.id,
+                CourseEnrollment.progress_percent == 0,
+                CourseEnrollment.status == "enrolled",
+                ~CourseEnrollment.user_id.in_(target_user_ids)
+            ).all()
+            for se in stale_enrollments:
+                db.delete(se)
+        assigned_count = 0
+        base_time = course.published_at if course.published_at is not None else datetime.now(timezone.utc)
+        expires_at = base_time + parse_duration(course.duration)
+
+        for u in target_users:
             existing = db.query(CourseEnrollment).filter(
                 CourseEnrollment.user_id == u.id,
                 CourseEnrollment.course_id == course.id
             ).first()
             if not existing:
-                base_time = course.published_at if course.published_at is not None else datetime.now(timezone.utc)
-                expires_at = base_time + parse_duration(course.duration)
                 new_enr = CourseEnrollment(
                     user_id=u.id,
                     course_id=course.id,
-                    status="in_progress",
-                    progress_percent=0.0,
+                    status="enrolled",
+                    progress_percent=0,
                     enrolled_at=datetime.now(timezone.utc),
                     expires_at=expires_at,
                     is_locked=False
                 )
                 db.add(new_enr)
+                assigned_count += 1
+                try:
+                    NotificationService.create_notification(
+                        db,
+                        user_id=u.id,
+                        type="course_assigned",
+                        title="New Course Assigned",
+                        message=f"You have been assigned to course '{course.title}'.",
+                        related_entity_id=course.id
+                    )
+                except Exception:
+                    pass
         db.commit()
+        return assigned_count
+
+    @staticmethod
+    def auto_enroll_mandatory_course(db: Session, course_id: UUID) -> None:
+        """Auto enroll all matching employees in a course."""
+        EnrollmentService.assign_course_to_departments(db, course_id)
 
     @staticmethod
     def auto_enroll_user_in_mandatory_courses(db: Session, user_id: UUID) -> None:
@@ -93,12 +142,20 @@ class EnrollmentService:
         if not user:
             return
         from sqlalchemy import or_
+        from app.models.course_department import CourseDepartment
+        dept_course_ids = []
+        if user.department_id:
+            dept_course_ids = [r[0] for r in db.query(CourseDepartment.course_id).filter(CourseDepartment.department_id == user.department_id).all()]
+        
+        filter_cond = [Course.department_id.is_(None)]
+        if user.department_id:
+            filter_cond.append(Course.department_id == user.department_id)
+        if dept_course_ids:
+            filter_cond.append(Course.id.in_(dept_course_ids))
+
         courses = db.query(Course).filter(
             Course.status.in_(["approved", "published"]),
-            or_(
-                Course.department_id.is_(None),
-                Course.department_id == user.department_id
-            )
+            or_(*filter_cond)
         ).all()
         for c in courses:
             existing = db.query(CourseEnrollment).filter(
@@ -111,8 +168,8 @@ class EnrollmentService:
                 new_enr = CourseEnrollment(
                     user_id=user.id,
                     course_id=c.id,
-                    status="in_progress",
-                    progress_percent=0.0,
+                    status="enrolled",
+                    progress_percent=0,
                     enrolled_at=datetime.now(timezone.utc),
                     expires_at=expires_at,
                     is_locked=False
@@ -280,12 +337,42 @@ class EnrollmentService:
             UserCourseProgress.content_id == request.content_id
         ).first()
 
+        # Realistic time increment capping (prevents reporting 10000s in one heartbeat)
+        increment_seconds = max(0, min(request.time_spent_seconds, 60))
+
+        # Sync duration if reported from client video player
+        if request.duration_seconds and request.duration_seconds > 0:
+            if not content.duration_seconds or content.duration_seconds == 0:
+                content.duration_seconds = int(request.duration_seconds)
+
+        # 95% compulsory full watch check
+        target_duration = content.duration_seconds or (request.duration_seconds if request.duration_seconds else 0)
+        should_mark_complete = request.completed
+
+        if should_mark_complete:
+            current_watched = (progress.time_spent_seconds if progress else 0) + increment_seconds
+            is_95_watched = False
+            if target_duration > 0:
+                if current_watched >= (0.95 * target_duration):
+                    is_95_watched = True
+                elif request.current_time_seconds and request.current_time_seconds >= (0.95 * target_duration):
+                    is_95_watched = True
+            elif content.content_type == "video":
+                # Video without duration metadata yet: require at least 15s or valid position
+                if current_watched >= 15 or (request.current_time_seconds and request.current_time_seconds >= 15):
+                    is_95_watched = True
+            else:
+                # Text/quiz/article content
+                is_95_watched = True
+
+            should_mark_complete = is_95_watched
+
         if progress:
-            progress.time_spent_seconds += request.time_spent_seconds
-            if request.completed and not progress.completed:
+            progress.time_spent_seconds += increment_seconds
+            if should_mark_complete and not progress.completed:
                 progress.completed = True
                 progress.completed_at = datetime.now(timezone.utc)
-            elif not request.completed:
+            elif not should_mark_complete and not progress.completed:
                 progress.completed = False
                 progress.completed_at = None
         else:
@@ -293,9 +380,9 @@ class EnrollmentService:
                 enrollment_id=enrollment.id,
                 module_id=request.module_id,
                 content_id=request.content_id,
-                completed=request.completed,
-                completed_at=datetime.now(timezone.utc) if request.completed else None,
-                time_spent_seconds=request.time_spent_seconds
+                completed=should_mark_complete,
+                completed_at=datetime.now(timezone.utc) if should_mark_complete else None,
+                time_spent_seconds=increment_seconds
             )
             db.add(progress)
 
@@ -326,6 +413,7 @@ class EnrollmentService:
         else:
             enrollment.progress_percent = 0
 
+        enrollment.last_accessed_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(progress)
         db.refresh(enrollment)
@@ -394,6 +482,7 @@ class EnrollmentService:
         EnrollmentService._check_and_lock(db, enrollment)
 
         enrollment.progress_percent = percent
+        enrollment.last_accessed_at = datetime.now(timezone.utc)
         if percent >= 100:
             enrollment.status = "completed"
             if not enrollment.completed_at:
@@ -545,5 +634,3 @@ class EnrollmentService:
             })
 
         return roster
-
-

@@ -110,7 +110,7 @@ class DashboardService:
         base_query = db.query(CourseEnrollment).join(
             Course, CourseEnrollment.course_id == Course.id
         ).filter(
-            Course.status == "published"
+            Course.status.in_(["published", "approved"])
         )
         if manager_dept_id:
             base_query = base_query.filter(Course.department_id == manager_dept_id)
@@ -167,7 +167,7 @@ class DashboardService:
                 Course, CourseEnrollment.course_id == Course.id
             ).filter(
                 CourseEnrollment.enrolled_at >= cutoff_date,
-                Course.status == "published"
+                Course.status.in_(["published", "approved"])
             )
             if manager_dept_id:
                 query = query.filter(Course.department_id == manager_dept_id)
@@ -188,7 +188,7 @@ class DashboardService:
             Course, CourseEnrollment.course_id == Course.id
         ).filter(
             CourseEnrollment.enrolled_at >= cutoff_date,
-            Course.status == "published"
+            Course.status.in_(["published", "approved"])
         )
         if manager_dept_id:
             query = query.filter(Course.department_id == manager_dept_id)
@@ -237,7 +237,7 @@ class DashboardService:
                 Course, CourseEnrollment.course_id == Course.id
             ).filter(
                 User.department_id == dept.id,
-                Course.status == "published"
+                Course.status.in_(["published", "approved"])
             ).count()
 
             completed_enrollments = db.query(CourseEnrollment).join(
@@ -247,7 +247,7 @@ class DashboardService:
             ).filter(
                 User.department_id == dept.id,
                 CourseEnrollment.status == "completed",
-                Course.status == "published"
+                Course.status.in_(["published", "approved"])
             ).count()
 
             comp_pct = round((completed_enrollments / total_enrollments) * 100) if total_enrollments > 0 else 0
@@ -295,7 +295,7 @@ class DashboardService:
             Course, CourseEnrollment.course_id == Course.id
         ).filter(
             CourseEnrollment.enrolled_at >= thirty_days_ago,
-            Course.status == "published"
+            Course.status.in_(["published", "approved"])
         )
         created_query = db.query(User.id).filter(
             User.created_at >= thirty_days_ago,
@@ -342,7 +342,7 @@ class DashboardService:
         ).outerjoin(
             CourseEnrollment, Course.id == CourseEnrollment.course_id
         ).filter(
-            Course.status == "published"
+            Course.status.in_(["published", "approved"])
         )
         if manager_dept_id:
             query = query.filter(Course.department_id == manager_dept_id)
@@ -501,7 +501,7 @@ class DashboardService:
         ).filter(
             ExamSubmission.status == "graded",
             ExamGrade.overall_score.isnot(None),
-            Course.status == "published"
+            Course.status.in_(["published", "approved"])
         )
         
         if manager_dept_id:

@@ -17,3 +17,9 @@ class Department(Base):
     # Relationships
     users = relationship("User", back_populates="department")
     courses = relationship("Course", back_populates="department")
+
+    @property
+    def employee_count(self) -> int:
+        if self.users:
+            return sum(1 for u in self.users if not u.is_deleted and u.is_active)
+        return 0

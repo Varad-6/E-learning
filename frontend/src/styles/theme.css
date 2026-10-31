@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 :root {
   /* Spacing Scale (4px/8px-based) */
@@ -47,7 +47,7 @@
   --shadow-premium: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
   
   /* Fonts - FitHabit Outfit & Plus Jakarta Sans stack */
-  --font-sans: 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter', 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, sans-serif;
   --font-body: var(--font-sans);
   --font-title: var(--font-sans);
   --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -305,3 +305,27 @@ select option {
 
 
 
+
+/* Shimmer Skeleton Loaders */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(203, 213, 225, 0.4) 25%, rgba(203, 213, 225, 0.8) 50%, rgba(203, 213, 225, 0.4) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s infinite;
+  border-radius: var(--border-radius-sm);
+}
+
+.skeleton-text {
+  height: 14px;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.skeleton-card {
+  min-height: 180px;
+  width: 100%;
+}

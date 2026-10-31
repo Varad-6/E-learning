@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Users, UserPlus, Search, Building2, RefreshCw, 
   Shield, CheckCircle2, AlertCircle, Plus, Eye, EyeOff,
-  UserCheck, UserX, Trash2, ArrowLeft, BarChart3, Award, Mail
+  UserCheck, UserX, Trash2, ArrowLeft, Pencil, BarChart3, Award, Mail
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
@@ -48,6 +48,33 @@ export const UserAdminStudio: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Permission check: Strictly restricted to Akanksha Kumbhar (or SYSTEM_ADMIN)
+  const loggedInEmail = (localStorage.getItem('isLoggedInEmail') || '').toLowerCase();
+  const loggedInEmpId = (localStorage.getItem('profileEmpId') || '').toUpperCase();
+  const loggedInName = (localStorage.getItem('profileName') || '').toLowerCase();
+  const loggedInRole = localStorage.getItem('isLoggedInRole') || '';
+  const rawRoles = localStorage.getItem('rawRoles') || '';
+
+  const isAkankshaLoggedIn = 
+    loggedInEmail.includes('akanksha') || 
+    loggedInEmpId === 'AIS226' || 
+    loggedInName.includes('akanksha') || 
+    loggedInRole === 'System Admin' ||
+    rawRoles.includes('SYSTEM_ADMIN');
+
+  // Edit Employee & Designation State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editEmpCode, setEditEmpCode] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editDeptId, setEditDeptId] = useState('');
+  const [editRole, setEditRole] = useState('EMPLOYEE');
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editErrors, setEditErrors] = useState<{ [key: string]: string }>({});
 
   // Department Detail State
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
@@ -312,6 +339,73 @@ export const UserAdminStudio: React.FC = () => {
     }
   };
 
+
+  const handleOpenEditUser = (user: UserData) => {
+    setEditingUser(user);
+    setEditFirstName(user.first_name);
+    setEditLastName(user.last_name);
+    setEditEmpCode(user.employee_code);
+    setEditEmail(user.email);
+    setEditDeptId(user.department_id || '');
+    setEditRole(user.roles[0]?.name || 'EMPLOYEE');
+    setEditIsActive(user.is_active);
+    setEditErrors({});
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    if (!editFirstName.trim()) {
+      setEditErrors({ firstName: 'First name is required' });
+      return;
+    }
+    if (!editEmpCode.trim()) {
+      setEditErrors({ empCode: 'Employee code is required' });
+      return;
+    }
+    if (!editEmail.trim() || !editEmail.includes('@')) {
+      setEditErrors({ email: 'Valid email is required' });
+      return;
+    }
+
+    setEditSubmitting(true);
+    setEditErrors({});
+
+    try {
+      const payload: any = {
+        first_name: editFirstName.trim(),
+        last_name: editLastName.trim(),
+        employee_code: editEmpCode.trim(),
+        email: editEmail.trim(),
+        department_id: editDeptId || null,
+        roles: [editRole],
+        is_active: editIsActive
+      };
+
+      const res = await apiCall(`/api/admin/users/${editingUser.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        triggerToast(`Employee ${updated.first_name} ${updated.last_name} updated successfully!`, 'success');
+        setShowEditModal(false);
+        setEditingUser(null);
+        await loadData();
+        window.dispatchEvent(new CustomEvent('kaizen_departments_changed'));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        triggerToast(err.detail || 'Failed to update employee details', 'error');
+      }
+    } catch (err: any) {
+      triggerToast(err.message || 'An error occurred while saving employee updates', 'error');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
   const handleCreateDeptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDeptName.trim() || !newDeptCode.trim()) {
@@ -484,6 +578,19 @@ export const UserAdminStudio: React.FC = () => {
                       <span className="person-role">{user.employee_code} • {user.email}</span>
                     </div>
                   </div>
+                      {isAkankshaLoggedIn && (
+                        <Button 
+                          variant="outline" 
+                          title="Edit Employee Info & Designation"
+                          style={{ borderColor: 'var(--primary-color)', color: 'var(--primary-color)', width: '32px', height: '32px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(37, 99, 235, 0.05)' }} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditUser(user);
+                          }}
+                        >
+                          <Pencil size={14} />
+                        </Button>
+                      )}
                   <Button 
                     variant="outline" 
                     style={{ borderColor: 'var(--danger-color)', color: 'var(--danger-color)', width: '32px', height: '32px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
@@ -617,6 +724,19 @@ export const UserAdminStudio: React.FC = () => {
                         {roleLabel.replace('_', ' ')}
                       </span>
 
+                      {isAkankshaLoggedIn && (
+                        <Button 
+                          variant="outline" 
+                          title="Edit Employee Info & Designation"
+                          style={{ borderColor: 'var(--primary-color)', color: 'var(--primary-color)', width: '32px', height: '32px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(37, 99, 235, 0.05)' }} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditUser(user);
+                          }}
+                        >
+                          <Pencil size={14} />
+                        </Button>
+                      )}
                       <Button 
                         variant="outline" 
                         style={{ borderColor: 'var(--danger-color)', color: 'var(--danger-color)', width: '32px', height: '32px', padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
@@ -636,6 +756,130 @@ export const UserAdminStudio: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Edit User & Designation Modal (Restricted to Akanksha Kumbhar) */}
+      <Modal
+        isOpen={showEditModal && !!editingUser}
+        onClose={() => { setShowEditModal(false); setEditingUser(null); }}
+        title="Edit Employee & Designation"
+        icon={<Pencil style={{ color: 'var(--primary-color)' }} size={24} />}
+        maxWidth="580px"
+      >
+        <form onSubmit={handleSaveEditUser}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div>
+              <label className="form-label-styled">First Name <span className="required-star">*</span></label>
+              <input 
+                className="form-input-styled" 
+                value={editFirstName} 
+                onChange={e => setEditFirstName(e.target.value)} 
+                placeholder="First Name"
+                required 
+              />
+              {editErrors.firstName && <span className="input-error-msg" style={{ color: 'var(--danger-color)', fontSize: '0.8rem' }}>{editErrors.firstName}</span>}
+            </div>
+
+            <div>
+              <label className="form-label-styled">Last Name</label>
+              <input 
+                className="form-input-styled" 
+                value={editLastName} 
+                onChange={e => setEditLastName(e.target.value)} 
+                placeholder="Last Name"
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div>
+              <label className="form-label-styled">Employee Code <span className="required-star">*</span></label>
+              <input 
+                className="form-input-styled" 
+                value={editEmpCode} 
+                onChange={e => setEditEmpCode(e.target.value)} 
+                placeholder="e.g. INT069, AIS226"
+                required 
+              />
+              {editErrors.empCode && <span className="input-error-msg" style={{ color: 'var(--danger-color)', fontSize: '0.8rem' }}>{editErrors.empCode}</span>}
+            </div>
+
+            <div>
+              <label className="form-label-styled">Email Address <span className="required-star">*</span></label>
+              <input 
+                className="form-input-styled" 
+                type="email" 
+                value={editEmail} 
+                onChange={e => setEditEmail(e.target.value)} 
+                placeholder="email@abhiyantatech.com"
+                required 
+              />
+              {editErrors.email && <span className="input-error-msg" style={{ color: 'var(--danger-color)', fontSize: '0.8rem' }}>{editErrors.email}</span>}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div>
+              <label className="form-label-styled">Department (Stream / Domain)</label>
+              <select 
+                className="form-input-styled" 
+                value={editDeptId} 
+                onChange={e => setEditDeptId(e.target.value)}
+              >
+                <option value="">Unscoped / No Department</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name} ({d.code})</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="form-label-styled">Designation / Role <span className="required-star">*</span></label>
+              <select 
+                className="form-input-styled" 
+                value={editRole} 
+                onChange={e => setEditRole(e.target.value)}
+                required
+              >
+                <option value="EMPLOYEE">Employee (Learner)</option>
+                <option value="COURSE_MANAGER">Course Manager</option>
+                <option value="HR_ADMIN">HR Admin</option>
+                <option value="SYSTEM_ADMIN">System Admin</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <input 
+              type="checkbox" 
+              id="editIsActive" 
+              checked={editIsActive} 
+              onChange={e => setEditIsActive(e.target.checked)} 
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            <label htmlFor="editIsActive" style={{ fontSize: '0.9rem', cursor: 'pointer', fontWeight: 600 }}>
+              Account Active (User can log in & participate)
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <Button 
+              variant="outline" 
+              type="button" 
+              onClick={() => { setShowEditModal(false); setEditingUser(null); }}
+              disabled={editSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="primary" 
+              type="submit" 
+              disabled={editSubmitting}
+            >
+              {editSubmitting ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Delete User Confirmation Modal */}
       <Modal

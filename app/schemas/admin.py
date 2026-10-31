@@ -24,10 +24,12 @@ class UserCreate(BaseModel):
         return v
 
 class UserUpdate(BaseModel):
+    employee_code: Optional[str] = Field(None, description="Unique employee code of the user")
     first_name: Optional[str] = Field(None, description="First name of the user")
     last_name: Optional[str] = Field(None, description="Last name of the user")
     email: Optional[EmailStr] = Field(None, description="Email address of the user")
     department_id: Optional[UUID] = Field(None, description="ID of the department to assign the user to")
+    roles: Optional[List[str]] = Field(None, description="List of role names")
     is_active: Optional[bool] = Field(None, description="Whether the user account is active")
     is_deleted: Optional[bool] = Field(None, description="Whether the user is marked as deleted")
     must_change_password: Optional[bool] = Field(None, description="Whether the user must change password on next login")

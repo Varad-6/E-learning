@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import { useNavigate, useLocation } from 'react-router-dom';
 
-import { User, Users, ShieldAlert, Award, FileText, PlusCircle, Bookmark, Layers, BookOpen, Clock, Hourglass, CheckCircle, Bell, Trophy, Calendar, ChevronRight, Target, Flag, TrendingUp, Eye, EyeOff } from 'lucide-react';
+import { User, Users, ShieldAlert, Award, FileText, PlusCircle, Bookmark, Layers, BookOpen, Clock, Hourglass, CheckCircle, Bell, Trophy, Calendar, ChevronRight, Target, Flag, TrendingUp, Eye, EyeOff, Play } from 'lucide-react';
 
 import { Button } from '../../components/Button/Button';
 
@@ -17,6 +17,8 @@ import type { Badge } from '../../services/badge';
 import { apiCall } from '../../services/api';
 
 import { useToast } from '../../context/ToastContext';
+import { CourseraRichText } from '../../components/CourseraRichText/CourseraRichText';
+import { formatDuration } from '../../utils/duration';
 
 import './Dashboard.css';
 
@@ -584,56 +586,435 @@ const SVGLineChart: React.FC<SVGLineChartProps> = ({
 
 
 
-// Pure SVG Bar Chart Component (Zero External Dependencies)
+const getFormalDeptCode = (code: string): string => {
+  if (!code) return '';
+  const upper = code.trim().toUpperCase();
+  const map: Record<string, string> = {
+    'ADMINISTRATION': 'ADMIN',
+    'ACCOUNTS': 'ACCT',
+    'DELIVERY': 'DELV',
+    'DESIGN': 'DSGN',
+  };
+  return map[upper] || code;
+};
 
-const SVGBarChart: React.FC<{ data: { label: string; value: number; color: string }[] }> = ({ data }) => {
+const getFormalDeptName = (item: { label?: string; name?: string }): string => {
+  if (item.name && item.name.trim()) return item.name;
+  const upper = (item.label || '').trim().toUpperCase();
+  const map: Record<string, string> = {
+    'AI': 'Artificial Intelligence',
+    'FICO': 'SAP Financial Accounting & Controlling',
+    'ABAP': 'SAP ABAP Development',
+    'HR': 'Human Resources & Operations',
+    'MM': 'SAP Materials Management',
+    'SAC': 'SAP Analytics Cloud',
+    'BASIS': 'SAP Basis Infrastructure',
+    'PP': 'SAP Production Planning',
+    'SD': 'SAP Sales & Distribution',
+    'IT': 'Information Technology',
+    'ACCOUNTS': 'Accounts & Corporate Finance',
+    'ADMINISTRATION': 'General Administration',
+    'DELIVERY': 'Delivery & Program Management',
+    'DESIGN': 'Design & Media Operations',
+    'SALES': 'Enterprise Business Development',
+    'TRM': 'Treasury & Risk Management'
+  };
+  return map[upper] || item.label || 'Department';
+};
 
-  const maxVal = Math.max(...data.map(d => d.value), 1) || 1;
+interface DepartmentPerformanceItem {
+  label: string;
+  name?: string;
+  value: number;
+  completion_pct?: number;
+  color?: string;
+}
+
+const DepartmentPerformanceWidget: React.FC<{ data: DepartmentPerformanceItem[] }> = ({ data }) => {
+  const [viewMode, setViewMode] = useState<'top' | 'all' | 'list'>('top');
+  const [hoveredDept, setHoveredDept] = useState<DepartmentPerformanceItem | null>(null);
+
+  const sorted = [...data].sort((a, b) => (b.value || 0) - (a.value || 0));
+  const displayItems = viewMode === 'top' ? sorted.slice(0, 8) : sorted;
+
+  const validScores = data.filter(d => (d.value || 0) > 0);
+  const avgScore = validScores.length > 0
+    ? (validScores.reduce((acc, curr) => acc + curr.value, 0) / validScores.length).toFixed(1)
+    : '8.5';
+  const topDept = sorted.length > 0 ? sorted[0] : null;
+
+  const getScoreColor = (score: number) => {
+    if (score >= 8.8) return '#10b981';
+    if (score >= 8.2) return '#3b82f6';
+    if (score >= 7.5) return '#8b5cf6';
+    return '#f59e0b';
+  };
 
   return (
+    <div className="widget-card" style={{ height: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Award size={20} style={{ color: 'var(--accent-color)' }} />
+            <h4 style={{ margin: 0, padding: 0, border: 'none', fontSize: '1.05rem', fontWeight: 800 }}>
+              Avg Score per Department
+            </h4>
+          </div>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            Benchmark assessment scores graded on a standard 0 to 10 scale
+          </p>
+        </div>
 
-    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '150px', gap: '12px', paddingBottom: '24px', position: 'relative', marginTop: '10px' }}>
+        {/* View Switcher Tabs */}
+        <div style={{ display: 'flex', background: 'rgba(255, 255, 255, 0.04)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+          <button
+            type="button"
+            onClick={() => setViewMode('top')}
+            style={{
+              padding: '4px 12px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              borderRadius: '6px',
+              border: 'none',
+              background: viewMode === 'top' ? 'var(--accent-color)' : 'transparent',
+              color: viewMode === 'top' ? '#fff' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            Top 8
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('all')}
+            style={{
+              padding: '4px 12px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              borderRadius: '6px',
+              border: 'none',
+              background: viewMode === 'all' ? 'var(--accent-color)' : 'transparent',
+              color: viewMode === 'all' ? '#fff' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            All ({data.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            style={{
+              padding: '4px 12px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              borderRadius: '6px',
+              border: 'none',
+              background: viewMode === 'list' ? 'var(--accent-color)' : 'transparent',
+              color: viewMode === 'list' ? '#fff' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            Rankings
+          </button>
+        </div>
+      </div>
 
-      {data.map((d, i) => {
+      {/* KPI Highlights Bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+        <div style={{ background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '10px 14px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Top Performer</span>
+          <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#10b981' }}>{topDept ? `${getFormalDeptCode(topDept.label)} (${topDept.value.toFixed(1)})` : 'N/A'}</span>
+        </div>
+        <div style={{ background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '10px 14px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Platform Avg</span>
+          <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#3b82f6' }}>{avgScore} / 10</span>
+        </div>
+        <div style={{ background: 'rgba(139, 92, 246, 0.06)', border: '1px solid rgba(139, 92, 246, 0.2)', padding: '10px 14px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Evaluated Depts</span>
+          <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#8b5cf6' }}>{data.length} Total</span>
+        </div>
+      </div>
 
-        const heightPercent = (d.value / maxVal) * 100;
-
-        return (
-
-          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', position: 'relative' }}>
-
-            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>{d.value}</span>
-
-            <div style={{
-
-              width: '100%',
-
-              maxWidth: '36px',
-
-              height: `${heightPercent}%`,
-
-              background: d.color.startsWith('#') ? `${d.color}26` : d.color,
-
-              border: `1px solid ${d.color}`,
-
-              borderRadius: '6px 6px 0 0',
-
-              transition: 'height 0.4s ease'
-
-            }}></div>
-
-            <span style={{ position: 'absolute', bottom: '-22px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{d.label}</span>
-
+      {/* View 1 & 2: Graphical Bar Chart */}
+      {viewMode !== 'list' ? (
+        <div style={{ position: 'relative', marginTop: '12px', minHeight: '230px' }}>
+          {/* Y-axis grid lines */}
+          <div style={{ position: 'absolute', top: 0, left: '36px', right: 0, bottom: viewMode === 'top' ? '34px' : '52px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
+            {[10, 7.5, 5, 2.5, 0].map((val, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '8px' }}>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', width: '24px', textAlign: 'right', marginLeft: '-32px' }}>{val}</span>
+                <div style={{ flex: 1, borderBottom: '1px dashed rgba(255, 255, 255, 0.07)' }} />
+              </div>
+            ))}
           </div>
 
-        );
+          {/* Chart Bars */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            height: '210px',
+            gap: viewMode === 'top' ? '16px' : '6px',
+            paddingLeft: '36px',
+            paddingBottom: viewMode === 'top' ? '34px' : '52px',
+            position: 'relative'
+          }}>
+            {displayItems.map((d, i) => {
+              const val = d.value || 0;
+              const barHeightPercent = Math.max(8, (val / 10) * 100);
+              const barColor = getScoreColor(val);
+              const isHovered = hoveredDept?.label === d.label;
 
-      })}
+              return (
+                <div
+                  key={i}
+                  onMouseEnter={() => setHoveredDept(d)}
+                  onMouseLeave={() => setHoveredDept(null)}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    height: '100%',
+                    justifyContent: 'flex-end',
+                    position: 'relative',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {/* Floating tooltip */}
+                  {isHovered && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '-68px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: 'rgba(15, 23, 42, 0.95)',
+                      border: `1px solid ${barColor}`,
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      whiteSpace: 'nowrap',
+                      zIndex: 30,
+                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+                      pointerEvents: 'none'
+                    }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fff' }}>{getFormalDeptName(d)} <span style={{ opacity: 0.75, fontWeight: 600 }}>({d.label})</span></div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', fontSize: '0.74rem' }}>
+                        <span style={{ color: barColor, fontWeight: 700 }}>Avg: {val.toFixed(1)} / 10</span>
+                        {d.completion_pct !== undefined && (
+                          <span style={{ color: 'var(--text-secondary)' }}>• {d.completion_pct}% completion</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
+                  {/* Value number on top of bar */}
+                  <span style={{
+                    fontSize: viewMode === 'top' ? '0.82rem' : '0.68rem',
+                    fontWeight: 800,
+                    color: isHovered ? barColor : 'var(--text-primary)',
+                    marginBottom: '6px',
+                    transition: 'color 0.2s'
+                  }}>
+                    {val > 0 ? val.toFixed(1) : '0.0'}
+                  </span>
+
+                  {/* Bar pillar */}
+                  <div style={{
+                    width: '100%',
+                    maxWidth: viewMode === 'top' ? '46px' : '26px',
+                    height: `${barHeightPercent}%`,
+                    background: `linear-gradient(180deg, ${barColor} 0%, ${barColor}33 100%)`,
+                    border: `1px solid ${barColor}`,
+                    borderRadius: '6px 6px 0 0',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transform: isHovered ? 'translateY(-4px)' : 'none',
+                    boxShadow: isHovered ? `0 6px 20px ${barColor}44` : 'none'
+                  }} />
+
+                  {/* Department label below bar */}
+                  <span
+                    title={`${getFormalDeptName(d)} (${d.label})`}
+                    style={{
+                      position: 'absolute',
+                      bottom: viewMode === 'top' ? '-26px' : '-40px',
+                      fontSize: viewMode === 'top' ? '0.78rem' : '0.68rem',
+                      fontWeight: 700,
+                      color: isHovered ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      letterSpacing: '0.02em',
+                      whiteSpace: 'nowrap',
+                      transform: viewMode === 'top' ? 'none' : 'rotate(-38deg)',
+                      transformOrigin: 'top center',
+                      transition: 'all 0.2s ease',
+                      userSelect: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {getFormalDeptCode(d.label)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        /* View 3: Rankings Table / List View */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '340px', overflowY: 'auto', paddingRight: '4px' }}>
+          {sorted.map((item, idx) => {
+            const barColor = getScoreColor(item.value);
+            const rank = idx + 1;
+            const rankBadgeColor = rank === 1 ? '#eab308' : rank === 2 ? '#94a3b8' : rank === 3 ? '#f97316' : 'var(--border-color)';
+            const rankBadgeTextColor = rank <= 3 ? '#000' : 'var(--text-secondary)';
+
+            return (
+              <div
+                key={idx}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '36px 1fr 140px 80px',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '10px 14px',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  transition: 'background 0.2s ease'
+                }}
+              >
+                <div style={{
+                  width: '26px',
+                  height: '26px',
+                  borderRadius: '50%',
+                  background: rankBadgeColor,
+                  color: rankBadgeTextColor,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.75rem',
+                  fontWeight: 900
+                }}>
+                  {rank}
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {getFormalDeptName(item)}
+                  </div>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {getFormalDeptCode(item.label)} • Corporate Department
+                  </span>
+                </div>
+
+                {/* Horizontal Progress Bar */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ height: '7px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${Math.min(100, ((item.value || 0) / 10) * 100)}%`,
+                      height: '100%',
+                      background: barColor,
+                      borderRadius: '4px'
+                    }} />
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                    {item.completion_pct ? `${item.completion_pct}% syllabus completed` : 'Standard track'}
+                  </span>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{
+                    fontSize: '0.92rem',
+                    fontWeight: 900,
+                    color: barColor,
+                    background: `${barColor}15`,
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    border: `1px solid ${barColor}44`
+                  }}>
+                    {item.value.toFixed(1)} / 10
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
-
   );
+};
 
+// Pure SVG Bar Chart Component (Zero External Dependencies)
+const SVGBarChart: React.FC<{ data: { label: string; value: number; color?: string; name?: string }[] }> = ({ data }) => {
+  const maxVal = Math.max(...data.map(d => d.value), 1) || 1;
+  const isCrowded = data.length > 8;
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+      height: '170px',
+      gap: isCrowded ? '6px' : '14px',
+      paddingBottom: isCrowded ? '48px' : '28px',
+      position: 'relative',
+      marginTop: '10px'
+    }}>
+      {data.map((d, i) => {
+        const heightPercent = Math.max(6, (d.value / maxVal) * 100);
+        const itemColor = d.color || '#10b981';
+        const displayCode = getFormalDeptCode(d.label);
+        const fullName = d.name || d.label;
+
+        return (
+          <div
+            key={i}
+            title={`${fullName}: ${d.value}`}
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              height: '100%',
+              justifyContent: 'flex-end',
+              position: 'relative'
+            }}
+          >
+            <span style={{
+              fontSize: isCrowded ? '0.68rem' : '0.8rem',
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              marginBottom: '4px',
+              whiteSpace: 'nowrap'
+            }}>
+              {d.value}
+            </span>
+            <div style={{
+              width: '100%',
+              maxWidth: isCrowded ? '28px' : '44px',
+              height: `${heightPercent}%`,
+              background: itemColor.startsWith('#') ? `linear-gradient(180deg, ${itemColor} 0%, ${itemColor}26 100%)` : itemColor,
+              border: `1px solid ${itemColor}`,
+              borderRadius: '6px 6px 0 0',
+              transition: 'height 0.4s ease'
+            }} />
+            <span style={{
+              position: 'absolute',
+              bottom: isCrowded ? '-38px' : '-24px',
+              fontSize: isCrowded ? '0.68rem' : '0.75rem',
+              fontWeight: 700,
+              color: 'var(--text-secondary)',
+              whiteSpace: 'nowrap',
+              transform: isCrowded ? 'rotate(-38deg)' : 'none',
+              transformOrigin: 'top center'
+            }}>
+              {displayCode}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 
@@ -670,6 +1051,18 @@ interface ProgressItem {
 
   is_locked?: boolean;
 
+  status?: string;
+
+  total_modules?: number;
+
+  completed_modules?: number;
+
+  enrollment_id?: string;
+
+  courseId?: string;
+
+  duration?: string;
+
 }
 
 
@@ -701,87 +1094,84 @@ interface RosterEmployee {
 
 
 // Syllabus Modules Mock Database
-
 const COURSE_MODULES_MAP: { [courseCode: string]: { title: string; duration: string }[] } = {
-
   'AI-101': [
-
-    { title: 'Neural Networks & Perceptrons', duration: '2 hours' },
-
-    { title: 'Gradient Descent & Cost Functions', duration: '3 hours' },
-
-    { title: 'Backpropagation Algorithm', duration: '4 hours' },
-
-    { title: 'Ethical Implications in ML Models', duration: '1 hour' }
-
+    { title: 'Introduction to AI & Search Algorithms', duration: '1h 30m' },
+    { title: 'Introduction to Machine Learning Models', duration: '2h 15m' },
+    { title: 'Ethical Considerations & AI Governance', duration: '1h 0m' }
   ],
-
-  'SD-102': [
-
-    { title: 'Sales Order Processing Framework', duration: '2.5 hours' },
-
-    { title: 'Shipping Conditions & Route Determination', duration: '3 hours' },
-
-    { title: 'Billing & Invoice Generation', duration: '2 hours' }
-
+  'AI-201': [
+    { title: 'Deep Neural Networks Foundations', duration: '2h 30m' },
+    { title: 'Convolutional & Recurrent Architectures', duration: '3h 15m' },
+    { title: 'Transformers & Modern LLM Architectures', duration: '3h 45m' }
   ],
-
+  'FICO-101': [
+    { title: 'General Ledger Accounting Basics', duration: '2h 0m' },
+    { title: 'Accounts Payable & Receivable Workflows', duration: '2h 30m' },
+    { title: 'Trial Balances & Financial Reporting', duration: '2h 15m' }
+  ],
   'FICO-202': [
-
-    { title: 'General Ledger Configuration', duration: '4 hours' },
-
-    { title: 'Asset Master Records & Depreciation', duration: '3.5 hours' },
-
-    { title: 'Profitability Analysis (CO-PA) Setup', duration: '5 hours' }
-
+    { title: 'Cost Centers & Internal Orders', duration: '2h 45m' },
+    { title: 'Asset Accounting & Depreciation Controls', duration: '3h 0m' },
+    { title: 'Profitability Analysis (CO-PA) Setup', duration: '3h 30m' }
   ],
-
+  'ABAP-101': [
+    { title: 'ABAP Syntax & Data Dictionary', duration: '2h 15m' },
+    { title: 'Internal Tables & Control Structures', duration: '2h 45m' },
+    { title: 'Modularization Techniques & Subroutines', duration: '2h 30m' }
+  ],
   'ABAP-301': [
-
-    { title: 'ABAP Syntax & Object Dictionary', duration: '3 hours' },
-
-    { title: 'Open SQL Statements & DB Optimization', duration: '4 hours' },
-
-    { title: 'Web Dynpro & Enhancement Frameworks', duration: '5 hours' }
-
+    { title: 'BAPIs & RFC Database Integrations', duration: '3h 0m' },
+    { title: 'Open SQL Optimization & CDS Views', duration: '3h 30m' },
+    { title: 'SAP Enhancement Framework & BAdIs', duration: '3h 15m' }
+  ],
+  'HR-101': [
+    { title: 'Talent Acquisition & Employee Funnels', duration: '2h 0m' },
+    { title: 'Structured Interviewing & Competency Rubrics', duration: '2h 30m' },
+    { title: 'Corporate Onboarding & Culture Integration', duration: '2h 15m' }
+  ],
+  'HR-202': [
+    { title: 'Arbitration & State Legal Compliance', duration: '2h 30m' },
+    { title: 'Workplace Dispute Resolution Rules', duration: '2h 45m' },
+    { title: 'Employment Contracts & Termination Standards', duration: '2h 15m' }
+  ],
+  'TM-101': [
+    { title: 'Eisenhower Matrix & Priority Architecture', duration: '1h 15m' },
+    { title: 'Deep Work & Cognitive Focus Sprints', duration: '1h 30m' },
+    { title: 'Asynchronous Communication & Inbox Zero', duration: '1h 0m' }
+  ],
+  'SD-102': [
+    { title: 'Sales Order Processing Framework', duration: '2h 30m' },
+    { title: 'Shipping Conditions & Route Determination', duration: '3h 0m' },
+    { title: 'Billing & Invoice Generation', duration: '2h 0m' }
   ]
-
 };
 
-
-
 const getModulesForCourse = (courseCode: string, progressPercent: number) => {
-
-  const custom = COURSE_MODULES_MAP[courseCode];
+  const code = (courseCode || '').toUpperCase().trim();
+  const custom = COURSE_MODULES_MAP[code];
 
   if (custom) {
-
     const stepCount = custom.length;
-
     const completedStepsCount = Math.floor((progressPercent / 100) * stepCount);
-
     return custom.map((m, idx) => ({
-
       ...m,
-
       isCompleted: idx < completedStepsCount
-
     }));
-
   }
 
-  // Dynamic fallback modules
-
-  return [
-
-    { title: 'Introduction & Development Environment Setup', duration: '2 hours', isCompleted: progressPercent >= 30 },
-
-    { title: 'Core Principles & API Integration Practices', duration: '3 hours', isCompleted: progressPercent >= 60 },
-
-    { title: 'Advanced Debugging, Optimization, and Deployments', duration: '4 hours', isCompleted: progressPercent === 100 }
-
+  // Domain-aware professional fallback modules
+  const fallbackTitles = [
+    'Foundational Principles & System Architecture',
+    'Core Methodology, Protocols & Operational Practices',
+    'Advanced Integration, Quality Standards & Performance Tuning'
   ];
 
+  return fallbackTitles.map((title, idx) => ({
+    title,
+    duration: '2h 30m',
+    isCompleted: (idx + 1) * 33 <= progressPercent
+  }));
 };
 
 export const Dashboard: React.FC = () => {
@@ -871,10 +1261,10 @@ export const Dashboard: React.FC = () => {
     } else if (tab === 'my-courses') {
 
       setActiveMainView('my-courses');
-      if (sub === 'available' || sub === 'in_progress' || sub === 'completed') {
-        setActiveMyCoursesTab(sub);
+      if (sub === 'available' || sub === 'in_progress' || sub === 'completed' || sub === 'not_started') {
+        setActiveMyCoursesTab(sub as any);
       } else if (sub === 'mandatory') {
-        setActiveMyCoursesTab('available');
+        setActiveMyCoursesTab('in_progress');
       } else {
         setActiveMyCoursesTab('in_progress');
       }
@@ -972,7 +1362,7 @@ export const Dashboard: React.FC = () => {
   const [managedCourses, setManagedCourses] = useState<Course[]>(DEFAULT_COURSES);
 
   const [activeCatalogTab, setActiveCatalogTab] = useState<'available'>('available');
-  const [activeMyCoursesTab, setActiveMyCoursesTab] = useState<'available' | 'in_progress' | 'completed'>('in_progress');
+  const [activeMyCoursesTab, setActiveMyCoursesTab] = useState<'in_progress' | 'not_started' | 'completed' | 'available'>('in_progress');
 
 
 
@@ -1164,31 +1554,42 @@ export const Dashboard: React.FC = () => {
 
 
 
-      const enrollRes = await apiCall('/api/enrollments/my-courses');
+      const enrollRes = await apiCall('/my-courses');
 
       if (enrollRes.ok) {
 
         const enrollData = await enrollRes.json();
+        const courseList = enrollData.courses || [];
 
-        const mappedProgress = enrollData.map((e: any) => {
+        const mappedProgress = courseList.map((e: any) => {
 
           return {
 
-            id: e.id,
+            id: e.enrollment_id || e.id,
 
-            courseId: e.course_id,
+            enrollment_id: e.enrollment_id || e.id,
+
+            courseId: e.id,
 
             courseCode: e.course_code || 'AI-101',
 
-            title: e.course_title || 'Enrolled Course',
+            title: e.title || 'Enrolled Course',
 
             progressPercent: e.progress_percent !== undefined ? e.progress_percent : (e.status === 'completed' ? 100 : 0),
 
-            difficulty: 'Beginner' as const,
+            difficulty: e.difficulty_level || ('Beginner' as const),
 
             is_mandatory: e.is_mandatory || false,
 
-            is_locked: e.is_locked || false
+            is_locked: false,
+
+            status: e.status || (e.progress_percent === 100 ? 'completed' : e.progress_percent > 0 ? 'in_progress' : 'not_started'),
+
+            total_modules: e.total_modules || 0,
+
+            completed_modules: e.completed_modules || 0,
+
+            duration: e.duration || ''
 
           };
 
@@ -1813,10 +2214,6 @@ export const Dashboard: React.FC = () => {
         fetchEmpDashboard();
 
       }
-
-
-
-      fetchDashboardAnalytics();
 
 
 
@@ -3255,7 +3652,7 @@ export const Dashboard: React.FC = () => {
 
           {role === 'Employee' ? (
 
-            <div className="banner-meta-box">
+            <div className="banner-meta-box" onClick={() => navigate('/courses')} style={{ cursor: 'pointer' }} title="Click to view your courses">
 
               <Bookmark size={18} className="meta-icon icon-blue" />
 
@@ -3273,7 +3670,7 @@ export const Dashboard: React.FC = () => {
 
             <>
 
-              <div className="banner-meta-box">
+              <div className="banner-meta-box" onClick={() => navigate('/creator/dashboard')} style={{ cursor: 'pointer' }} title="Click to open Creator Dashboard">
 
                 <Bookmark size={18} className="meta-icon icon-blue" />
 
@@ -3287,7 +3684,7 @@ export const Dashboard: React.FC = () => {
 
               </div>
 
-              <div className="banner-meta-box">
+              <div className="banner-meta-box" onClick={() => navigate('/admin/users')} style={{ cursor: 'pointer' }} title="Click to view learners">
 
                 <Layers size={18} className="meta-icon icon-green" />
 
@@ -3307,7 +3704,7 @@ export const Dashboard: React.FC = () => {
 
             <>
 
-              <div className="banner-meta-box">
+              <div className="banner-meta-box" onClick={() => navigate('/creator/dashboard')} style={{ cursor: 'pointer' }} title="Click to view departments & courses">
 
                 <Bookmark size={18} className="meta-icon icon-blue" />
 
@@ -3321,7 +3718,7 @@ export const Dashboard: React.FC = () => {
 
               </div>
 
-              <div className="banner-meta-box">
+              <div className="banner-meta-box" onClick={() => navigate('/admin/users')} style={{ cursor: 'pointer' }} title="Click to view all users & learners">
 
                 <Layers size={18} className="meta-icon icon-green" />
 
@@ -3517,7 +3914,7 @@ export const Dashboard: React.FC = () => {
 
                                 <span>Duration:</span>
 
-                                <strong>{course.duration || '10 hours'}</strong>
+                                <strong>{formatDuration(course.duration)}</strong>
 
                               </div>
 
@@ -3761,230 +4158,277 @@ export const Dashboard: React.FC = () => {
 
 
 
-                {/* 4 COLORFUL METRIC CARDS SECTION */}
-
-                
-
-                {/* Card 1: Average Exam Score */}
-
-                <div className="metric-nav-card" style={{
-
-                  gridColumn: 'span 3',
-                  background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.09) 0%, rgba(217, 119, 6, 0.02) 100%)',
-                  border: '1px solid rgba(217, 119, 6, 0.25)',
-                  color: 'var(--text-primary)',
-
-                  padding: '20px',
-
-                  borderRadius: 'var(--border-radius-lg)',
-
-                  display: 'flex',
-
-                  flexDirection: 'column',
-
-                  justifyContent: 'space-between',
-
-                  minHeight: '130px',
-
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(217, 119, 6, 0.05)'
-                }} onClick={() => navigate('/exams')}>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
-
-                      Average Exam Score
-
-                    </span>
-                    <Award size={20} style={{ color: '#d97706' }} />
-                  </div>
-
-                  <div>
-
-                    <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
-
-                      {empDashboardData.exam_score_trend && empDashboardData.exam_score_trend.length > 0 && empDashboardData.exam_score_trend[0].label !== 'Baseline'
-
-                        ? (empDashboardData.exam_score_trend.reduce((acc: number, curr: any) => acc + (curr.value || 0), 0) / empDashboardData.exam_score_trend.length).toFixed(1)
-
-                        : '0.0'}
-
-                    </div>
-
-                    <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body), sans-serif' }}>
-
-                      Scale of 0 to 10
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-
-                {/* Card 2: Courses Available */}
-
-                <div className="metric-nav-card" style={{
-
-                  gridColumn: 'span 3',
-                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.09) 0%, rgba(16, 185, 129, 0.02) 100%)',
-                  border: '1px solid rgba(16, 185, 129, 0.25)',
-                  color: 'var(--text-primary)',
-
-                  padding: '20px',
-
-                  borderRadius: 'var(--border-radius-lg)',
-
-                  display: 'flex',
-
-                  flexDirection: 'column',
-
-                  justifyContent: 'space-between',
-
-                  minHeight: '130px',
-
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.05)'
-                }} onClick={() => navigate('/dashboard?tab=my-courses&sub=available')}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
-
-                      Available Courses
-
-                    </span>
-                    <BookOpen size={20} style={{ color: '#10b981' }} />
-                  </div>
-
-                  <div>
-
-                    <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
-                      {managedCourses.filter((c: any) => {
-                        const isPublished = c.status === 'published' || c.status === 'approved' || c.is_published;
-                        return isPublished && !myProgress.some((p: any) => p.courseId === c.id);
-                      }).length}
-                    </div>
-
-                    <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body), sans-serif' }}>
-
-                      Ready to enroll and start
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-
-                {/* Card 3: Upcoming Exams */}
-
-                <div className="metric-nav-card" style={{
-
-                  gridColumn: 'span 3',
-                  background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.09) 0%, rgba(124, 58, 237, 0.02) 100%)',
-                  border: '1px solid rgba(124, 58, 237, 0.25)',
-                  color: 'var(--text-primary)',
-
-                  padding: '20px',
-
-                  borderRadius: 'var(--border-radius-lg)',
-
-                  display: 'flex',
-
-                  flexDirection: 'column',
-
-                  justifyContent: 'space-between',
-
-                  minHeight: '130px',
-
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(124, 58, 237, 0.05)'
-                }} onClick={() => navigate('/exams')}>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
-
-                      Upcoming Exams
-
-                    </span>
-                    <Clock size={20} style={{ color: '#7c3aed' }} />
-                  </div>
-
-                  <div>
-
-                    <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
-
-                      {empDashboardData.upcoming_exams?.length || 0}
-
-                    </div>
-
-                    <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body), sans-serif' }}>
-
-                      Assessments to attempt
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-
-                {/* Card 4: Learning Progress */}
-
-                <div className="metric-nav-card" style={{
-
-                  gridColumn: 'span 3',
-                  background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.09) 0%, rgba(59, 130, 246, 0.02) 100%)',
-                  border: '1px solid rgba(59, 130, 246, 0.25)',
-                  color: 'var(--text-primary)',
-
-                  padding: '20px',
-
-                  borderRadius: 'var(--border-radius-lg)',
-
-                  display: 'flex',
-
-                  flexDirection: 'column',
-
-                  justifyContent: 'space-between',
-
-                  minHeight: '130px',
-
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(59, 130, 246, 0.05)'
-                }} onClick={() => navigate('/dashboard?tab=my-courses&sub=completed')}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
-
-                      Courses Completed
-
-                    </span>
-                    <CheckCircle size={20} style={{ color: '#3b82f6' }} />
-                  </div>
-
-                  <div>
-
-                    <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
-
-                      {empDashboardData.overall_progress?.completed} / {empDashboardData.overall_progress?.total}
-
-                    </div>
-
-                    <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body), sans-serif' }}>
-
-                      Progress rate: {empDashboardData.overall_progress?.percent}%
-
-                    </div>
-
-                  </div>
-
-                </div>
+                {/* EMPLOYEE LEARNING KPI CARDS (Assigned, In Progress, Completed, Exam Score) */}
+                {(() => {
+                  const allMyCourses = [...(empDashboardData.mandatory_courses || []), ...(empDashboardData.assigned_courses || [])];
+                  const assignedCount = allMyCourses.length;
+                  const inProgressCourses = allMyCourses.filter((c: any) => (c.progress_percent || 0) > 0 && (c.progress_percent || 0) < 100);
+                  const inProgressCount = inProgressCourses.length;
+                  const completedCount = empDashboardData.overall_progress?.completed || allMyCourses.filter((c: any) => (c.progress_percent || 0) === 100).length;
+                  const continueCourse = inProgressCourses[0] || (allMyCourses.length > 0 ? allMyCourses[0] : null);
+                  const mandatoryList = empDashboardData.mandatory_courses || [];
+
+                  return (
+                    <>
+                      {/* Card 1: Assigned Courses */}
+                      <div className="metric-nav-card" style={{
+                        gridColumn: 'span 3',
+                        background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0.03) 100%)',
+                        border: '1px solid rgba(59, 130, 246, 0.28)',
+                        color: 'var(--text-primary)',
+                        padding: '20px',
+                        borderRadius: 'var(--border-radius-lg)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        minHeight: '130px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 15px rgba(59, 130, 246, 0.05)'
+                      }} onClick={() => navigate('/courses?tab=in_progress')}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
+                            Assigned Courses
+                          </span>
+                          <BookOpen size={20} style={{ color: '#3b82f6' }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
+                            {assignedCount}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)' }}>
+                            Enrolled & Assigned
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card 2: In Progress Courses */}
+                      <div className="metric-nav-card" style={{
+                        gridColumn: 'span 3',
+                        background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(245, 158, 11, 0.03) 100%)',
+                        border: '1px solid rgba(245, 158, 11, 0.28)',
+                        color: 'var(--text-primary)',
+                        padding: '20px',
+                        borderRadius: 'var(--border-radius-lg)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        minHeight: '130px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 15px rgba(245, 158, 11, 0.05)'
+                      }} onClick={() => navigate('/courses?tab=in_progress')}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
+                            In Progress
+                          </span>
+                          <Play size={20} style={{ color: '#f59e0b' }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
+                            {inProgressCount}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)' }}>
+                            Currently Active
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card 3: Courses Completed */}
+                      <div className="metric-nav-card" style={{
+                        gridColumn: 'span 3',
+                        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(16, 185, 129, 0.03) 100%)',
+                        border: '1px solid rgba(16, 185, 129, 0.28)',
+                        color: 'var(--text-primary)',
+                        padding: '20px',
+                        borderRadius: 'var(--border-radius-lg)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        minHeight: '130px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 15px rgba(16, 185, 129, 0.05)'
+                      }} onClick={() => navigate('/courses?tab=completed')}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
+                            Completed
+                          </span>
+                          <CheckCircle size={20} style={{ color: '#10b981' }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
+                            {completedCount}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)' }}>
+                            100% Finished
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card 4: Average Exam Score */}
+                      <div className="metric-nav-card" style={{
+                        gridColumn: 'span 3',
+                        background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(124, 58, 237, 0.03) 100%)',
+                        border: '1px solid rgba(124, 58, 237, 0.28)',
+                        color: 'var(--text-primary)',
+                        padding: '20px',
+                        borderRadius: 'var(--border-radius-lg)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        minHeight: '130px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 15px rgba(124, 58, 237, 0.05)'
+                      }} onClick={() => navigate('/exams')}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
+                            Average Exam Score
+                          </span>
+                          <Award size={20} style={{ color: '#7c3aed' }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
+                            {empDashboardData.exam_score_trend && empDashboardData.exam_score_trend.length > 0 && empDashboardData.exam_score_trend[0].label !== 'Baseline'
+                              ? (empDashboardData.exam_score_trend.reduce((acc: number, curr: any) => acc + (curr.value || 0), 0) / empDashboardData.exam_score_trend.length).toFixed(1)
+                              : '0.0'}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)' }}>
+                            Scale of 0 to 10
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* CONTINUE LEARNING HERO CARD */}
+                      {continueCourse && (
+                        <div style={{
+                          gridColumn: '1 / -1',
+                          background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(15, 23, 42, 0.85) 100%)',
+                          border: '1px solid rgba(59, 130, 246, 0.35)',
+                          borderRadius: 'var(--border-radius-lg)',
+                          padding: '24px 28px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '20px',
+                          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)'
+                        }}>
+                          <div style={{ flex: '1 1 340px' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '20px', background: 'rgba(59, 130, 246, 0.2)', color: 'var(--accent-color)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                              <Play size={12} style={{ fill: 'currentColor' }} /> Continue Learning
+                            </div>
+                            <h3 style={{ fontSize: '1.35rem', fontWeight: 850, margin: '0 0 6px 0', color: 'var(--text-primary)' }}>
+                              {continueCourse.title}
+                            </h3>
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                              Course Code: <strong>{continueCourse.course_code}</strong> • Status: <span style={{ textTransform: 'capitalize', color: 'var(--accent-color)', fontWeight: 700 }}>{(continueCourse.progress_percent || 0) > 0 ? `${continueCourse.progress_percent}% Completed` : 'Ready to Start'}</span>
+                            </div>
+                            {/* Progress track */}
+                            <div style={{ width: '100%', maxWidth: '420px', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${continueCourse.progress_percent || 0}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6, #06b6d4)', borderRadius: '4px', transition: 'width 0.4s ease' }} />
+                            </div>
+                          </div>
+                          <Button
+                            variant="primary"
+                            size="lg"
+                            leftIcon={<Play size={18} />}
+                            onClick={() => navigate(`/course-player/${continueCourse.enrollment_id}`)}
+                            style={{ minWidth: '180px' }}
+                          >
+                            {(continueCourse.progress_percent || 0) > 0 ? 'Resume Course' : 'Start Course'}
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* MANDATORY COURSES & DUE DATES HIGHLIGHT SECTION */}
+                      {mandatoryList.length > 0 && (
+                        <div style={{
+                          gridColumn: '1 / -1',
+                          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%)',
+                          border: '1px solid rgba(239, 68, 68, 0.35)',
+                          borderRadius: 'var(--border-radius-lg)',
+                          padding: '24px 28px',
+                          boxShadow: '0 4px 20px rgba(239, 68, 68, 0.06)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <ShieldAlert size={20} />
+                              </div>
+                              <div>
+                                <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                  Mandatory Compliance Pathways
+                                </h4>
+                                <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                  Required corporate certifications with compliance deadlines.
+                                </p>
+                              </div>
+                            </div>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 800, padding: '4px 10px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>
+                              {mandatoryList.length} Mandatory {mandatoryList.length === 1 ? 'Course' : 'Courses'}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+                            {mandatoryList.map((m: any) => {
+                              const isCompleted = m.progress_percent === 100;
+                              const dueDateStr = m.due_date ? new Date(m.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'No strict deadline';
+                              const isUrgent = m.urgency_level === 'red';
+                              const isAmber = m.urgency_level === 'amber';
+
+                              return (
+                                <div key={m.id} style={{
+                                  background: 'var(--bg-card)',
+                                  border: isCompleted ? '1px solid rgba(16, 185, 129, 0.3)' : isUrgent ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid var(--border-color)',
+                                  borderRadius: 'var(--border-radius-md)',
+                                  padding: '16px 20px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  justifyContent: 'space-between',
+                                  gap: '12px'
+                                }}>
+                                  <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                                      <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', background: isCompleted ? 'rgba(16, 185, 129, 0.15)' : isUrgent ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.15)', color: isCompleted ? '#10b981' : isUrgent ? '#ef4444' : '#f59e0b' }}>
+                                        {isCompleted ? '✓ Completed' : isUrgent ? '⚠️ Urgent Deadline' : 'Mandatory'}
+                                      </span>
+                                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                        {m.course_code}
+                                      </span>
+                                    </div>
+                                    <h5 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>
+                                      {m.title}
+                                    </h5>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: isUrgent && !isCompleted ? '#ef4444' : 'var(--text-secondary)', fontWeight: 600 }}>
+                                      <Clock size={13} />
+                                      <span>Due: {dueDateStr}</span>
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-secondary)' }}>
+                                      <span>Progress</span>
+                                      <span>{m.progress_percent || 0}%</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden', marginBottom: '12px' }}>
+                                      <div style={{ width: `${m.progress_percent || 0}%`, height: '100%', background: isCompleted ? '#10b981' : '#ef4444', borderRadius: '3px' }} />
+                                    </div>
+                                    <Button
+                                      variant={isCompleted ? 'outline' : 'primary'}
+                                      size="sm"
+                                      onClick={() => navigate(`/course-player/${m.enrollment_id}`)}
+                                      style={{ width: '100%', fontSize: '0.78rem' }}
+                                    >
+                                      {isCompleted ? 'Review Modules' : (m.progress_percent || 0) > 0 ? 'Resume Training' : 'Start Mandatory Training'}
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
 
                 {/* ROW 2: DETAILED WIDGETS */}
@@ -4038,7 +4482,7 @@ export const Dashboard: React.FC = () => {
                     onClick={() => navigate('/dashboard?tab=badges')}
                     style={{ width: '100%', marginTop: '12px', height: '36px', fontSize: '0.82rem', fontWeight: '700' }}
                   >
-                    View All Badges & Requirements →
+                    View All Awards & Badges →
                   </Button>
                 </div>
 
@@ -4169,8 +4613,58 @@ export const Dashboard: React.FC = () => {
             <div className="employee-courses-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
 
               
-              {/* Sub-tabs for Available, In Progress & Completed */}
+              {/* Sub-tabs for In Progress, Not Started, Completed & Explore Catalog */}
               <div className="catalog-tabs-container" style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveMyCoursesTab('in_progress')}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    fontSize: '1.05rem',
+                    fontWeight: 700,
+                    color: activeMyCoursesTab === 'in_progress' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                    borderBottom: activeMyCoursesTab === 'in_progress' ? '2px solid var(--accent-color)' : 'none',
+                    paddingBottom: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  In Progress ({myProgress.filter(p => (p.status === 'in_progress' || (p.progressPercent > 0 && p.progressPercent < 100))).length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveMyCoursesTab('not_started')}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    fontSize: '1.05rem',
+                    fontWeight: 700,
+                    color: activeMyCoursesTab === 'not_started' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                    borderBottom: activeMyCoursesTab === 'not_started' ? '2px solid var(--accent-color)' : 'none',
+                    paddingBottom: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Not Started ({myProgress.filter(p => (p.status === 'not_started' || p.progressPercent === 0) && p.progressPercent < 100).length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveMyCoursesTab('completed')}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    fontSize: '1.05rem',
+                    fontWeight: 700,
+                    color: activeMyCoursesTab === 'completed' ? 'var(--accent-color)' : 'var(--text-secondary)',
+                    borderBottom: activeMyCoursesTab === 'completed' ? '2px solid var(--accent-color)' : 'none',
+                    paddingBottom: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Completed ({myProgress.filter(p => p.status === 'completed' || p.progressPercent === 100).length})
+                </button>
 
                 <button
                   type="button"
@@ -4186,75 +4680,12 @@ export const Dashboard: React.FC = () => {
                     cursor: 'pointer'
                   }}
                 >
-                  Available
+                  Explore Catalog
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveMyCoursesTab('in_progress')}
-
-                  style={{
-
-                    border: 'none',
-
-                    background: 'none',
-
-                    fontSize: '1.05rem',
-
-                    fontWeight: 700,
-
-                    color: activeMyCoursesTab === 'in_progress' ? 'var(--accent-color)' : 'var(--text-secondary)',
-
-                    borderBottom: activeMyCoursesTab === 'in_progress' ? '2px solid var(--accent-color)' : 'none',
-
-                    paddingBottom: '8px',
-
-                    cursor: 'pointer'
-
-                  }}
-
-                >
-
-                  In Progress
-
-                </button>
-
-                <button
-
-                  type="button"
-
-                  onClick={() => setActiveMyCoursesTab('completed')}
-
-                  style={{
-
-                    border: 'none',
-
-                    background: 'none',
-
-                    fontSize: '1.05rem',
-
-                    fontWeight: 700,
-
-                    color: activeMyCoursesTab === 'completed' ? 'var(--accent-color)' : 'var(--text-secondary)',
-
-                    borderBottom: activeMyCoursesTab === 'completed' ? '2px solid var(--accent-color)' : 'none',
-
-                    paddingBottom: '8px',
-
-                    cursor: 'pointer'
-
-                  }}
-
-                >
-
-                  Completed
-
-                </button>
-
               </div>
 
               {/* Enrolled/Catalog Courses */}
               <div className="enrolled-courses-section" style={{ width: '100%' }}>
-
                 {(() => {
                   if (activeMyCoursesTab === 'available') {
                     const filtered = managedCourses.filter((c: any) => {
@@ -4270,12 +4701,12 @@ export const Dashboard: React.FC = () => {
                       return (
                         <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)', width: '100%' }}>
                           <BookOpen size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
-                          <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No courses match your active filters.</p>
+                          <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No published courses available in the catalog currently.</p>
                         </div>
                       );
                     }
                     return (
-                      <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
+                      <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px', width: '100%' }}>
                         {sortedFiltered.map((course) => {
                           const enrollmentItem = myProgress.find((p: any) => p.courseId === course.id);
                           const isEnrolled = !!enrollmentItem;
@@ -4294,7 +4725,7 @@ export const Dashboard: React.FC = () => {
                                 transition: 'all 0.3s ease',
                                 padding: '20px',
                                 justifyContent: 'space-between',
-                                minHeight: '180px'
+                                minHeight: '190px'
                               }}
                             >
                               <div>
@@ -4329,26 +4760,27 @@ export const Dashboard: React.FC = () => {
                                     </span>
                                   )}
                                 </div>
-                                <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
+                                <h4 style={{ marginTop: '10px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
                                   {course.title}
                                 </h4>
+                                <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.4' }}>
+                                  {course.description || 'Comprehensive curriculum with evaluations.'}
+                                </p>
                               </div>
+
                               <div style={{ marginTop: '16px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                  <span>Duration:</span>
-                                  <strong>{course.duration || '10 hours'}</strong>
-                                </div>
                                 <Button
                                   variant={isEnrolled ? "outline" : "primary"}
-                                  disabled={isEnrolled}
                                   onClick={() => {
-                                    if (!isEnrolled) {
-                                      handleEnrollCourse(course.id);
+                                    if (isEnrolled && enrollmentItem) {
+                                      navigate(`/course-player/${enrollmentItem.id}`);
+                                    } else {
+                                      navigate(`/courses`);
                                     }
                                   }}
                                   style={{ width: '100%', height: '40px', fontWeight: '700' }}
                                 >
-                                  {isEnrolled ? 'Already Enrolled' : 'Start Course'}
+                                  {isEnrolled ? 'Open Course Player' : 'View in Catalog'}
                                 </Button>
                               </div>
                             </div>
@@ -4359,9 +4791,12 @@ export const Dashboard: React.FC = () => {
                   } else {
                     const filteredShown = myProgress.filter(p => {
                       if (activeMyCoursesTab === 'completed') {
-                        return p.progressPercent === 100 || p.is_locked;
+                        return p.status === 'completed' || p.progressPercent === 100 || p.is_locked;
+                      } else if (activeMyCoursesTab === 'not_started') {
+                        return (p.status === 'not_started' || p.progressPercent === 0) && p.progressPercent < 100;
                       } else {
-                        return p.progressPercent < 100;
+                        // in_progress
+                        return (p.status === 'in_progress' || (p.progressPercent > 0 && p.progressPercent < 100));
                       }
                     });
 
@@ -4374,108 +4809,126 @@ export const Dashboard: React.FC = () => {
                     if (shownCourses.length === 0) {
                       return (
                         <div className="empty-state-container glass-panel" style={{ padding: '48px', textAlign: 'center', borderRadius: 'var(--border-radius-md)', width: '100%' }}>
-                          <Bookmark size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
+                          <BookOpen size={48} style={{ opacity: 0.2, marginBottom: '12px', color: 'var(--accent-color)', margin: '0 auto 12px' }} />
                           <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>
                             {activeMyCoursesTab === 'completed' 
                               ? 'No completed courses yet. Work through your module lessons to earn certification!' 
-                              : 'No active course enrollments. Enroll in a course from the Dashboard catalog to start!'}
+                              : activeMyCoursesTab === 'not_started'
+                              ? 'No unstarted courses. All your assigned courses are currently in progress or completed!'
+                              : 'No courses currently in progress. Start a new course from Not Started or Explore Catalog!'}
                           </p>
                         </div>
                       );
                     }
 
                     return (
-                      <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
-                        {shownCourses.map((item) => (
-                          <div 
-                            key={item.id} 
-                            className="course-lobby-card glass-panel glow-hover" 
-                            style={{ 
-                              display: 'flex', 
-                              flexDirection: 'column', 
-                              borderRadius: 'var(--border-radius-lg)', 
-                              overflow: 'hidden', 
-                              background: item.is_mandatory ? 'linear-gradient(to bottom right, var(--bg-card), rgba(239, 68, 68, 0.05))' : 'var(--bg-card)', 
-                              border: item.is_mandatory ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-color)',
-                              boxShadow: item.is_mandatory ? '0 0 12px rgba(239, 68, 68, 0.08)' : 'none',
-                              transition: 'all 0.3s ease',
-                              padding: '20px',
-                              justifyContent: 'space-between',
-                              minHeight: '180px'
-                            }}
-                          >
-                            <div>
-                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <span 
-                                  className="course-code-tag" 
-                                  style={{ 
-                                    padding: '2px 8px', 
-                                    borderRadius: '12px', 
-                                    background: 'var(--accent-glow)', 
-                                    color: 'var(--accent-color)', 
-                                    fontSize: '0.7rem', 
-                                    fontWeight: '800',
-                                    textTransform: 'uppercase'
-                                  }}
-                                >
-                                  {item.courseCode}
-                                </span>
-                                {item.is_mandatory && (
-                                  <span 
-                                    style={{ 
-                                      padding: '2px 8px', 
-                                      borderRadius: '12px', 
-                                      background: 'rgba(239, 68, 68, 0.1)', 
-                                      color: '#ef4444', 
-                                      fontSize: '0.7rem', 
-                                      fontWeight: '800',
-                                      border: '1px solid rgba(239, 68, 68, 0.2)'
-                                    }}
-                                  >
-                                    Mandatory
+                      <div className="employee-courses-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px', width: '100%' }}>
+                        {shownCourses.map((item) => {
+                          const isComplete = item.status === 'completed' || item.progressPercent === 100;
+                          const isInProg = !isComplete && (item.status === 'in_progress' || item.progressPercent > 0);
+                          const isNotStarted = !isComplete && !isInProg;
+
+                          return (
+                            <div 
+                              key={item.id} 
+                              className="course-lobby-card glass-panel glow-hover" 
+                              style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                borderRadius: 'var(--border-radius-lg)', 
+                                overflow: 'hidden', 
+                                background: 'var(--bg-card)', 
+                                border: '1px solid var(--border-color)',
+                                borderLeft: item.is_mandatory ? '3px solid #991b1b' : '1px solid var(--border-color)',
+                                boxShadow: 'var(--shadow-sm)',
+                                transition: 'all 0.3s ease',
+                                padding: '20px',
+                                justifyContent: 'space-between',
+                                minHeight: '190px'
+                              }}
+                            >
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <span 
+                                      className="course-code-tag" 
+                                      style={{ 
+                                        padding: '2px 8px', 
+                                        borderRadius: '12px', 
+                                        background: 'var(--accent-glow)', 
+                                        color: 'var(--accent-color)', 
+                                        fontSize: '0.7rem', 
+                                        fontWeight: '800',
+                                        textTransform: 'uppercase'
+                                      }}
+                                    >
+                                      {item.courseCode}
+                                    </span>
+                                    {item.is_mandatory && (
+                                      <span 
+                                        style={{ 
+                                          padding: '2px 8px', 
+                                          borderRadius: '5px', 
+                                          background: '#fdf2f2', 
+                                          color: '#991b1b', 
+                                          fontSize: '0.7rem', 
+                                          fontWeight: '700',
+                                          border: '1px solid #fecaca'
+                                        }}
+                                      >
+                                        Mandatory
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span style={{
+                                    fontSize: '0.72rem',
+                                    fontWeight: 750,
+                                    padding: '2px 8px',
+                                    borderRadius: '10px',
+                                    background: isComplete ? 'rgba(16, 185, 129, 0.12)' : isInProg ? 'rgba(245, 158, 11, 0.12)' : 'rgba(107, 114, 128, 0.12)',
+                                    color: isComplete ? '#10b981' : isInProg ? '#f59e0b' : 'var(--text-secondary)',
+                                    border: isComplete ? '1px solid rgba(16, 185, 129, 0.25)' : isInProg ? '1px solid rgba(245, 158, 11, 0.25)' : '1px solid var(--border-color)'
+                                  }}>
+                                    {isComplete ? 'Completed' : isInProg ? 'In Progress' : 'Not Started'}
                                   </span>
-                                )}
-                              </div>
-                              <h4 style={{ marginTop: '8px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
-                                {item.title}
-                              </h4>
-                            </div>
-
-                            <div style={{ marginTop: '16px' }}>
-                              <div className="progress-bar-group" style={{ marginBottom: '12px' }}>
-                                <div className="progress-bar-container" style={{ height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
-                                  <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-color), var(--accent-color-hover))' }}></div>
                                 </div>
-                                <div className="progress-label-row" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                                  <span>{item.progressPercent}% Completed</span>
-                                </div>
+                                <h4 style={{ marginTop: '10px', fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: '1.3' }}>
+                                  {item.title}
+                                </h4>
                               </div>
 
-                              <Button
-                                variant="primary"
-                                onClick={() => navigate(`/course-player/${item.id}`)}
-                                style={{ width: '100%', height: '40px', fontWeight: '700' }}
-                              >
-                                {item.is_locked ? 'Review Course' : (item.progressPercent === 100 ? 'Review Course' : (item.progressPercent > 0 ? 'Resume Course' : 'Start Course'))}
-                              </Button>
+                              <div style={{ marginTop: '16px' }}>
+                                <div className="progress-bar-group" style={{ marginBottom: '12px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                    <span style={{ fontWeight: 600 }}>
+                                      {(item.total_modules && item.total_modules > 0) ? `${item.completed_modules || 0} of ${item.total_modules} modules completed` : `${item.progressPercent}% Completed`}
+                                    </span>
+                                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{item.progressPercent}%</span>
+                                  </div>
+                                  <div className="progress-bar-container" style={{ height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
+                                    <div className="progress-bar-fill" style={{ width: `${item.progressPercent}%`, height: '100%', background: isComplete ? '#10b981' : 'linear-gradient(90deg, var(--accent-color), var(--accent-color-hover))' }}></div>
+                                  </div>
+                                </div>
+
+                                <Button
+                                  variant={isComplete ? "outline" : "primary"}
+                                  onClick={() => navigate(`/course-player/${item.id}`)}
+                                  style={{ width: '100%', height: '40px', fontWeight: '700' }}
+                                >
+                                  {item.is_locked ? 'Review Course' : (isComplete ? 'Review Course' : (isInProg ? 'Resume Course' : 'Start Course'))}
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
-
                     );
-
                   }
                 })()}
-
               </div>
-
             </div>
-
           </div>
-
         </div>
-
       )}
 
       {/* 1.5 EMPLOYEE BADGES & ACHIEVEMENTS DEDICATED VIEW */}
@@ -4499,11 +4952,11 @@ export const Dashboard: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Award size={28} style={{ color: '#d97706' }} />
                 <h2 style={{ fontSize: '1.6rem', fontWeight: 850, margin: 0, color: 'var(--text-primary)' }}>
-                  Kaizen Badges & Achievements
+                  My Awards & Achievements
                 </h2>
               </div>
               <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
-                Badges are awarded automatically upon course completion based on both cumulative courses finished and your average score threshold.
+                Awards and badges are awarded automatically upon course completion based on both cumulative courses finished and your average score threshold.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -4514,7 +4967,7 @@ export const Dashboard: React.FC = () => {
                 borderRadius: 'var(--border-radius-md)',
                 textAlign: 'right'
               }}>
-                <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', fontWeight: 700 }}>Earned Badges</span>
+                <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', fontWeight: 700 }}>Earned Awards & Badges</span>
                 <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#d97706' }}>
                   {userBadges.length} / {badgeTiers.length || 20}
                 </span>
@@ -4693,8 +5146,8 @@ export const Dashboard: React.FC = () => {
                   📚 Syllabus Catalog
                 </Button>
                 <Button 
-                  variant={managerSubView === 'create_course' ? 'primary' : 'outline'}
-                  onClick={() => setManagerSubView('create_course')}
+                  variant="primary"
+                  onClick={() => navigate('/creator/dashboard?action=create')}
                   style={{ height: '40px', fontWeight: '700' }}
                 >
                   ➕ Create Course
@@ -4703,19 +5156,25 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* KPI Card 1: Top Performer (Green theme) */}
-            <div className="metric-nav-card" style={{
-              gridColumn: 'span 3',
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.2)',
-              color: 'var(--text-primary)',
-              padding: '20px',
-              borderRadius: 'var(--border-radius-lg)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              minHeight: '130px',
-              boxShadow: '0 4px 15px rgba(16, 185, 129, 0.05)'
-            }}>
+            <div 
+              className="metric-nav-card" 
+              onClick={() => navigate('/leaderboard')}
+              title="Click to view Team Leaderboard"
+              style={{
+                gridColumn: 'span 3',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
+                color: 'var(--text-primary)',
+                padding: '20px',
+                borderRadius: 'var(--border-radius-lg)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                minHeight: '130px',
+                boxShadow: '0 4px 15px rgba(16, 185, 129, 0.05)',
+                cursor: 'pointer'
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
                   Top Performer ({dept})
@@ -4733,19 +5192,25 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* KPI Card 2: Department Avg Score (Blue theme) */}
-            <div className="metric-nav-card" style={{
-              gridColumn: 'span 3',
-              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.02) 100%)',
-              border: '1px solid rgba(59, 130, 246, 0.2)',
-              color: 'var(--text-primary)',
-              padding: '20px',
-              borderRadius: 'var(--border-radius-lg)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              minHeight: '130px',
-              boxShadow: '0 4px 15px rgba(59, 130, 246, 0.05)'
-            }}>
+            <div 
+              className="metric-nav-card" 
+              onClick={() => navigate('/reporting')}
+              title="Click to view Department Reporting"
+              style={{
+                gridColumn: 'span 3',
+                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.02) 100%)',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                color: 'var(--text-primary)',
+                padding: '20px',
+                borderRadius: 'var(--border-radius-lg)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                minHeight: '130px',
+                boxShadow: '0 4px 15px rgba(59, 130, 246, 0.05)',
+                cursor: 'pointer'
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
                   Department Average
@@ -4763,19 +5228,25 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* KPI Card 3: Curriculum Syllabus Courses (Purple theme) */}
-            <div className="metric-nav-card" style={{
-              gridColumn: 'span 3',
-              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(168, 85, 247, 0.02) 100%)',
-              border: '1px solid rgba(168, 85, 247, 0.2)',
-              color: 'var(--text-primary)',
-              padding: '20px',
-              borderRadius: 'var(--border-radius-lg)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              minHeight: '130px',
-              boxShadow: '0 4px 15px rgba(168, 85, 247, 0.05)'
-            }}>
+            <div 
+              className="metric-nav-card" 
+              onClick={() => navigate('/creator/dashboard')}
+              title="Click to view Curriculum Syllabus Courses"
+              style={{
+                gridColumn: 'span 3',
+                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(168, 85, 247, 0.02) 100%)',
+                border: '1px solid rgba(168, 85, 247, 0.2)',
+                color: 'var(--text-primary)',
+                padding: '20px',
+                borderRadius: 'var(--border-radius-lg)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                minHeight: '130px',
+                boxShadow: '0 4px 15px rgba(168, 85, 247, 0.05)',
+                cursor: 'pointer'
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
                   Syllabus Courses
@@ -4793,19 +5264,25 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* KPI Card 4: Grading Backlog (Coral theme) */}
-            <div className="metric-nav-card" style={{
-              gridColumn: 'span 3',
-              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              color: 'var(--text-primary)',
-              padding: '20px',
-              borderRadius: 'var(--border-radius-lg)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              minHeight: '130px',
-              boxShadow: '0 4px 15px rgba(239, 68, 68, 0.05)'
-            }}>
+            <div 
+              className="metric-nav-card" 
+              onClick={() => navigate('/creator/dashboard?tab=approvals')}
+              title="Click to review Pending Approvals"
+              style={{
+                gridColumn: 'span 3',
+                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: 'var(--text-primary)',
+                padding: '20px',
+                borderRadius: 'var(--border-radius-lg)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                minHeight: '130px',
+                boxShadow: '0 4px 15px rgba(239, 68, 68, 0.05)',
+                cursor: 'pointer'
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
                   Grading Backlog
@@ -4843,19 +5320,19 @@ export const Dashboard: React.FC = () => {
                             <div className="course-row-info">
                               <span className="course-row-code" style={{ color: 'var(--accent-color)', fontWeight: '700' }}>{course.course_code}</span>
                               <h4 style={{ margin: '4px 0 8px 0' }}>{course.title}</h4>
-                              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4', marginBottom: '8px' }}>{course.description}</p>
+                              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4', marginBottom: '8px' }}>
+                                <CourseraRichText content={course.description} />
+                              </div>
                               <span className="course-row-difficulty">{course.difficulty_level}</span>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
                               <Button
-                                variant="outline"
+                                variant="primary"
                                 onClick={() => {
-                                  setEditingCourseId(course.id);
-                                  setEditCourseTitle(course.title);
-                                  setEditCourseDesc(course.description);
+                                  navigate(`/creator/course/${course.id}`);
                                 }}
                               >
-                                Edit Course
+                                Edit Course Syllabus & Content
                               </Button>
                             </div>
                           </div>
@@ -4890,89 +5367,52 @@ export const Dashboard: React.FC = () => {
               {/* SUBVIEW B: CREATE COURSE SYSTEM */}
               {managerSubView === 'create_course' && (
                 <div className="employee-dashboard-grid-root" style={{ display: 'grid', gridTemplateColumns: '8fr 4fr', gap: '24px' }}>
-                  <div className="roster-card glass-panel" style={{ padding: '28px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                      <PlusCircle size={18} className="icon-blue" />
-                      <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>Create New Course</h3>
+                  <div className="roster-card glass-panel" style={{ padding: '36px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{
+                      width: '64px',
+                      height: '64px',
+                      borderRadius: '50%',
+                      background: 'var(--accent-glow)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '16px',
+                      color: 'var(--accent-color)'
+                    }}>
+                      <PlusCircle size={32} />
                     </div>
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
-                      Publish a new learning module instantly to your department's active curriculum.
+                    <h3 style={{ margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 800 }}>Create New Course Curriculum</h3>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', maxWidth: '520px', lineHeight: '1.5', marginBottom: '24px' }}>
+                      Configure course information, set completion deadlines, assign target departments, and add interactive syllabus modules, rich lectures, author notes, and assessment quizzes.
                     </p>
-                    
-                    <form onSubmit={handleCreateNewCourseSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      <div className="form-group-spaced" style={{ margin: 0 }}>
-                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', textTransform: 'uppercase' }}>Course Title</label>
-                        <input
-                          type="text"
-                          className="form-input-styled"
-                          placeholder="e.g. ABAP Netweaver Basics"
-                          value={newCourseTitle}
-                          onChange={(e) => setNewCourseTitle(e.target.value)}
-                          style={{ width: '100%', padding: '12px 16px', boxSizing: 'border-box' }}
-                        />
-                      </div>
-                      <div className="form-group-spaced" style={{ margin: 0 }}>
-                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', textTransform: 'uppercase' }}>Course Code</label>
-                        <input
-                          type="text"
-                          className="form-input-styled"
-                          placeholder="e.g. ABAP-101"
-                          value={newCourseCode}
-                          onChange={(e) => setNewCourseCode(e.target.value)}
-                          style={{ width: '100%', padding: '12px 16px', boxSizing: 'border-box' }}
-                        />
-                        <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                          Suggested next sequential code:{' '}
-                          <span
-                            onClick={() => setNewCourseCode(getSuggestedCourseCode(dept))}
-                            style={{ color: 'var(--accent-color)', fontWeight: '700', cursor: 'pointer', textDecoration: 'underline' }}
-                            title="Click to automatically fill this code"
-                          >
-                            {getSuggestedCourseCode(dept)}
-                          </span>{' '}
-                          (Click to auto-fill)
-                        </p>
-                      </div>
-                      <div className="form-group-spaced" style={{ margin: 0 }}>
-                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', textTransform: 'uppercase' }}>Course Description</label>
-                        <textarea
-                          className="form-input-styled"
-                          placeholder="Core syntax, expressions and select queries."
-                          value={newCourseDesc}
-                          onChange={(e) => setNewCourseDesc(e.target.value)}
-                          rows={4}
-                          style={{ width: '100%', padding: '12px 16px', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                        />
-                      </div>
-                      <div className="form-group-spaced" style={{ margin: 0 }}>
-                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', textTransform: 'uppercase' }}>Difficulty Level</label>
-                        <select
-                          className="form-input-styled"
-                          value={newCourseDiff}
-                          onChange={(e) => setNewCourseDiff(e.target.value as any)}
-                          style={{ width: '100%', padding: '12px 16px', boxSizing: 'border-box', backgroundColor: 'var(--bg-input)' }}
-                        >
-                          <option value="Beginner">Beginner</option>
-                          <option value="Intermediate">Intermediate</option>
-                          <option value="Advanced">Advanced</option>
-                        </select>
-                      </div>
-
-                      <Button type="submit" variant="primary" style={{ width: '100%', padding: '14px', fontSize: '0.9rem' }}>
-                        Publish Course Curriculum
-                      </Button>
-                    </form>
+                    <Button 
+                      variant="primary" 
+                      size="lg"
+                      onClick={() => navigate('/creator/dashboard?action=create')}
+                      style={{ padding: '14px 28px', fontSize: '0.95rem', fontWeight: 700 }}
+                    >
+                      Launch Course Creator Studio ➔
+                    </Button>
                   </div>
 
                   <div className="sidebar-card glass-panel" style={{ padding: '24px', borderLeft: '3px solid var(--accent-color)', height: 'fit-content' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                       <ShieldAlert size={18} className="sidebar-icon icon-blue" />
-                      <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>L&D Standards</h3>
+                      <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>Course Authoring Flow</h3>
                     </div>
-                    <div style={{ marginTop: '12px', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '10px', lineHeight: '1.4' }}>
-                      <p>All courses published here are synced automatically into the employee learning directory.</p>
-                      <p><strong>Code Convention:</strong> Prefix course codes matching their department key (e.g. <code>AI-</code>, <code>SD-</code>, <code>FICO-</code>, <code>ABAP-</code>).</p>
-                      <p><strong>Passing Criteria:</strong> The default assessment passing grade is set to 80% score limit.</p>
+                    <div style={{ marginTop: '12px', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '12px', lineHeight: '1.45' }}>
+                      <div>
+                        <strong>1. Course Details & Deadline:</strong>
+                        <p style={{ margin: '2px 0 0 0', color: 'var(--text-secondary)' }}>Set title, code, overview, intro video, and completion deadline in days or hours.</p>
+                      </div>
+                      <div>
+                        <strong>2. Modules & Content:</strong>
+                        <p style={{ margin: '2px 0 0 0', color: 'var(--text-secondary)' }}>Create syllabus modules with notes, video lectures, and MCQ quizzes.</p>
+                      </div>
+                      <div>
+                        <strong>3. Publish When Ready:</strong>
+                        <p style={{ margin: '2px 0 0 0', color: 'var(--text-secondary)' }}>Publish to enroll learners. Content can still be edited anytime!</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -5108,7 +5548,7 @@ export const Dashboard: React.FC = () => {
                                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
                                   <div>
                                     <span style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-primary)', fontWeight: '600' }}>{mark.testName}</span>
-                                    <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>Module: <code>{mark.courseCode}</code></span>
+                                    <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>Course: <code>{mark.courseCode}</code></span>
                                   </div>
                                   <strong style={{ fontSize: '0.88rem', color: mark.score >= 80 ? '#10b981' : 'var(--accent-color)' }}>
                                     {mark.score} / 100
@@ -5165,19 +5605,25 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* KPI Card 1: Active Headcount */}
-            <div className="metric-nav-card" style={{
-              gridColumn: 'span 3',
-              background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.08) 0%, rgba(0, 242, 254, 0.02) 100%)',
-              border: '1px solid rgba(0, 242, 254, 0.2)',
-              color: 'var(--text-primary)',
-              padding: '20px',
-              borderRadius: 'var(--border-radius-lg)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              minHeight: '130px',
-              boxShadow: '0 4px 15px rgba(0, 242, 254, 0.05)'
-            }}>
+            <div 
+              className="metric-nav-card" 
+              onClick={() => navigate('/admin/users')}
+              title="Click to view all registered learners"
+              style={{
+                gridColumn: 'span 3',
+                background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.08) 0%, rgba(0, 242, 254, 0.02) 100%)',
+                border: '1px solid rgba(0, 242, 254, 0.2)',
+                color: 'var(--text-primary)',
+                padding: '20px',
+                borderRadius: 'var(--border-radius-lg)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                minHeight: '130px',
+                boxShadow: '0 4px 15px rgba(0, 242, 254, 0.05)',
+                cursor: 'pointer'
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
                   Active Headcount
@@ -5195,19 +5641,25 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* KPI Card 2: Completed Enrollments */}
-            <div className="metric-nav-card" style={{
-              gridColumn: 'span 3',
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.2)',
-              color: 'var(--text-primary)',
-              padding: '20px',
-              borderRadius: 'var(--border-radius-lg)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              minHeight: '130px',
-              boxShadow: '0 4px 15px rgba(16, 185, 129, 0.05)'
-            }}>
+            <div 
+              className="metric-nav-card" 
+              onClick={() => navigate('/reporting')}
+              title="Click to view examination reports"
+              style={{
+                gridColumn: 'span 3',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
+                color: 'var(--text-primary)',
+                padding: '20px',
+                borderRadius: 'var(--border-radius-lg)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                minHeight: '130px',
+                boxShadow: '0 4px 15px rgba(16, 185, 129, 0.05)',
+                cursor: 'pointer'
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
                   Completed Exams
@@ -5225,19 +5677,25 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* KPI Card 3: Top Performing Department */}
-            <div className="metric-nav-card" style={{
-              gridColumn: 'span 3',
-              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(139, 92, 246, 0.02) 100%)',
-              border: '1px solid rgba(139, 92, 246, 0.2)',
-              color: 'var(--text-primary)',
-              padding: '20px',
-              borderRadius: 'var(--border-radius-lg)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              minHeight: '130px',
-              boxShadow: '0 4px 15px rgba(139, 92, 246, 0.05)'
-            }}>
+            <div 
+              className="metric-nav-card" 
+              onClick={() => navigate('/creator/dashboard')}
+              title="Click to open Creator Dashboard"
+              style={{
+                gridColumn: 'span 3',
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(139, 92, 246, 0.02) 100%)',
+                border: '1px solid rgba(139, 92, 246, 0.2)',
+                color: 'var(--text-primary)',
+                padding: '20px',
+                borderRadius: 'var(--border-radius-lg)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                minHeight: '130px',
+                boxShadow: '0 4px 15px rgba(139, 92, 246, 0.05)',
+                cursor: 'pointer'
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
                   Top Department
@@ -5249,7 +5707,7 @@ export const Dashboard: React.FC = () => {
                   {deptPerformanceData && deptPerformanceData.length > 0
                     ? (() => {
                         const topDept = [...deptPerformanceData].sort((a, b) => (b.value || 0) - (a.value || 0))[0];
-                        return `${topDept.label}`;
+                        return topDept.name || topDept.label;
                       })()
                     : 'None Yet'}
                 </div>
@@ -5257,7 +5715,7 @@ export const Dashboard: React.FC = () => {
                   {deptPerformanceData && deptPerformanceData.length > 0
                     ? (() => {
                         const topDept = [...deptPerformanceData].sort((a, b) => (b.value || 0) - (a.value || 0))[0];
-                        return `Highest Avg: ${topDept.value}/10`;
+                        return `Highest Avg: ${topDept.value}/10 (${getFormalDeptCode(topDept.label)})`;
                       })()
                     : 'Awaiting scores'}
                 </div>
@@ -5265,19 +5723,25 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* KPI Card 4: Best Creator Manager */}
-            <div className="metric-nav-card" style={{
-              gridColumn: 'span 3',
-              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%)',
-              border: '1px solid rgba(245, 158, 11, 0.2)',
-              color: 'var(--text-primary)',
-              padding: '20px',
-              borderRadius: 'var(--border-radius-lg)',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              minHeight: '130px',
-              boxShadow: '0 4px 15px rgba(245, 158, 11, 0.05)'
-            }}>
+            <div 
+              className="metric-nav-card" 
+              onClick={() => navigate('/creator/dashboard')}
+              title="Click to open Creator Dashboard"
+              style={{
+                gridColumn: 'span 3',
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%)',
+                border: '1px solid rgba(245, 158, 11, 0.2)',
+                color: 'var(--text-primary)',
+                padding: '20px',
+                borderRadius: 'var(--border-radius-lg)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                minHeight: '130px',
+                boxShadow: '0 4px 15px rgba(245, 158, 11, 0.05)',
+                cursor: 'pointer'
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
                   Best Creator Manager
@@ -5298,12 +5762,7 @@ export const Dashboard: React.FC = () => {
 
             {/* Left Column (span 8): SVG Business Intelligence Charts */}
             <div style={{ gridColumn: 'span 8', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div className="widget-card" style={{ height: 'auto' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>Avg Score per Department</h4>
-                <div style={{ padding: '10px 0' }}>
-                  <SVGBarChart data={deptPerformanceData.length > 0 ? deptPerformanceData : [{ label: 'General', value: 0, color: '#10b981' }]} />
-                </div>
-              </div>
+              <DepartmentPerformanceWidget data={deptPerformanceData} />
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '24px' }}>
                 <div className="widget-card" style={{ height: 'auto' }}>
@@ -5492,7 +5951,7 @@ export const Dashboard: React.FC = () => {
 
                   <span style={{ fontSize: '0.88rem', fontWeight: '600', color: 'var(--text-primary)' }}>{mod.title}</span>
 
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Duration: {mod.duration}</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Duration: {formatDuration(mod.duration)}</span>
 
                 </div>
 

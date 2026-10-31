@@ -110,6 +110,18 @@ def update_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
+    user_roles = [r.name for r in current_user.roles]
+    is_akanksha = (
+        current_user.email == "akanksha.k@abhiyantatech.com" or 
+        current_user.employee_code == "AIS226" or 
+        "SYSTEM_ADMIN" in user_roles
+    )
+    if not is_akanksha:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access restricted: Only Akanksha Kumbhar has permission to edit employee info and designation."
+        )
+
     user = AdminService.update_user(db, user_id=user_id, request=request)
     details_list = []
     if request.is_active is not None:

@@ -1,4 +1,5 @@
 import uuid
+from typing import List
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -21,12 +22,14 @@ class Course(Base):
     priority = Column(String, nullable=True)
     published_at = Column(DateTime(timezone=True), nullable=True)
     is_mandatory = Column(Boolean, default=False, nullable=False)
+    video_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
     creator = relationship("User", back_populates="created_courses")
     department = relationship("Department", back_populates="courses")
+    department_associations = relationship("CourseDepartment", back_populates="course", cascade="all, delete-orphan")
     modules = relationship("CourseModule", back_populates="course", cascade="all, delete-orphan")
     enrollments = relationship("CourseEnrollment", back_populates="course", cascade="all, delete-orphan")
     approvals = relationship("CourseApproval", back_populates="course", cascade="all, delete-orphan")
@@ -45,10 +48,31 @@ class Course(Base):
         return "Employee"
 
     @property
+    def is_all_departments(self) -> bool:
+        # A course is company-wide / all departments if department_id is None
+        return self.department_id is None
+
+    @property
     def department_name(self) -> str:
+        if self.is_all_departments:
+            return "All Departments"
+        if self.department_associations:
+            dept_names = [da.department.name for da in self.department_associations if da.department]
+            if len(dept_names) == 1:
+                return dept_names[0]
+            elif len(dept_names) > 1:
+                return ", ".join(dept_names)
         if self.department:
             return self.department.name
         return "All Departments"
+
+    @property
+    def department_ids(self) -> List[UUID]:
+        if self.department_associations:
+            return [da.department_id for da in self.department_associations]
+        if self.department_id:
+            return [self.department_id]
+        return []
 
     @property
     def rejection_reason(self) -> str:

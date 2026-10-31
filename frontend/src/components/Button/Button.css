@@ -2,10 +2,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 24px;
+  box-sizing: border-box;
+  padding: 10px 20px;
   font-family: var(--font-title);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  min-height: 40px;
+  line-height: 1.25;
   border-radius: var(--border-radius-md); /* 12px */
   border: 1px solid transparent;
   cursor: pointer;
@@ -14,16 +17,30 @@
   overflow: hidden;
   user-select: none;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-decoration: none;
+  vertical-align: middle;
 }
 
 .btn-sm {
-  padding: 8px 16px;
-  font-size: 0.78rem;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  min-height: 32px;
+  border-radius: var(--border-radius-sm);
+}
+
+.btn-md {
+  padding: 10px 20px;
+  font-size: 0.88rem;
+  min-height: 40px;
+  border-radius: var(--border-radius-md);
 }
 
 .btn-lg {
-  padding: 16px 32px;
+  padding: 14px 28px;
   font-size: 1.05rem;
+  min-height: 48px;
+  border-radius: var(--border-radius-md);
 }
 
 /* Primary Button - FitHabit Vibrant Emerald style */
@@ -45,7 +62,7 @@
 /* Secondary Button - Slate style */
 .btn-secondary {
   background-color: var(--bg-card-hover);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   border-color: var(--border-color);
 }
 
@@ -68,7 +85,7 @@
 
 .btn-outline:hover:not(:disabled) {
   border-color: var(--accent-color);
-  color: var(--accent-color);
+  color: var(--accent-hover);
   background-color: var(--accent-glow);
   transform: translateY(-2px);
 }
@@ -96,11 +113,25 @@
   box-shadow: none !important;
 }
 
-/* Icon Spacing */
+/* Icon & Content Alignment */
+.btn-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  line-height: inherit;
+}
+
+.btn-text:empty {
+  display: none;
+}
+
 .btn-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .btn-icon-left {
@@ -109,6 +140,12 @@
 
 .btn-icon-right {
   margin-left: 8px;
+}
+
+.btn:has(.btn-icon:only-child) .btn-icon-left,
+.btn:has(.btn-icon:only-child) .btn-icon-right {
+  margin-right: 0 !important;
+  margin-left: 0 !important;
 }
 
 /* Loading Spinner */
@@ -120,6 +157,7 @@
   border-top-color: #0b0c10;
   animation: btn-spin 0.8s linear infinite;
   margin-right: 8px;
+  flex-shrink: 0;
 }
 
 .btn-outline .btn-spinner, .btn-ghost .btn-spinner {

@@ -36,6 +36,7 @@ class EnrollmentResponse(BaseModel):
     progress_percent: int = 0
     enrolled_at: datetime
     completed_at: Optional[datetime] = None
+    last_accessed_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     is_locked: bool = False
     is_mandatory: bool = False
@@ -49,6 +50,8 @@ class ProgressUpdate(BaseModel):
     content_id: UUID = Field(..., description="ID of the module content")
     completed: bool = Field(..., description="Completion status")
     time_spent_seconds: int = Field(0, ge=0, description="Time spent in seconds on this content")
+    current_time_seconds: Optional[float] = Field(None, description="Current playback time in seconds")
+    duration_seconds: Optional[float] = Field(None, description="Total content duration in seconds")
 
 from typing import List, Optional
 
@@ -67,4 +70,3 @@ class RosterEmployeeResponse(BaseModel):
     progressPercent: int
     testMarks: List[TestMarkResponse] = []
     badgeName: Optional[str] = None
-

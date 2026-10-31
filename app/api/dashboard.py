@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 
-from app.core.dependencies import get_db, get_current_user
+from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
 from app.services.dashboard_service import DashboardService
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard Analytics"])
+
+require_dashboard_role = RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER", "MANAGER")
 
 def get_manager_dept_id(current_user: User) -> Optional[Any]:
     user_roles = [r.name for r in current_user.roles]
@@ -23,7 +25,7 @@ def get_manager_dept_id(current_user: User) -> Optional[Any]:
     summary="Get Overview Summary Counts & System Health Status"
 )
 def get_summary(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_dashboard_role),
     db: Session = Depends(get_db)
 ):
     dept_id = get_manager_dept_id(current_user)
@@ -34,7 +36,7 @@ def get_summary(
     summary="Get Course Completion Rate Distribution"
 )
 def get_completion_rate(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_dashboard_role),
     db: Session = Depends(get_db)
 ):
     dept_id = get_manager_dept_id(current_user)
@@ -47,7 +49,7 @@ def get_completion_rate(
 def get_enrollment_trend(
     range: Optional[str] = Query(None, description="Range parameter, e.g. 30d, 90d"),
     range_days: int = Query(180, description="Range in days for enrollment trend aggregation"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_dashboard_role),
     db: Session = Depends(get_db)
 ):
     dept_id = get_manager_dept_id(current_user)
@@ -63,7 +65,7 @@ def get_enrollment_trend(
     summary="Get Average Score per Course"
 )
 def get_avg_score_per_course(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_dashboard_role),
     db: Session = Depends(get_db)
 ):
     dept_id = get_manager_dept_id(current_user)
@@ -74,7 +76,7 @@ def get_avg_score_per_course(
     summary="Get Department Average Scores & Completion Rates"
 )
 def get_department_performance(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_dashboard_role),
     db: Session = Depends(get_db)
 ):
     dept_id = get_manager_dept_id(current_user)
@@ -85,7 +87,7 @@ def get_department_performance(
     summary="Get Active vs Inactive Learner Counts"
 )
 def get_active_inactive_learners(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_dashboard_role),
     db: Session = Depends(get_db)
 ):
     dept_id = get_manager_dept_id(current_user)
@@ -97,7 +99,7 @@ def get_active_inactive_learners(
 )
 def get_top_courses(
     limit: int = Query(5, description="Number of top courses to retrieve"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_dashboard_role),
     db: Session = Depends(get_db)
 ):
     dept_id = get_manager_dept_id(current_user)
@@ -108,7 +110,7 @@ def get_top_courses(
     summary="Get Overall Exam Pass/Fail Ratio"
 )
 def get_exam_pass_fail(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_dashboard_role),
     db: Session = Depends(get_db)
 ):
     dept_id = get_manager_dept_id(current_user)
@@ -119,7 +121,7 @@ def get_exam_pass_fail(
     summary="Get Pending Course Approvals & Exam Reviews Count"
 )
 def get_pending_approvals(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_dashboard_role),
     db: Session = Depends(get_db)
 ):
     dept_id = get_manager_dept_id(current_user)
@@ -132,7 +134,7 @@ def get_pending_approvals(
 def get_top_performers(
     scope: Optional[str] = Query(None, description="Scope filter, e.g. department"),
     limit: int = Query(5, description="Number of top performers to retrieve"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_dashboard_role),
     db: Session = Depends(get_db)
 ):
     dept_id = get_manager_dept_id(current_user)

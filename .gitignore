@@ -7,15 +7,6 @@ __pycache__/
 # Environment
 .env
 
-# Python
-venv/
-.venv/
-__pycache__/
-*.pyc
-
-# Environment
-.env
-
 # VS Code
 .vscode/
 
@@ -31,3 +22,5 @@ frontend/.vite/
 # Scratch & Temporary
 scratch/
 *.zip
+*.png
+uploads/

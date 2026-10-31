@@ -4,11 +4,16 @@ import uuid
 import shutil
 from sqlalchemy.orm import Session
 from uuid import UUID
-from typing import List
+from typing import List, Optional
 
-from app.core.dependencies import get_db, get_current_user, RequireRoles
+from app.core.dependencies import (
+    get_db, get_current_user, RequireRoles,
+    can_user_edit_course, is_admin_user
+)
 from app.models.user import User
-from app.models.course_module import CourseModule
+from app.models.course import Course
+from app.models.course_module import CourseModule, CourseModuleAssociation
+from app.models.module_content import ModuleContent
 from app.schemas.course import (
     ModuleCreate, ModuleUpdate, ModuleResponse, ModuleListResponse,
     ModuleContentCreate, ModuleContentResponse, ModuleContentUpdate, ReorderRequest
@@ -20,18 +25,63 @@ from app.services.audit_service import AuditService
 
 router = APIRouter(tags=["Modules"])
 
+def get_parent_course_for_module(db: Session, module_id: UUID) -> Optional[Course]:
+    """Find the parent Course associated with a module."""
+    mod = db.query(CourseModule).filter(CourseModule.id == module_id).first()
+    if not mod:
+        return None
+    if mod.course_id:
+        return db.query(Course).filter(Course.id == mod.course_id).first()
+    assoc = db.query(CourseModuleAssociation).filter(CourseModuleAssociation.module_id == module_id).first()
+    if assoc:
+        return db.query(Course).filter(Course.id == assoc.course_id).first()
+    return None
+
+def check_module_write_permission(db: Session, module_id: UUID, current_user: User):
+    """
+    Enforce ownership on modules:
+    Only Admins or the creator of the course that owns the module can modify or delete it.
+    """
+    if is_admin_user(current_user):
+        return
+    course = get_parent_course_for_module(db, module_id)
+    if course:
+        if not can_user_edit_course(course, current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied: Only the course creator or an administrator can modify modules in this course."
+            )
+    else:
+        if not is_admin_user(current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied: Only administrators can modify standalone modules."
+            )
+
 @router.post(
     "/api/modules",
     response_model=ModuleResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Module",
-    description="Create a new course module. Restricted to System Admin and Course Manager."
+    description="Create a new course module. Restricted to Admins and the Course Creator."
 )
 def create_module(
     request: ModuleCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
+    if request.course_id:
+        course = db.query(Course).filter(Course.id == request.course_id).first()
+        if course and not can_user_edit_course(course, current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied: Only the course creator or an administrator can create modules in this course."
+            )
+    elif not is_admin_user(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied: Only administrators can create standalone modules."
+        )
     module = ModuleService.create_module(db, request=request)
     AuditService.log_model_event(module, event_type="CREATE", performed_by=current_user.id)
     return module
@@ -72,14 +122,15 @@ def get_module(
     response_model=ModuleResponse,
     status_code=status.HTTP_200_OK,
     summary="Update Module",
-    description="Update module details. Restricted to System Admin and Course Manager."
+    description="Update module details. Restricted to Admins and the Course Creator."
 )
 def update_module(
     module_id: UUID,
     request: ModuleUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(get_current_user)
 ):
+    check_module_write_permission(db, module_id, current_user)
     module = ModuleService.update_module(db, module_id=module_id, request=request)
     AuditService.log_model_event(module, event_type="UPDATE", performed_by=current_user.id)
     return module
@@ -88,13 +139,14 @@ def update_module(
     "/api/modules/{module_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Module",
-    description="Delete a module and its contents. Restricted to System Admin and Course Manager."
+    description="Delete a module and its contents. Restricted to Admins and the Course Creator."
 )
 def delete_module(
     module_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(get_current_user)
 ):
+    check_module_write_permission(db, module_id, current_user)
     module = ModuleService.get_module(db, module_id=module_id)
     
     # Eager load relationships before deleting
@@ -125,14 +177,15 @@ def get_modules_by_course(
     response_model=ModuleContentResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Module Content",
-    description="Create a new learning content item for a module. Restricted to System Admin and Course Manager."
+    description="Create a new learning content item for a module. Restricted to Admins and the Course Creator."
 )
 def create_content(
     module_id: UUID,
     request: ModuleContentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(get_current_user)
 ):
+    check_module_write_permission(db, module_id, current_user)
     return ModuleService.create_content(db, module_id=module_id, request=request)
 
 @router.post(
@@ -145,8 +198,9 @@ async def upload_module_media(
     module_id: UUID,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(get_current_user)
 ):
+    check_module_write_permission(db, module_id, current_user)
     ext = os.path.splitext(file.filename or "")[1].lower()
     allowed_exts = {
         ".mp4": "video", ".webm": "video", ".ogg": "video", ".mov": "video", ".m4v": "video",
@@ -245,60 +299,71 @@ def get_content(
     response_model=ModuleContentResponse,
     status_code=status.HTTP_200_OK,
     summary="Update Content",
-    description="Update a learning content item. Restricted to System Admin and Course Manager."
+    description="Update a learning content item. Restricted to Admins and the Course Creator."
 )
 def update_content(
     content_id: UUID,
     request: ModuleContentUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(get_current_user)
 ):
+    cnt = db.query(ModuleContent).filter(ModuleContent.id == content_id).first()
+    if not cnt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content item not found")
+    check_module_write_permission(db, cnt.module_id, current_user)
     return ModuleService.update_content(db, content_id=content_id, request=request)
 
 @router.delete(
     "/api/contents/{content_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Content",
-    description="Delete a learning content item. Restricted to System Admin and Course Manager."
+    description="Delete a learning content item. Restricted to Admins and the Course Creator."
 )
 def delete_content(
     content_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(get_current_user)
 ):
+    cnt = db.query(ModuleContent).filter(ModuleContent.id == content_id).first()
+    if not cnt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content item not found")
+    check_module_write_permission(db, cnt.module_id, current_user)
     ModuleService.delete_content(db, content_id=content_id)
     return None
-
 
 @router.put(
     "/api/modules/reorder",
     status_code=status.HTTP_200_OK,
     summary="Reorder Modules",
-    description="Update the sequence number of multiple course modules. Restricted to System Admin and Course Manager."
+    description="Update the sequence number of multiple course modules. Restricted to Admins and the Course Creator."
 )
 def reorder_modules(
     request: ReorderRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(get_current_user)
 ):
+    if request.items:
+        check_module_write_permission(db, request.items[0].id, current_user)
     ModuleService.reorder_modules(db, items=request.items)
     return {"message": "Modules successfully reordered"}
-
 
 @router.put(
     "/api/contents/reorder",
     status_code=status.HTTP_200_OK,
     summary="Reorder Module Contents",
-    description="Update the sequence number of multiple learning content blocks. Restricted to System Admin and Course Manager."
+    description="Update the sequence number of multiple learning content blocks. Restricted to Admins and the Course Creator."
 )
 def reorder_contents(
     request: ReorderRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(get_current_user)
 ):
+    if request.items:
+        cnt = db.query(ModuleContent).filter(ModuleContent.id == request.items[0].id).first()
+        if cnt:
+            check_module_write_permission(db, cnt.module_id, current_user)
     ModuleService.reorder_contents(db, items=request.items)
     return {"message": "Content blocks successfully reordered"}
-
 
 @router.get(
     "/api/modules/{module_id}/notes",
@@ -313,7 +378,6 @@ def get_module_note(
     current_user: User = Depends(get_current_user)
 ):
     return NoteService.get_note(db, user_id=current_user.id, module_id=module_id)
-
 
 @router.put(
     "/api/modules/{module_id}/notes",

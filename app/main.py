@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 import logging
 
 from app.api.auth import router as auth_router
-from app.api.course import router as course_router
+from app.api.course import router as course_router, root_router as course_root_router
 from app.api.enrollment import router as enrollment_router
 from app.api.quiz import router as quiz_router
 from app.api.department import router as department_router
@@ -58,12 +58,17 @@ origins = [
     "http://127.0.0.1:3000",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
+    "https://kaizen.abhiyantatech.com",
+    "http://kaizen.abhiyantatech.com",
+    "http://192.168.50.55",
+    "https://192.168.50.55",
+    "http://192.168.50.55:8000",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,6 +76,7 @@ app.add_middleware(
 
 # Register routes
 app.include_router(auth_router)
+app.include_router(course_root_router)
 app.include_router(course_router)
 app.include_router(enrollment_router)
 app.include_router(quiz_router)

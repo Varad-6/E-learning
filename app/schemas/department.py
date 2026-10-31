@@ -19,6 +19,7 @@ class DepartmentResponse(BaseModel):
     code: str
     description: Optional[str] = None
     created_at: datetime
+    employee_count: int = 0
 
     class Config:
         from_attributes = True

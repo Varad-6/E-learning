@@ -12,6 +12,7 @@ import { CourseSyllabus } from './pages/Creator/CourseSyllabus';
 import { ModuleEditor } from './pages/Creator/ModuleEditor';
 import { UserAdminStudio } from './pages/Admin/UserAdminStudio';
 import { ViewCourses } from './pages/ViewCourses/ViewCourses';
+import { CoursesPage } from './pages/Courses/CoursesPage';
 import { CoursePlayer } from './pages/CoursePlayer/CoursePlayer';
 import { ExamCreator } from './pages/Creator/ExamCreator';
 import { ExamsCenter } from './pages/Exams/ExamsCenter';
@@ -35,6 +36,34 @@ if (typeof window !== 'undefined' && !hasSessionCookie) {
   document.cookie = "kaizen_session_active=true; path=/";
 }
 
+interface ProtectedRouteProps {
+  children: React.ReactElement;
+  allowedRoles?: string[];
+  redirectPath?: string;
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  allowedRoles,
+  redirectPath = '/dashboard'
+}) => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+  const role = typeof window !== 'undefined' ? (localStorage.getItem('isLoggedInRole') || 'Employee') : 'Employee';
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && allowedRoles.length > 0) {
+    const isAllowed = allowedRoles.some(r => r.toLowerCase() === role.toLowerCase());
+    if (!isAllowed) {
+      return <Navigate to={redirectPath} replace />;
+    }
+  }
+
+  return children;
+};
+
 const AppContent: React.FC = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/login';
@@ -55,19 +84,79 @@ const AppContent: React.FC = () => {
                 : <Login />
             } 
           />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/creator/dashboard" element={<CreatorDashboard />} />
-          <Route path="/creator/course/:courseId" element={<CourseSyllabus />} />
-          <Route path="/creator/course/:courseId/module/:moduleId" element={<ModuleEditor />} />
-          <Route path="/admin/users" element={<UserAdminStudio />} />
-          <Route path="/view-courses" element={<ViewCourses />} />
-          <Route path="/course-player/:enrollmentId" element={<CoursePlayer />} />
-          <Route path="/creator/exams/create" element={<ExamCreator />} />
-          <Route path="/creator/exams/review" element={<ExamReviewer />} />
-          <Route path="/exams" element={<ExamsCenter />} />
-          <Route path="/reporting" element={<ReportingDashboard />} />
-          <Route path="/reporting/employees/:userId" element={<ReportingDashboard />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route 
+            path="/creator/dashboard" 
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'HR Admin', 'HR Manager', 'Manager']}>
+                <CreatorDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/creator/course/:courseId" 
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'HR Admin', 'HR Manager', 'Manager']}>
+                <CourseSyllabus />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/creator/course/:courseId/module/:moduleId" 
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'HR Admin', 'HR Manager', 'Manager']}>
+                <ModuleEditor />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/users" 
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'HR Admin']}>
+                <UserAdminStudio />
+              </ProtectedRoute>
+            } 
+          />
+          <Route path="/courses" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
+          <Route path="/courses/:courseId" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
+          <Route path="/catalog" element={<Navigate to="/courses?tab=available" replace />} />
+          <Route path="/my-courses" element={<Navigate to="/courses?tab=in_progress" replace />} />
+          <Route path="/view-courses" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
+          <Route path="/course-player/:enrollmentId" element={<ProtectedRoute><CoursePlayer /></ProtectedRoute>} />
+          <Route 
+            path="/creator/exams/create" 
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'HR Admin', 'HR Manager', 'Manager']}>
+                <ExamCreator />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/creator/exams/review" 
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'HR Admin', 'HR Manager', 'Manager']}>
+                <ExamReviewer />
+              </ProtectedRoute>
+            } 
+          />
+          <Route path="/exams" element={<ProtectedRoute><ExamsCenter /></ProtectedRoute>} />
+          <Route 
+            path="/reporting" 
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'HR Admin', 'HR Manager', 'Manager']}>
+                <ReportingDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/reporting/employees/:userId" 
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'HR Admin', 'HR Manager', 'Manager']}>
+                <ReportingDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
         </Routes>
       </main>
       {!isAuthPage && !isPlayerPage && !isLandingPage && <Footer />}

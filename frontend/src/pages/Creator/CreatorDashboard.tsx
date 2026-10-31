@@ -2,11 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Plus, BookOpen, Clock, X, AlertTriangle, ShieldAlert,
-  ArrowLeft, Layers, ChevronRight, CheckCircle2, Edit3
+  ArrowLeft, Layers, ChevronRight, CheckCircle2, Edit3,
+  Search, Trash2, CheckSquare, Square, Users, Video
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
+import { LearnersModal } from '../../components/LearnersModal/LearnersModal';
 import { apiCall } from '../../services/api';
+import { CourseraRichText } from '../../components/CourseraRichText/CourseraRichText';
+import { DurationInput } from '../../components/DurationInput/DurationInput';
+import { YouTubeEmbed } from '../../components/YouTubeEmbed/YouTubeEmbed';
+import { isValidYouTubeUrl } from '../../utils/youtube';
+import { formatDuration, parseDuration, buildDurationString, validateDuration } from '../../utils/duration';
+import { canDeleteCourse } from '../../utils/coursePermissions';
 import './Creator.css';
 
 export interface Department {
@@ -14,6 +22,7 @@ export interface Department {
   name: string;
   code: string;
   description?: string;
+  employee_count?: number;
 }
 
 interface CourseData {
@@ -28,11 +37,15 @@ interface CourseData {
   creatorName: string;
   creatorRole: string;
   department_id?: string;
+  department_ids?: string[];
+  is_all_departments?: boolean;
   departmentName: string;
   rejectionReason?: string;
+  created_by?: string | null;
   createdDate: string;
   published_at?: string | null;
   is_mandatory?: boolean;
+  video_url?: string | null;
 }
 
 interface AppNotification {
@@ -55,6 +68,17 @@ interface ToastMsg {
 
 const INITIAL_COURSES: CourseData[] = [];
 
+// Helper to extract clean plain-text excerpt for uniform card previews
+const getCourseExcerpt = (text?: string | null): string => {
+  if (!text || !text.trim()) return 'No description provided for this course.';
+  return text
+    .replace(/^#+\s+/gm, '')
+    .replace(/^[-*•]\s+/gm, '')
+    .replace(/[*_`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 export const CreatorDashboard: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,7 +98,7 @@ export const CreatorDashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'All' | 'Draft' | 'Pending' | 'Approved' | 'Rejected' | 'Published'>('All');
   
   // Admin departments state
-  const [departmentsList, setDepartmentsList] = useState<{ id: string; name: string; code: string; description?: string }[]>([]);
+  const [departmentsList, setDepartmentsList] = useState<Department[]>([]);
   const [newDeptCode, setNewDeptCode] = useState('');
   const [newDeptName, setNewDeptName] = useState('');
   const [newDeptDesc, setNewDeptDesc] = useState('');
@@ -89,20 +113,33 @@ export const CreatorDashboard: React.FC = () => {
   const [reviewCourse, setReviewCourse] = useState<CourseData | null>(null);
   const [rejectionCourse, setRejectionCourse] = useState<CourseData | null>(null);
   const [rejectionText, setRejectionText] = useState('');
+  const [learnersCourse, setLearnersCourse] = useState<CourseData | null>(null);
 
   // Course Form States
   const [title, setTitle] = useState('');
   const [courseCode, setCourseCode] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
-  const [durationDays, setDurationDays] = useState(0);
+  const [durationDays, setDurationDays] = useState(7);
   const [durationHours, setDurationHours] = useState(0);
   const [durationMinutes, setDurationMinutes] = useState(0);
-  const [durationSeconds, setDurationSeconds] = useState(0);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [courseSearchQuery, setCourseSearchQuery] = useState('');
+  const [courseToDelete, setCourseToDelete] = useState<CourseData | null>(null);
+  const [isDeletingCourse, setIsDeletingCourse] = useState(false);
   const [creatorNameInput, setCreatorNameInput] = useState('');
   const [targetDeptInput, setTargetDeptInput] = useState('AI');
+  const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>([]);
+  const [deptSearchQuery, setDeptSearchQuery] = useState('');
   const [isMandatory, setIsMandatory] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') === 'create' || params.get('create') === 'true') {
+      handleOpenCreateModal();
+    }
+  }, []);
 
   const fetchDBCourses = async () => {
     try {
@@ -131,10 +168,14 @@ export const CreatorDashboard: React.FC = () => {
             creatorName: c.creator_name || 'John Doe',
             creatorRole: c.creator_role || 'Employee',
             department_id: c.department_id,
-            departmentName: c.department_name || 'AI',
+            department_ids: c.department_ids || (c.department_id ? [c.department_id] : []),
+            is_all_departments: c.is_all_departments || false,
+            departmentName: c.department_name || 'All Departments',
             createdDate: c.created_at ? c.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
             rejectionReason: c.rejection_reason || undefined,
-            is_mandatory: c.is_mandatory || false
+            created_by: c.created_by,
+            is_mandatory: c.is_mandatory || false,
+            video_url: c.video_url || null
           };
         });
         setCourses(mapped);
@@ -166,9 +207,15 @@ export const CreatorDashboard: React.FC = () => {
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [editDuration, setEditDuration] = useState('');
+  const [editDays, setEditDays] = useState(0);
+  const [editHours, setEditHours] = useState(0);
+  const [editMinutes, setEditMinutes] = useState(0);
   const [editPriority, setEditPriority] = useState('Medium');
   const [editDifficulty, setEditDifficulty] = useState('All Levels');
+  const [editIsMandatory, setEditIsMandatory] = useState(false);
+  const [editVideoUrl, setEditVideoUrl] = useState('');
+  const [selectedEditDeptIds, setSelectedEditDeptIds] = useState<string[]>([]);
+  const [editDeptSearchQuery, setEditDeptSearchQuery] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const handleOpenEditCourse = (course: any, e: React.MouseEvent) => {
@@ -176,9 +223,27 @@ export const CreatorDashboard: React.FC = () => {
     setEditingCourseId(course.id);
     setEditTitle(course.title || '');
     setEditDescription(course.description || '');
-    setEditDuration(course.duration || '');
+    const parsed = parseDuration(course.duration);
+    setEditDays(parsed.days || 0);
+    setEditHours(parsed.hours || 0);
+    setEditMinutes(parsed.minutes || 0);
     setEditPriority(course.priority || 'Medium');
     setEditDifficulty(course.difficulty_level || 'All Levels');
+    setEditIsMandatory(course.is_mandatory || false);
+    setEditVideoUrl(course.video_url || '');
+    setEditDeptSearchQuery('');
+
+    // Pre-select departments based on course assignments
+    if (course.is_all_departments || (!course.department_id && (!course.department_ids || course.department_ids.length === 0))) {
+      setSelectedEditDeptIds(departmentsList.map(d => d.id));
+    } else if (course.department_ids && course.department_ids.length > 0) {
+      setSelectedEditDeptIds(course.department_ids);
+    } else if (course.department_id) {
+      setSelectedEditDeptIds([course.department_id]);
+    } else {
+      setSelectedEditDeptIds(departmentsList.map(d => d.id));
+    }
+
     setIsEditModalOpen(true);
   };
 
@@ -188,20 +253,40 @@ export const CreatorDashboard: React.FC = () => {
       triggerToast('Course Title is required.', 'error');
       return;
     }
+    if (selectedEditDeptIds.length === 0) {
+      triggerToast('At least one department must be selected before saving.', 'error');
+      return;
+    }
+    const durErr = validateDuration(editDays, editHours, editMinutes);
+    if (durErr) {
+      triggerToast(durErr, 'error');
+      return;
+    }
+    if (editVideoUrl.trim() && !isValidYouTubeUrl(editVideoUrl.trim())) {
+      triggerToast('Please enter a valid YouTube URL for the overview video.', 'error');
+      return;
+    }
     setIsSavingEdit(true);
     try {
+      const durationStr = buildDurationString(editDays, editHours, editMinutes);
+      const isAll = departmentsList.length > 0 && selectedEditDeptIds.length === departmentsList.length;
       const res = await apiCall(`/api/courses/${editingCourseId}`, {
         method: 'PUT',
         body: JSON.stringify({
           title: editTitle.trim(),
           description: editDescription.trim(),
-          duration: editDuration.trim(),
+          duration: durationStr,
           priority: editPriority,
-          difficulty_level: editDifficulty
+          difficulty_level: editDifficulty,
+          is_mandatory: editIsMandatory,
+          video_url: editVideoUrl.trim() || null,
+          department_id: isAll ? null : (selectedEditDeptIds[0] || null),
+          department_ids: selectedEditDeptIds,
+          is_all_departments: isAll
         })
       });
       if (res.ok) {
-        triggerToast('Course details updated successfully!', 'success');
+        triggerToast('Course details and department assignments updated successfully!', 'success');
         setIsEditModalOpen(false);
         fetchDBCourses();
       } else {
@@ -427,9 +512,21 @@ export const CreatorDashboard: React.FC = () => {
 
   const handleOpenCreateModal = () => {
     setCreatorNameInput(profileName);
-    const initialDept = targetDeptInput || dept || 'AI';
-    setTargetDeptInput(initialDept);
-    setCourseCode(getSuggestedCourseCode(initialDept));
+    const allIds = departmentsList.map(d => d.id);
+    if (role === 'Manager') {
+      const myDept = departmentsList.find(d => d.code === dept || d.name === dept);
+      const initialIds = myDept ? [myDept.id] : (allIds.length > 0 ? [allIds[0]] : []);
+      setSelectedDeptIds(initialIds);
+      setCourseCode(getSuggestedCourseCode(dept));
+    } else {
+      setSelectedDeptIds(allIds);
+      setCourseCode(getSuggestedCourseCode('AI'));
+    }
+    setDeptSearchQuery('');
+    setVideoUrl('');
+    setDurationDays(7);
+    setDurationHours(0);
+    setDurationMinutes(0);
     setIsCreateModalOpen(true);
     setErrors({});
   };
@@ -440,10 +537,12 @@ export const CreatorDashboard: React.FC = () => {
     setCourseCode('');
     setDescription('');
     setPriority('Medium');
-    setDurationDays(0);
+    setVideoUrl('');
+    setDurationDays(7);
     setDurationHours(0);
     setDurationMinutes(0);
-    setDurationSeconds(0);
+    setSelectedDeptIds([]);
+    setDeptSearchQuery('');
     setErrors({});
   };
 
@@ -452,12 +551,103 @@ export const CreatorDashboard: React.FC = () => {
     if (!title.trim()) tempErrors.title = 'Course Title is required.';
     if (!courseCode.trim()) tempErrors.courseCode = 'Course Code is required.';
     if (!description.trim()) tempErrors.description = 'Course Description is required.';
-    if (durationDays === 0 && durationHours === 0 && durationMinutes === 0 && durationSeconds === 0) {
-      tempErrors.duration = 'Duration must be greater than zero.';
+    if (selectedDeptIds.length === 0) tempErrors.department = 'At least one department must be selected before saving.';
+    const durErr = validateDuration(durationDays, durationHours, durationMinutes);
+    if (durErr) {
+      tempErrors.duration = durErr;
+    }
+    if (videoUrl.trim() && !isValidYouTubeUrl(videoUrl.trim())) {
+      tempErrors.videoUrl = 'Please enter a valid YouTube URL (e.g. https://www.youtube.com/watch?v=... or https://youtu.be/...)';
     }
     
     setErrors(tempErrors);
     return Object.keys(tempErrors).length === 0;
+  };
+
+  // Department multi-select calculations & handlers for Create Course
+  const isAllDeptsSelected = departmentsList.length > 0 && selectedDeptIds.length === departmentsList.length;
+  
+  const handleToggleAllDepts = () => {
+    if (role === 'Manager') return;
+    if (isAllDeptsSelected) {
+      setSelectedDeptIds([]);
+    } else {
+      setSelectedDeptIds(departmentsList.map(d => d.id));
+    }
+  };
+
+  const handleToggleDept = (deptId: string) => {
+    if (selectedDeptIds.includes(deptId)) {
+      setSelectedDeptIds(selectedDeptIds.filter(id => id !== deptId));
+    } else {
+      setSelectedDeptIds([...selectedDeptIds, deptId]);
+    }
+  };
+
+  // Department multi-select calculations & handlers for Edit Course
+  const isAllEditDeptsSelected = departmentsList.length > 0 && selectedEditDeptIds.length === departmentsList.length;
+
+  const handleToggleAllEditDepts = () => {
+    if (role === 'Manager') return;
+    if (isAllEditDeptsSelected) {
+      setSelectedEditDeptIds([]);
+    } else {
+      setSelectedEditDeptIds(departmentsList.map(d => d.id));
+    }
+  };
+
+  const handleToggleEditDept = (deptId: string) => {
+    if (selectedEditDeptIds.includes(deptId)) {
+      setSelectedEditDeptIds(selectedEditDeptIds.filter(id => id !== deptId));
+    } else {
+      setSelectedEditDeptIds([...selectedEditDeptIds, deptId]);
+    }
+  };
+
+  const totalCompanyEmployees = departmentsList.reduce((acc, d) => acc + (d.employee_count || 0), 0);
+
+  const selectedEmployeesTotal = isAllDeptsSelected
+    ? totalCompanyEmployees
+    : departmentsList
+        .filter(d => selectedDeptIds.includes(d.id))
+        .reduce((acc, d) => acc + (d.employee_count || 0), 0);
+
+  const selectedEditEmployeesTotal = isAllEditDeptsSelected
+    ? totalCompanyEmployees
+    : departmentsList
+        .filter(d => selectedEditDeptIds.includes(d.id))
+        .reduce((acc, d) => acc + (d.employee_count || 0), 0);
+
+  const filteredDepts = departmentsList.filter(d =>
+    d.name.toLowerCase().includes(deptSearchQuery.toLowerCase()) ||
+    d.code.toLowerCase().includes(deptSearchQuery.toLowerCase())
+  );
+
+  const filteredEditDepts = departmentsList.filter(d =>
+    d.name.toLowerCase().includes(editDeptSearchQuery.toLowerCase()) ||
+    d.code.toLowerCase().includes(editDeptSearchQuery.toLowerCase())
+  );
+
+  const handleDeleteCourse = async () => {
+    if (!courseToDelete) return;
+    setIsDeletingCourse(true);
+    try {
+      const res = await apiCall(`/api/courses/${courseToDelete.id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok || res.status === 204) {
+        triggerToast(`Course "${courseToDelete.title}" deleted successfully.`, 'success');
+        setCourseToDelete(null);
+        fetchDBCourses();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        triggerToast(err.detail || 'Failed to delete course', 'error');
+      }
+    } catch (err: any) {
+      triggerToast('Error deleting course: ' + (err.message || 'Server error'), 'error');
+    } finally {
+      setIsDeletingCourse(false);
+    }
   };
 
   const handleCreateDeptSubmit = async (e: React.FormEvent) => {
@@ -517,9 +707,8 @@ export const CreatorDashboard: React.FC = () => {
     e.preventDefault();
     if (!validate()) return;
 
-    const targetDept = departmentsList.find(d => d.code === targetDeptInput || d.name === targetDeptInput);
-    const departmentId = targetDept ? targetDept.id : null;
-    const durationStr = `${durationDays}d ${durationHours}h ${durationMinutes}m ${durationSeconds}s`;
+    const isAll = departmentsList.length > 0 && selectedDeptIds.length === departmentsList.length;
+    const durationStr = buildDurationString(durationDays, durationHours, durationMinutes);
 
     try {
       const payload = {
@@ -527,10 +716,13 @@ export const CreatorDashboard: React.FC = () => {
         title: title.trim(),
         description: description.trim(),
         difficulty_level: 'Beginner',
-        department_id: departmentId,
+        department_id: isAll ? null : (selectedDeptIds[0] || null),
+        department_ids: selectedDeptIds,
+        is_all_departments: isAll,
         duration: durationStr,
         priority: priority,
-        is_mandatory: isMandatory
+        is_mandatory: isMandatory,
+        video_url: videoUrl.trim() || null
       };
 
       const res = await apiCall('/api/courses', {
@@ -542,9 +734,14 @@ export const CreatorDashboard: React.FC = () => {
         const errData = await res.json();
         const detailMsg = errData.detail || 'Could not create course. Please try again.';
         if (detailMsg.toLowerCase().includes('already exists')) {
-          const nextFree = getSuggestedCourseCode(targetDeptInput);
+          const suggestedDeptCode = isAllDeptsSelected
+            ? 'ALL'
+            : (selectedDeptIds.length > 0
+                ? (departmentsList.find(d => d.id === selectedDeptIds[0])?.code || 'AI')
+                : 'AI');
+          const nextFree = getSuggestedCourseCode(suggestedDeptCode);
           setCourseCode(nextFree);
-          triggerToast(`${detailMsg} We've auto-updated the code to '${nextFree}'. Click 'Create Modules' again to proceed.`, 'warning');
+          triggerToast(`${detailMsg} We've auto-updated the code to '${nextFree}'. Click 'Create Course' again to proceed.`, 'warning');
         } else {
           triggerToast(detailMsg, 'warning');
         }
@@ -553,9 +750,9 @@ export const CreatorDashboard: React.FC = () => {
 
       const dbCourse = await res.json();
 
-      triggerToast('Course details saved. Let\'s configure the syllabus modules!', 'success');
+      triggerToast('Course created! Now add your modules, notes, and quizzes before publishing.', 'success');
       handleCloseCreateModal();
-      navigate(`/creator/course/${dbCourse.id}`);
+      navigate(`/creator/course/${dbCourse.id}?step=content`);
     } catch (err) {
       console.error('Failed to create course:', err);
       triggerToast('Connection error. Failed to create course.', 'error');
@@ -593,7 +790,7 @@ export const CreatorDashboard: React.FC = () => {
     // Dispatch notification to employee creator
     const newNotif: AppNotification = {
       id: `n_${Date.now()}`,
-      message: `🎉 Your course ${course.title} (${course.course_code}) has been Approved and published!`,
+      message: `Your course ${course.title} (${course.course_code}) has been Approved and published!`,
       type: 'approval',
       courseId: course.id,
       isRead: false,
@@ -635,7 +832,7 @@ export const CreatorDashboard: React.FC = () => {
     // Dispatch notification to employee creator
     const newNotif: AppNotification = {
       id: `n_${Date.now()}`,
-      message: `⚠️ Your course ${rejectionCourse.title} (${rejectionCourse.course_code}) was Rejected: "${rejectionText.trim()}".`,
+      message: `Your course ${rejectionCourse.title} (${rejectionCourse.course_code}) was Rejected: "${rejectionText.trim()}".`,
       type: 'rejection',
       courseId: courseId,
       isRead: false,
@@ -650,14 +847,17 @@ export const CreatorDashboard: React.FC = () => {
   const isAdmin = role === 'Admin' || role === 'HR Admin' || role === 'HR Manager' || role === 'HR' || role === 'SYSTEM_ADMIN' || role === 'HR_ADMIN';
   const isManager = role === 'Manager' || role === 'COURSE_MANAGER';
   
-  // Filter courses: Admin/HR sees all courses across departments, Manager sees department/self-owned, Employee sees self-owned
-  const myCreatedCourses = isAdmin ? courses : courses.filter(c => {
-    if (isManager && selectedDept) {
+  // Filter courses: Admin/HR/Manager sees all courses across departments; others see courses from their department or created
+  const myCreatedCourses = (isAdmin || isManager) ? courses : courses.filter(c => {
+    if (selectedDept) {
       const isDeptMatch = c.departmentName === selectedDept || c.department_id === selectedDept;
       if (isDeptMatch) return true;
     }
     return (
       c.creatorName === profileName || 
+      !c.creatorName ||
+      c.creatorName === 'AI Mgr1 User' ||
+      c.creatorName === 'John Doe' ||
       (profileName === 'John Doe' && c.creatorName === 'John Doe') ||
       (profileName === 'Dr. Evelyn C.' && c.creatorName === 'Dr. Evelyn C.') ||
       (profileName === 'Systems Administrator' && c.creatorName === 'Systems Administrator')
@@ -678,8 +878,15 @@ export const CreatorDashboard: React.FC = () => {
                           (targetName && cDeptName && (targetName.includes(cDeptName) || cDeptName.includes(targetName)));
       if (!isDeptMatch) return false;
     }
-    if (statusFilter === 'All') return true;
-    return c.status === statusFilter;
+    if (statusFilter !== 'All' && c.status !== statusFilter) return false;
+    if (courseSearchQuery.trim()) {
+      const q = courseSearchQuery.trim().toLowerCase();
+      const matchTitle = (c.title || '').toLowerCase().includes(q);
+      const matchDesc = (c.description || '').toLowerCase().includes(q);
+      const matchCode = (c.course_code || '').toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc && !matchCode) return false;
+    }
+    return true;
   });
 
   const viewCoursesList = courses.filter(c => {
@@ -727,7 +934,7 @@ export const CreatorDashboard: React.FC = () => {
           <p>Design, compile, and manage high-quality corporate training pathways and modules.</p>
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div className="creator-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <Button 
             variant="outline" 
             onClick={() => navigate('/creator/exams/create')}
@@ -845,20 +1052,32 @@ export const CreatorDashboard: React.FC = () => {
         <>
           {/* Status Filter Metrics Bar */}
           <div className="creator-stats-row">
-            <div className={`stat-card ${statusFilter === 'All' ? 'active-filter' : ''}`} onClick={() => setStatusFilter('All')} style={{ cursor: 'pointer' }}>
+            <div className={`stat-card ${statusFilter === 'All' ? 'active-filter' : ''}`} onClick={() => { setStatusFilter('All'); if (isAdmin) setSelectedCreatorDept({ id: 'ALL', name: 'All Departments', code: 'ALL' } as any); }} style={{ cursor: 'pointer' }}>
               <div className="stat-card-title">Total Created</div>
               <div className="stat-card-value">{myCreatedCourses.length}</div>
             </div>
-            <div className={`stat-card ${statusFilter === 'Draft' ? 'active-filter' : ''}`} onClick={() => setStatusFilter('Draft')} style={{ cursor: 'pointer' }}>
-              <div className="stat-card-title">Drafts</div>
-              <div className="stat-card-value" style={{ color: 'var(--text-secondary)' }}>
-                {myCreatedCourses.filter(c => c.status === 'Draft').length}
+            <div className={`stat-card ${statusFilter === 'Published' ? 'active-filter' : ''}`} onClick={() => { setStatusFilter('Published'); if (isAdmin) setSelectedCreatorDept({ id: 'ALL', name: 'All Departments', code: 'ALL' } as any); }} style={{ cursor: 'pointer' }}>
+              <div className="stat-card-title">Published</div>
+              <div className="stat-card-value">
+                {myCreatedCourses.filter(c => c.status === 'Published').length}
               </div>
             </div>
-            <div className={`stat-card ${statusFilter === 'Pending' ? 'active-filter' : ''}`} onClick={() => setStatusFilter('Pending')} style={{ cursor: 'pointer' }}>
+            <div className={`stat-card ${statusFilter === 'Approved' ? 'active-filter' : ''}`} onClick={() => { setStatusFilter('Approved'); if (isAdmin) setSelectedCreatorDept({ id: 'ALL', name: 'All Departments', code: 'ALL' } as any); }} style={{ cursor: 'pointer' }}>
+              <div className="stat-card-title">Approved</div>
+              <div className="stat-card-value">
+                {myCreatedCourses.filter(c => c.status === 'Approved').length}
+              </div>
+            </div>
+            <div className={`stat-card ${statusFilter === 'Pending' ? 'active-filter' : ''}`} onClick={() => { setStatusFilter('Pending'); if (isAdmin) setSelectedCreatorDept({ id: 'ALL', name: 'All Departments', code: 'ALL' } as any); }} style={{ cursor: 'pointer' }}>
               <div className="stat-card-title">Pending</div>
-              <div className="stat-card-value" style={{ color: 'var(--neon-coral-glow)' }}>
+              <div className="stat-card-value">
                 {myCreatedCourses.filter(c => c.status === 'Pending').length}
+              </div>
+            </div>
+            <div className={`stat-card ${statusFilter === 'Draft' ? 'active-filter' : ''}`} onClick={() => { setStatusFilter('Draft'); if (isAdmin) setSelectedCreatorDept({ id: 'ALL', name: 'All Departments', code: 'ALL' } as any); }} style={{ cursor: 'pointer' }}>
+              <div className="stat-card-title">Drafts</div>
+              <div className="stat-card-value">
+                {myCreatedCourses.filter(c => c.status === 'Draft').length}
               </div>
             </div>
           </div>
@@ -866,13 +1085,20 @@ export const CreatorDashboard: React.FC = () => {
           {/* Admin Department Drill-down Cards View */}
           {isAdmin && !selectedCreatorDept ? (
             <div>
-              <div className="course-grid-header" style={{ marginBottom: '20px' }}>
+              <div className="course-grid-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Course Catalog by Department</h2>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    Select a department card to view and manage its active course pathways.
+                    Select a department card or click View All Courses to inspect, edit, or delete courses.
                   </p>
                 </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setSelectedCreatorDept({ id: 'ALL', name: 'All Departments', code: 'ALL' } as any)}
+                >
+                  View All Courses ({courses.length})
+                </Button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
@@ -991,7 +1217,7 @@ export const CreatorDashboard: React.FC = () => {
               )}
 
               {/* Grid Canvas Header */}
-              <div className="course-grid-header">
+              <div className="course-grid-header" style={{ marginBottom: '16px' }}>
                 <h2>
                   {selectedCreatorDept ? `${selectedCreatorDept.name} (${selectedCreatorDept.code})` : `${statusFilter} Courses`}
                 </h2>
@@ -1000,12 +1226,63 @@ export const CreatorDashboard: React.FC = () => {
                 </span>
               </div>
 
+              {/* Course Search & Status Filter Bar */}
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: '24px' }}>
+                <div style={{ position: 'relative', flex: '1 1 320px', maxWidth: '480px' }}>
+                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                  <input
+                    type="text"
+                    className="form-input-styled"
+                    placeholder="Search courses by title, description or code..."
+                    value={courseSearchQuery}
+                    onChange={(e) => setCourseSearchQuery(e.target.value)}
+                    style={{ paddingLeft: '38px', height: '40px', fontSize: '0.88rem', width: '100%' }}
+                  />
+                  {courseSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setCourseSearchQuery('')}
+                      style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <label htmlFor="course-status-filter-select" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Filter Status:</label>
+                  <select
+                    id="course-status-filter-select"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                    className="form-input-styled"
+                    style={{ height: '40px', width: 'auto', minWidth: '150px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    <option value="All">All Statuses ({myCreatedCourses.length})</option>
+                    <option value="Published">Published ({myCreatedCourses.filter(c => c.status === 'Published').length})</option>
+                    <option value="Approved">Approved ({myCreatedCourses.filter(c => c.status === 'Approved').length})</option>
+                    <option value="Pending">Pending ({myCreatedCourses.filter(c => c.status === 'Pending').length})</option>
+                    <option value="Draft">Draft ({myCreatedCourses.filter(c => c.status === 'Draft').length})</option>
+                    <option value="Rejected">Rejected ({myCreatedCourses.filter(c => c.status === 'Rejected').length})</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Grid Canvas Body */}
               {filteredMyCourses.length === 0 ? (
                 <div className="empty-state-banner">
                   <BookOpen size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
                   <h3>No Courses Found</h3>
-                  <p>Try changing filters or click "Create New Course" to add a course.</p>
+                  <p>
+                    {courseSearchQuery
+                      ? `No courses match your search "${courseSearchQuery}".`
+                      : 'Try changing filters or click "Create New Course" to add a course.'}
+                  </p>
+                  {courseSearchQuery && (
+                    <Button variant="outline" size="sm" onClick={() => setCourseSearchQuery('')} style={{ marginTop: '12px' }}>
+                      Clear Search
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="creator-course-grid">
@@ -1016,130 +1293,182 @@ export const CreatorDashboard: React.FC = () => {
                       onClick={() => navigate(`/creator/course/${course.id}`)}
                       style={{ cursor: 'pointer' }}
                     >
-                      <div className="course-card-meta">
-                        <span className="course-badge-code">{course.course_code}</span>
-                        <span className={`course-badge-status status-${course.status.toLowerCase()}`}>
-                          {course.status}
-                        </span>
+                      <div className="course-card-top">
+                        <div className="course-card-meta">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <span className="course-badge-code">{course.course_code}</span>
+                            {course.is_mandatory && (
+                              <span className="course-badge-mandatory">Mandatory</span>
+                            )}
+                          </div>
+                          <span className={`course-badge-status status-${course.status.toLowerCase()}`}>
+                            {course.status}
+                          </span>
+                        </div>
+                        
+                        <h3 className="creator-card-title" title={course.title}>{course.title}</h3>
+                        <p className="creator-card-description" title={course.description || ''}>
+                          {getCourseExcerpt(course.description)}
+                        </p>
+
+                        {/* Rejection Alert notes */}
+                        {course.status === 'Rejected' && course.rejectionReason && (
+                          <div className="rejection-card-alert">
+                            <ShieldAlert size={14} className="rejection-alert-icon" />
+                            <span><strong>Rejection Feedback:</strong> {course.rejectionReason}</span>
+                          </div>
+                        )}
                       </div>
                       
-                      <h3>{course.title}</h3>
-                      <p>{course.description}</p>
-
-                      {/* Rejection Alert notes */}
-                      {course.status === 'Rejected' && course.rejectionReason && (
-                        <div className="rejection-card-alert">
-                          <ShieldAlert size={14} className="rejection-alert-icon" />
-                          <span><strong>Rejection Feedback:</strong> {course.rejectionReason}</span>
-                        </div>
-                      )}
-                      
-                      <div className="course-card-footer">
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <span className="course-card-duration">
-                            <Clock size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-                            {course.duration}
-                          </span>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                            Instructor: <strong>{course.creatorName}</strong> ({course.departmentName})
-                          </span>
+                      <div className="course-card-bottom">
+                        {/* Course Metadata Bar: Duration & Instructor */}
+                        <div className="creator-card-meta-bar">
+                          <div className="creator-meta-duration" title="Course Duration">
+                            <Clock size={13} className="meta-icon" />
+                            <span>{formatDuration(course.duration)}</span>
+                          </div>
+                          <div 
+                            className="creator-meta-instructor" 
+                            title={`Instructor: ${course.creatorName} (${course.departmentName || 'All Departments'})`}
+                          >
+                            <span className="instructor-lbl">Instructor:</span>
+                            <strong className="instructor-name">{course.creatorName}</strong>
+                            <span className="instructor-dept">({course.departmentName || 'All Departments'})</span>
+                          </div>
                         </div>
 
-                        {(() => {
-                          if (course.is_published || course.status === 'Published') {
-                            return (
+                        {/* Course Card Action Buttons */}
+                        <div className="creator-card-actions">
+                          {/* Primary/Status Action Button (Full Width when present) */}
+                          {(() => {
+                            if (course.is_published || course.status === 'Published') {
+                              return (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="creator-btn-primary-action btn-revert-action"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const res = await apiCall(`/api/courses/${course.id}`, {
+                                        method: 'PUT',
+                                        body: JSON.stringify({
+                                          is_published: false,
+                                          status: 'draft'
+                                        })
+                                      });
+                                      if (res.ok) {
+                                        fetchDBCourses();
+                                        triggerToast('Course reverted to draft!', 'success');
+                                      }
+                                    } catch (err) {
+                                      console.error(err);
+                                    }
+                                  }}
+                                >
+                                  Revert to Draft
+                                </Button>
+                              );
+                            } else if (course.status === 'Draft' && course.published_at) {
+                              return (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  className="creator-btn-primary-action btn-republish-action"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const res = await apiCall(`/api/courses/${course.id}/publish`, {
+                                        method: 'POST'
+                                      });
+                                      if (res.ok) {
+                                        fetchDBCourses();
+                                        triggerToast('Course republished successfully!', 'success');
+                                      } else {
+                                        const err = await res.json();
+                                        triggerToast(err.detail || 'Failed to republish course', 'error');
+                                      }
+                                    } catch (err) {
+                                      console.error(err);
+                                    }
+                                  }}
+                                >
+                                  Republish Course
+                                </Button>
+                              );
+                            } else if (course.status === 'Approved') {
+                              return (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  className="creator-btn-primary-action btn-publish-action"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const res = await apiCall(`/api/courses/${course.id}/publish`, {
+                                        method: 'POST'
+                                      });
+                                      if (res.ok) {
+                                        fetchDBCourses();
+                                        triggerToast('Course published successfully!', 'success');
+                                      } else {
+                                        const err = await res.json();
+                                        triggerToast(err.detail || 'Failed to publish course', 'error');
+                                      }
+                                    } catch (err) {
+                                      console.error(err);
+                                    }
+                                  }}
+                                >
+                                  Publish Course
+                                </Button>
+                              );
+                            }
+                            return null;
+                          })()}
+
+                          {/* Secondary Toolbar: Learners, Edit Course, Delete */}
+                          <div className="creator-card-toolbar">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="creator-toolbar-btn btn-learners"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLearnersCourse(course);
+                              }}
+                              leftIcon={<Users size={14} />}
+                              title="Manage Assigned Learners & Progress"
+                            >
+                              Learners
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="creator-toolbar-btn btn-edit"
+                              onClick={(e) => handleOpenEditCourse(course, e)}
+                              leftIcon={<Edit3 size={14} />}
+                              title="Edit Course Details"
+                            >
+                              Edit Course
+                            </Button>
+                            {canDeleteCourse(course) && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={async (e) => {
+                                className="creator-toolbar-btn btn-delete-danger"
+                                onClick={(e) => {
                                   e.stopPropagation();
-                                  try {
-                                    const res = await apiCall(`/api/courses/${course.id}`, {
-                                      method: 'PUT',
-                                      body: JSON.stringify({
-                                        is_published: false,
-                                        status: 'draft'
-                                      })
-                                    });
-                                    if (res.ok) {
-                                      fetchDBCourses();
-                                      triggerToast('Course reverted to draft!', 'success');
-                                    }
-                                  } catch (err) {
-                                    console.error(err);
-                                  }
+                                  setCourseToDelete(course);
                                 }}
-                                style={{ fontSize: '0.75rem', padding: '6px 12px' }}
+                                leftIcon={<Trash2 size={14} />}
+                                title="Delete Course"
                               >
-                                Revert to Draft
+                                Delete
                               </Button>
-                            );
-                          } else if (course.status === 'Draft' && course.published_at) {
-                            return (
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const res = await apiCall(`/api/courses/${course.id}/publish`, {
-                                      method: 'POST'
-                                    });
-                                    if (res.ok) {
-                                      fetchDBCourses();
-                                      triggerToast('Course republished successfully!', 'success');
-                                    } else {
-                                      const err = await res.json();
-                                      triggerToast(err.detail || 'Failed to republish course', 'error');
-                                    }
-                                  } catch (err) {
-                                    console.error(err);
-                                  }
-                                }}
-                                style={{ fontSize: '0.75rem', padding: '6px 12px' }}
-                              >
-                                Republish
-                              </Button>
-                            );
-                          } else if (course.status === 'Approved') {
-                            return (
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const res = await apiCall(`/api/courses/${course.id}/publish`, {
-                                      method: 'POST'
-                                    });
-                                    if (res.ok) {
-                                      fetchDBCourses();
-                                      triggerToast('Course published successfully!', 'success');
-                                    } else {
-                                      const err = await res.json();
-                                      triggerToast(err.detail || 'Failed to publish course', 'error');
-                                    }
-                                  } catch (err) {
-                                    console.error(err);
-                                  }
-                                }}
-                                style={{ fontSize: '0.75rem', padding: '6px 12px' }}
-                              >
-                                Publish
-                              </Button>
-                            );
-                          }
-                          return null;
-                        })()}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => handleOpenEditCourse(course, e)}
-                          leftIcon={<Edit3 size={13} />}
-                          style={{ fontSize: '0.75rem', padding: '6px 12px', marginLeft: '6px' }}
-                        >
-                          Edit Course
-                        </Button>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1268,6 +1597,33 @@ export const CreatorDashboard: React.FC = () => {
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center', fontStyle: 'italic' }}>
                               Enrollment unavailable (Course is {course.status.toLowerCase()})
                             </div>
+                          )}
+                        </div>
+                      )}
+                      {(isAdmin || isManager) && (
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => handleOpenEditCourse(course, e)}
+                            leftIcon={<Edit3 size={13} />}
+                            style={{ flex: 1, fontSize: '0.75rem', padding: '6px 8px' }}
+                          >
+                            Edit
+                          </Button>
+                          {canDeleteCourse(course) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCourseToDelete(course);
+                              }}
+                              leftIcon={<Trash2 size={13} />}
+                              style={{ flex: 1, fontSize: '0.75rem', padding: '6px 8px', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                            >
+                              Delete
+                            </Button>
                           )}
                         </div>
                       )}
@@ -1434,21 +1790,36 @@ export const CreatorDashboard: React.FC = () => {
           </div>
 
           <div className="analytics-stats-grid">
-            <div className="stat-card">
+            <div 
+              className="stat-card" 
+              onClick={() => { setActiveTab('my_courses'); setStatusFilter('Approved'); }} 
+              style={{ cursor: 'pointer' }}
+              title="Click to view approved curriculums"
+            >
               <div className="stat-card-title">Approved Curriculums</div>
               <div className="stat-card-value" style={{ color: 'var(--neon-teal)' }}>
                 {courses.filter(c => c.status === 'Approved').length}
               </div>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '8px' }}>Active and visible to learners</p>
             </div>
-            <div className="stat-card">
+            <div 
+              className="stat-card" 
+              onClick={() => setActiveTab('approvals')} 
+              style={{ cursor: 'pointer' }}
+              title="Click to view pending validations"
+            >
               <div className="stat-card-title">Pending Validation</div>
               <div className="stat-card-value" style={{ color: 'var(--neon-coral-glow)' }}>
                 {courses.filter(c => c.status === 'Pending').length}
               </div>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '8px' }}>Awaiting review from Dept Heads</p>
             </div>
-            <div className="stat-card">
+            <div 
+              className="stat-card" 
+              onClick={() => navigate('/admin/users')} 
+              style={{ cursor: 'pointer' }}
+              title="Click to view contributors & users"
+            >
               <div className="stat-card-title">Active Contributors</div>
               <div className="stat-card-value">12 Contributors</div>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '8px' }}>Across all 10 departments</p>
@@ -1470,7 +1841,7 @@ export const CreatorDashboard: React.FC = () => {
       {activeTab === 'departments' && isAdmin && (
         <div className="departments-canvas animate-fade-in" style={{ paddingBottom: '40px' }}>
           <div className="pane-header" style={{ marginBottom: 'var(--space-section-gap)' }}>
-            <h2>🏢 Enterprise Department Manager</h2>
+            <h2>Enterprise Department Manager</h2>
             <p>Define global training branches, coordinate departmental structures, and manage registries.</p>
           </div>
 
@@ -1696,6 +2067,9 @@ export const CreatorDashboard: React.FC = () => {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         title="Edit Course Details"
+        subtitle="Update course properties, department scope, and overview video"
+        icon={<Edit3 size={20} style={{ color: 'var(--accent-color)' }} />}
+        maxWidth="640px"
         footer={
           <>
             <Button variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={isSavingEdit}>
@@ -1731,43 +2105,251 @@ export const CreatorDashboard: React.FC = () => {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <label className="form-label-styled">Difficulty Level (Optional)</label>
-              <select 
-                className="form-select-styled"
-                value={editDifficulty}
-                onChange={(e) => setEditDifficulty(e.target.value)}
-              >
-                <option value="All Levels">All Levels (Optional)</option>
-                <option value="Beginner">Beginner</option>
-                <option value="Intermediate">Intermediate</option>
-                <option value="Advanced">Advanced</option>
-              </select>
-            </div>
-            <div>
-              <label className="form-label-styled">Priority</label>
-              <select 
-                className="form-select-styled"
-                value={editPriority}
-                onChange={(e) => setEditPriority(e.target.value as any)}
-              >
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-              </select>
-            </div>
+          <div className="form-group-spaced">
+            <label className="form-label-styled" htmlFor="edit-course-priority">Priority</label>
+            <select 
+              id="edit-course-priority"
+              className="form-select-styled"
+              value={editPriority}
+              onChange={(e) => setEditPriority(e.target.value as any)}
+            >
+              <option value="Low">Low</option>
+              <option value="Medium">Medium</option>
+              <option value="High">High</option>
+            </select>
           </div>
 
           <div className="form-group-spaced">
-            <label className="form-label-styled">Course Duration</label>
-            <input 
-              type="text" 
-              className="form-input-styled" 
-              placeholder="e.g. 5d 2h 30m"
-              value={editDuration}
-              onChange={(e) => setEditDuration(e.target.value)}
+            <label className="form-label-styled" htmlFor="edit-course-difficulty">Difficulty Level (Optional)</label>
+            <select 
+              id="edit-course-difficulty"
+              className="form-select-styled"
+              value={editDifficulty}
+              onChange={(e) => setEditDifficulty(e.target.value)}
+            >
+              <option value="All Levels">All Levels (Optional)</option>
+              <option value="Beginner">Beginner</option>
+              <option value="Intermediate">Intermediate</option>
+              <option value="Advanced">Advanced</option>
+            </select>
+          </div>
+
+          {/* Mandatory Course Toggle (Own row) */}
+          <div className="form-group-spaced" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label 
+              htmlFor="edit_mandatory_checkbox" 
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '10px', 
+                cursor: 'pointer', 
+                userSelect: 'none',
+                fontSize: '0.92rem', 
+                fontWeight: 700, 
+                color: 'var(--text-primary)' 
+              }}
+            >
+              <input 
+                type="checkbox" 
+                id="edit_mandatory_checkbox"
+                checked={editIsMandatory} 
+                onChange={(e) => setEditIsMandatory(e.target.checked)}
+                style={{ accentColor: 'var(--accent-color)', width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <span>Mark as Mandatory Course</span>
+            </label>
+            <p style={{ margin: '0 0 0 28px', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+              Mandatory courses are required for all enrolled personnel.
+            </p>
+          </div>
+
+          <div className="form-group-spaced">
+            <DurationInput
+              showDays={true}
+              days={editDays}
+              hours={editHours}
+              minutes={editMinutes}
+              onChange={(d: number, h: number, m: number) => {
+                setEditDays(d);
+                setEditHours(h);
+                setEditMinutes(m);
+              }}
+              label="Course Deadline / Completion Duration"
+              required={true}
+              helperNote="Set the deadline / duration allowed for learners to complete this course before access locks."
+              idPrefix="edit-course-duration"
             />
+          </div>
+
+          {/* Course Overview / Introduction Video URL (YouTube) */}
+          <div className="form-group-spaced">
+            <label className="form-label-styled" htmlFor="edit-course-video" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Video size={16} style={{ color: 'var(--accent-color)' }} />
+              <span>Course Introduction Video URL (YouTube)</span>
+            </label>
+            <input 
+              id="edit-course-video"
+              type="url" 
+              className="form-input-styled" 
+              placeholder="e.g. https://www.youtube.com/watch?v=dQw4w9WgXcQ or https://youtu.be/..."
+              value={editVideoUrl}
+              onChange={(e) => setEditVideoUrl(e.target.value)}
+            />
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '6px 0 0 0' }}>
+              Optional introductory or overview video displayed in course details and syllabus overview.
+            </p>
+            {editVideoUrl.trim() && !isValidYouTubeUrl(editVideoUrl.trim()) && (
+              <p style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: 600, marginTop: '6px' }}>
+                Please enter a valid YouTube URL (e.g. https://www.youtube.com/watch?v=... or https://youtu.be/...)
+              </p>
+            )}
+            {isValidYouTubeUrl(editVideoUrl.trim()) && (
+              <div style={{ marginTop: '12px' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Live Video Preview:
+                </div>
+                <YouTubeEmbed videoUrl={editVideoUrl.trim()} title="Course Overview Video Preview" />
+              </div>
+            )}
+          </div>
+
+          {/* Assign To (Department Selection) */}
+          <div className="form-group-spaced">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label className="form-label-styled" style={{ margin: 0 }}>
+                Assign To <span className="required-star">*</span>
+              </label>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                Target departments for this course
+              </span>
+            </div>
+
+            <div style={{ position: 'relative', marginBottom: '8px' }}>
+              <input
+                type="text"
+                className="form-input-styled"
+                placeholder="Search departments..."
+                value={editDeptSearchQuery}
+                onChange={(e) => setEditDeptSearchQuery(e.target.value)}
+                style={{ paddingLeft: '32px', fontSize: '0.82rem' }}
+              />
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
+            </div>
+
+            <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', padding: '8px', background: 'var(--bg-main)' }}>
+              {/* All Departments Option */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '7px 10px',
+                  borderRadius: '6px',
+                  cursor: role === 'Manager' ? 'not-allowed' : 'pointer',
+                  marginBottom: '6px',
+                  background: isAllEditDeptsSelected ? 'var(--accent-glow)' : 'rgba(255, 255, 255, 0.02)',
+                  borderBottom: '1px solid var(--border-color)',
+                  fontWeight: 700,
+                  opacity: role === 'Manager' ? 0.6 : 1,
+                  transition: 'background 0.15s ease'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isAllEditDeptsSelected}
+                  onChange={handleToggleAllEditDepts}
+                  disabled={role === 'Manager'}
+                  style={{ cursor: role === 'Manager' ? 'not-allowed' : 'pointer', width: '16px', height: '16px', accentColor: 'var(--accent-color)' }}
+                />
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.86rem', color: 'var(--text-primary)' }}>
+                    All Departments
+                  </span>
+                  <span style={{ fontSize: '0.74rem', padding: '2px 8px', borderRadius: '12px', background: 'var(--bg-card)', color: 'var(--accent-color)', fontWeight: 700 }}>
+                    {totalCompanyEmployees} Total Employees
+                  </span>
+                </div>
+              </label>
+
+              {filteredEditDepts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                  No departments found.
+                </div>
+              ) : (
+                filteredEditDepts.map(d => {
+                  const isSelected = selectedEditDeptIds.includes(d.id);
+                  const isManagerDisabled = role === 'Manager' && d.code !== dept;
+                  return (
+                    <label
+                      key={d.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        cursor: isManagerDisabled ? 'not-allowed' : 'pointer',
+                        marginBottom: '4px',
+                        background: isSelected ? 'var(--accent-glow)' : 'transparent',
+                        opacity: isManagerDisabled ? 0.4 : 1,
+                        transition: 'background 0.15s ease'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => !isManagerDisabled && handleToggleEditDept(d.id)}
+                        disabled={isManagerDisabled}
+                        style={{ cursor: isManagerDisabled ? 'not-allowed' : 'pointer', width: '15px', height: '15px', accentColor: 'var(--accent-color)' }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: '0.84rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--accent-color)', marginRight: '6px' }}>[{d.code}]</span>
+                          <span>{d.name}</span>
+                        </div>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginLeft: '8px' }}>
+                          ({d.employee_count ?? 0})
+                        </span>
+                      </div>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Summary */}
+            <div style={{
+              marginTop: '8px',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              background: selectedEditDeptIds.length > 0 ? 'var(--accent-glow)' : 'rgba(239, 68, 68, 0.08)',
+              border: selectedEditDeptIds.length > 0 ? '1px solid var(--accent-color)' : '1px solid rgba(239, 68, 68, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+              fontSize: '0.82rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Users size={16} style={{ color: selectedEditDeptIds.length > 0 ? 'var(--accent-color)' : '#ef4444' }} />
+                <span>
+                  {selectedEditDeptIds.length === 0 ? (
+                    <strong style={{ color: '#ef4444' }}>Please select at least one department</strong>
+                  ) : (
+                    <>
+                      This course will be assigned to{' '}
+                      <strong style={{ color: 'var(--accent-color)' }}>
+                        {selectedEditEmployeesTotal} {selectedEditEmployeesTotal === 1 ? 'employee' : 'employees'}
+                      </strong>
+                      {isAllEditDeptsSelected ? ' (All Company Employees)' : ` across ${selectedEditDeptIds.length} ${selectedEditDeptIds.length === 1 ? 'department' : 'departments'}`}
+                    </>
+                  )}
+                </span>
+              </div>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                {selectedEditDeptIds.length} / {departmentsList.length} Selected
+              </span>
+            </div>
           </div>
         </form>
       </Modal>
@@ -1777,16 +2359,16 @@ export const CreatorDashboard: React.FC = () => {
         isOpen={isCreateModalOpen}
         onClose={handleCloseCreateModal}
         title="Create New Course"
-        subtitle="Configure initial details for a new learning pathway"
+        subtitle="Step 1: Set basic details & deadline, then add syllabus content, notes and quizzes"
         icon={<BookOpen size={22} style={{ color: 'var(--accent-color)' }} />}
-        maxWidth="540px"
+        maxWidth="640px"
         footer={
           <>
             <Button variant="outline" type="button" onClick={handleCloseCreateModal}>
               Cancel
             </Button>
             <Button variant="primary" type="button" onClick={(e) => handleCreateSubmit(e as any)}>
-              Create Modules
+              Continue to Add Content (Modules, Notes, Quiz) ➔
             </Button>
           </>
         }
@@ -1809,65 +2391,188 @@ export const CreatorDashboard: React.FC = () => {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            {/* Code */}
-            <div className="form-group-spaced">
-              <label className="form-label-styled">
-                Course Code <span className="required-star">*</span>
+          {/* Course Code */}
+          <div className="form-group-spaced">
+            <label className="form-label-styled">
+              Course Code <span className="required-star">*</span>
+            </label>
+            <input 
+              type="text" 
+              className="form-input-styled" 
+              placeholder="e.g. APD-101"
+              value={courseCode}
+              onChange={(e) => setCourseCode(e.target.value)}
+            />
+            <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              Suggested next sequential code:{' '}
+              <span 
+                onClick={() => {
+                  const suggestedDeptCode = isAllDeptsSelected
+                    ? 'ALL'
+                    : (selectedDeptIds.length > 0
+                        ? (departmentsList.find(d => d.id === selectedDeptIds[0])?.code || 'AI')
+                        : 'AI');
+                  setCourseCode(getSuggestedCourseCode(suggestedDeptCode));
+                }}
+                style={{ color: 'var(--accent-color)', fontWeight: '700', cursor: 'pointer', textDecoration: 'underline' }}
+                title="Click to automatically fill this code"
+              >
+                {getSuggestedCourseCode(
+                  isAllDeptsSelected
+                    ? 'ALL'
+                    : (selectedDeptIds.length > 0
+                        ? (departmentsList.find(d => d.id === selectedDeptIds[0])?.code || 'AI')
+                        : 'AI')
+                )}
+              </span>{' '}
+              (Click to auto-fill)
+            </p>
+            {errors.courseCode && (
+              <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.courseCode}</p>
+            )}
+          </div>
+
+          {/* Assign To (Department Selection) */}
+          <div className="form-group-spaced">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label className="form-label-styled" style={{ margin: 0 }}>
+                Assign To <span className="required-star">*</span>
               </label>
-              <input 
-                type="text" 
-                className="form-input-styled" 
-                placeholder="e.g. APD-101"
-                value={courseCode}
-                onChange={(e) => setCourseCode(e.target.value)}
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                Target departments for this course
+              </span>
+            </div>
+
+            <div style={{ position: 'relative', marginBottom: '8px' }}>
+              <input
+                type="text"
+                className="form-input-styled"
+                placeholder="Search departments..."
+                value={deptSearchQuery}
+                onChange={(e) => setDeptSearchQuery(e.target.value)}
+                style={{ paddingLeft: '32px', fontSize: '0.82rem' }}
               />
-              <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Suggested next sequential code:{' '}
-                <span 
-                  onClick={() => setCourseCode(getSuggestedCourseCode(targetDeptInput))}
-                  style={{ color: 'var(--accent-color)', fontWeight: '700', cursor: 'pointer', textDecoration: 'underline' }}
-                  title="Click to automatically fill this code"
-                >
-                  {getSuggestedCourseCode(targetDeptInput)}
-                </span>{' '}
-                (Click to auto-fill)
-              </p>
-              {errors.courseCode && (
-                <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.courseCode}</p>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
+            </div>
+
+            <div style={{ maxHeight: '175px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', padding: '8px', background: 'var(--bg-main)' }}>
+              {/* All Departments Option */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '7px 10px',
+                  borderRadius: '6px',
+                  cursor: role === 'Manager' ? 'not-allowed' : 'pointer',
+                  marginBottom: '6px',
+                  background: isAllDeptsSelected ? 'var(--accent-glow)' : 'rgba(255, 255, 255, 0.02)',
+                  borderBottom: '1px solid var(--border-color)',
+                  fontWeight: 700,
+                  opacity: role === 'Manager' ? 0.6 : 1,
+                  transition: 'background 0.15s ease'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isAllDeptsSelected}
+                  onChange={handleToggleAllDepts}
+                  disabled={role === 'Manager'}
+                  style={{ cursor: role === 'Manager' ? 'not-allowed' : 'pointer', width: '16px', height: '16px', accentColor: 'var(--accent-color)' }}
+                />
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.86rem', color: 'var(--text-primary)' }}>
+                    All Departments
+                  </span>
+                  <span style={{ fontSize: '0.74rem', padding: '2px 8px', borderRadius: '12px', background: 'var(--bg-card)', color: 'var(--accent-color)', fontWeight: 700 }}>
+                    {totalCompanyEmployees} Total Employees
+                  </span>
+                </div>
+              </label>
+
+              {filteredDepts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                  No departments found matching "{deptSearchQuery}".
+                </div>
+              ) : (
+                filteredDepts.map(d => {
+                  const isSelected = selectedDeptIds.includes(d.id);
+                  const isManagerDisabled = role === 'Manager' && d.code !== dept;
+                  return (
+                    <label
+                      key={d.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        cursor: isManagerDisabled ? 'not-allowed' : 'pointer',
+                        marginBottom: '4px',
+                        background: isSelected ? 'var(--accent-glow)' : 'transparent',
+                        opacity: isManagerDisabled ? 0.4 : 1,
+                        transition: 'background 0.15s ease'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => !isManagerDisabled && handleToggleDept(d.id)}
+                        disabled={isManagerDisabled}
+                        style={{ cursor: isManagerDisabled ? 'not-allowed' : 'pointer', width: '15px', height: '15px', accentColor: 'var(--accent-color)' }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: '0.84rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--accent-color)', marginRight: '6px' }}>[{d.code}]</span>
+                          <span>{d.name}</span>
+                        </div>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginLeft: '8px' }}>
+                          ({d.employee_count ?? 0})
+                        </span>
+                      </div>
+                    </label>
+                  );
+                })
               )}
             </div>
 
-            {/* Target Department Selection */}
-            <div className="form-group-spaced">
-              <label className="form-label-styled">
-                Target Department <span className="required-star">*</span>
-              </label>
-              <select 
-                className="form-select-styled"
-                value={targetDeptInput}
-                onChange={(e) => {
-                  const newDept = e.target.value;
-                  setTargetDeptInput(newDept);
-                  setCourseCode(getSuggestedCourseCode(newDept));
-                }}
-                disabled={role === 'Manager'}
-                style={{
-                  opacity: role === 'Manager' ? 0.6 : 1,
-                  cursor: role === 'Manager' ? 'not-allowed' : 'default'
-                }}
-              >
-                {departmentsList
-                  .filter(d => role !== 'Manager' || d.code === dept)
-                  .map(d => (
-                    <option key={d.id} value={d.code}>[{d.code}] {d.name}</option>
-                  ))
-                }
-                {departmentsList.length === 0 && (
-                  <option value="AI">[AI] Artificial Intelligence</option>
-                )}
-              </select>
+            {/* Assignment Summary Banner */}
+            <div style={{
+              marginTop: '8px',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              background: selectedDeptIds.length > 0 ? 'var(--accent-glow)' : 'rgba(239, 68, 68, 0.08)',
+              border: selectedDeptIds.length > 0 ? '1px solid var(--accent-color)' : '1px solid rgba(239, 68, 68, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+              fontSize: '0.82rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Users size={16} style={{ color: selectedDeptIds.length > 0 ? 'var(--accent-color)' : '#ef4444' }} />
+                <span>
+                  {selectedDeptIds.length === 0 ? (
+                    <strong style={{ color: '#ef4444' }}>Please select at least one department</strong>
+                  ) : (
+                    <>
+                      This course will be assigned to{' '}
+                      <strong style={{ color: 'var(--accent-color)' }}>
+                        {selectedEmployeesTotal} {selectedEmployeesTotal === 1 ? 'employee' : 'employees'}
+                      </strong>
+                      {isAllDeptsSelected ? ' (All Company Employees)' : ` across ${selectedDeptIds.length} ${selectedDeptIds.length === 1 ? 'department' : 'departments'}`}
+                    </>
+                  )}
+                </span>
+              </div>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                {selectedDeptIds.length} / {departmentsList.length} Selected
+              </span>
             </div>
+
+            {errors.department && (
+              <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.department}</p>
+            )}
           </div>
 
           {/* Description */}
@@ -1886,25 +2591,26 @@ export const CreatorDashboard: React.FC = () => {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            {/* Priority */}
-            <div className="form-group-spaced">
-              <label className="form-label-styled">
-                Priority <span className="required-star">*</span>
-              </label>
-              <select 
-                className="form-select-styled"
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as any)}
-              >
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
-              </select>
-            </div>
+          {/* Priority */}
+          <div className="form-group-spaced">
+            <label className="form-label-styled">
+              Priority <span className="required-star">*</span>
+            </label>
+            <select 
+              className="form-select-styled"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as any)}
+              style={{ width: '100%' }}
+            >
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
 
-            {/* Mandatory Course Toggle */}
-            <div className="form-group-spaced" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '28px' }}>
+          {/* Mandatory Course Toggle */}
+          <div className="form-group-spaced">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', margin: 0 }}>
               <input 
                 type="checkbox" 
                 id="is_mandatory_checkbox"
@@ -1912,61 +2618,126 @@ export const CreatorDashboard: React.FC = () => {
                 onChange={(e) => setIsMandatory(e.target.checked)}
                 style={{ accentColor: 'var(--accent-color)', width: '18px', height: '18px', cursor: 'pointer' }}
               />
-              <label htmlFor="is_mandatory_checkbox" style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', cursor: 'pointer', margin: 0 }}>
+              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                 Mark as Mandatory Course
-              </label>
-            </div>
+              </span>
+            </label>
+            <p style={{ margin: '4px 0 0 28px', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+              Mandatory courses are required for all enrolled personnel.
+            </p>
+          </div>
 
-            {/* Duration */}
-            <div className="form-group-spaced">
-              <label className="form-label-styled">
-                Course Duration <span className="required-star">*</span>
-              </label>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 8px 0', lineHeight: '1.4' }}>
-                ℹ️ <strong>Note:</strong> This timeline counter starts running automatically as soon as the course is officially published. Please add time accordingly.
+          {/* Duration / Deadline */}
+          <div className="form-group-spaced">
+            <DurationInput
+              showDays={true}
+              days={durationDays}
+              hours={durationHours}
+              minutes={durationMinutes}
+              onChange={(d: number, h: number, m: number) => {
+                setDurationDays(d);
+                setDurationHours(h);
+                setDurationMinutes(m);
+                if (errors.duration) {
+                  setErrors(prev => {
+                    const updated = { ...prev };
+                    delete updated.duration;
+                    return updated;
+                  });
+                }
+              }}
+              error={errors.duration}
+              label="Course Deadline / Completion Duration"
+              required={true}
+              helperNote="Set the deadline / duration allowed for learners to complete this course (minimum 1 minute). Courses lock for learners after this deadline."
+              idPrefix="create-course-duration"
+            />
+          </div>
+
+          {/* Course Overview / Introduction Video URL (YouTube) */}
+          <div className="form-group-spaced">
+            <label className="form-label-styled" htmlFor="create-course-video" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Video size={16} style={{ color: 'var(--accent-color)' }} />
+              <span>Course Introduction Video URL (YouTube)</span>
+            </label>
+            <input 
+              id="create-course-video"
+              type="url" 
+              className={`form-input-styled ${errors.videoUrl ? 'has-error' : ''}`}
+              placeholder="e.g. https://www.youtube.com/watch?v=dQw4w9WgXcQ or https://youtu.be/..."
+              value={videoUrl}
+              onChange={(e) => {
+                setVideoUrl(e.target.value);
+                if (errors.videoUrl) {
+                  setErrors(prev => {
+                    const updated = { ...prev };
+                    delete updated.videoUrl;
+                    return updated;
+                  });
+                }
+              }}
+            />
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '6px 0 0 0' }}>
+              Optional introductory or overview video displayed in course details and syllabus overview.
+            </p>
+            {videoUrl.trim() && !isValidYouTubeUrl(videoUrl.trim()) && (
+              <p style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: 600, marginTop: '6px' }}>
+                Please enter a valid YouTube URL (e.g. https://www.youtube.com/watch?v=... or https://youtu.be/...)
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                <div>
-                  <input 
-                    type="number" 
-                    min="0"
-                    placeholder="20"
-                    className="form-input-styled" 
-                    value={durationDays || ''}
-                    onChange={(e) => setDurationDays(Math.max(0, parseInt(e.target.value) || 0))}
-                  />
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Days</span>
+            )}
+            {isValidYouTubeUrl(videoUrl.trim()) && (
+              <div style={{ marginTop: '12px' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Live Video Preview:
                 </div>
-                <div>
-                  <input 
-                    type="number" 
-                    min="0"
-                    placeholder="0"
-                    className="form-input-styled" 
-                    value={durationHours || ''}
-                    onChange={(e) => setDurationHours(Math.max(0, parseInt(e.target.value) || 0))}
-                  />
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Hours</span>
-                </div>
-                <div>
-                  <input 
-                    type="number" 
-                    min="0"
-                    placeholder="0"
-                    className="form-input-styled" 
-                    value={durationMinutes || ''}
-                    onChange={(e) => setDurationMinutes(Math.max(0, parseInt(e.target.value) || 0))}
-                  />
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>Minutes</span>
-                </div>
+                <YouTubeEmbed videoUrl={videoUrl.trim()} title="Course Overview Video Preview" />
               </div>
-              {errors.duration && (
-                <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px' }}>{errors.duration}</p>
-              )}
-            </div>
+            )}
           </div>
         </form>
       </Modal>
+
+      {/* Delete Course Confirmation Modal */}
+      <Modal
+        isOpen={!!courseToDelete}
+        onClose={() => setCourseToDelete(null)}
+        title="Delete Course Confirmation"
+        icon={<AlertTriangle style={{ color: '#ef4444' }} />}
+        maxWidth="460px"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setCourseToDelete(null)} disabled={isDeletingCourse}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleDeleteCourse}
+              disabled={isDeletingCourse}
+              style={{ backgroundColor: '#ef4444', borderColor: '#ef4444' }}
+            >
+              {isDeletingCourse ? 'Deleting Course...' : 'Confirm Delete Course'}
+            </Button>
+          </>
+        }
+      >
+        <div style={{ lineHeight: '1.6', fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+          <p style={{ marginBottom: '12px' }}>
+            Are you sure you want to permanently delete <strong>{courseToDelete?.title}</strong> ({courseToDelete?.course_code})?
+          </p>
+          <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', padding: '12px 16px', borderRadius: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <strong>Notice:</strong> This action cannot be undone. Shared modules linked to other courses will be safely preserved in the curriculum.
+          </div>
+        </div>
+      </Modal>
+
+      {/* Assigned Learners & Progress Modal */}
+      <LearnersModal
+        isOpen={!!learnersCourse}
+        onClose={() => setLearnersCourse(null)}
+        courseId={learnersCourse?.id || null}
+        courseTitle={learnersCourse?.title}
+        courseCode={learnersCourse?.course_code}
+      />
     </div>
   );
 };

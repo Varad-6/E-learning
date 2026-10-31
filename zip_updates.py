@@ -7,15 +7,21 @@ FILES_TO_ZIP = [
     # 1. Database Migrations & Alembic
     "alembic/env.py",
     "alembic/versions/9738474ae94d_optional_courses_quizzes_and_badge_.py",
+    "alembic/versions/5debf6462182_create_course_departments_table.py",
 
     # 2. Backend Core & Database Routing
     "app/core/config.py",
     "app/database/session.py",
+    "app/main.py",
 
     # 3. Backend Models
+    "app/models/__init__.py",
     "app/models/badge_tier.py",
     "app/models/course.py",
+    "app/models/course_department.py",
+    "app/models/course_enrollment.py",
     "app/models/course_module.py",
+    "app/models/department.py",
     "app/models/quiz.py",
     "app/models/quiz_question.py",
 
@@ -23,6 +29,8 @@ FILES_TO_ZIP = [
     "app/schemas/admin.py",
     "app/schemas/badge.py",
     "app/schemas/course.py",
+    "app/schemas/department.py",
+    "app/schemas/enrollment.py",
     "app/schemas/quiz.py",
 
     # 5. Backend Services
@@ -30,18 +38,23 @@ FILES_TO_ZIP = [
     "app/services/audit_service.py",
     "app/services/badge_service.py",
     "app/services/course_service.py",
+    "app/services/dashboard_service.py",
+    "app/services/department_service.py",
     "app/services/enrollment_service.py",
+    "app/services/module_service.py",
     "app/services/quiz_service.py",
 
     # 6. Backend API Routes
     "app/api/admin.py",
     "app/api/auth.py",
     "app/api/course.py",
+    "app/api/dashboard.py",
     "app/api/department.py",
     "app/api/employee_dashboard.py",
     "app/api/enrollment.py",
     "app/api/module.py",
     "app/api/quiz.py",
+    "app/api/reporting.py",
 
     # 7. Deployment Script
     "deploy.py",
@@ -63,6 +76,25 @@ FILES_TO_ZIP = [
     "frontend/src/pages/ViewCourses/ViewCourses.tsx",
     "frontend/src/services/api.ts",
     "frontend/src/styles/theme.css",
+    "frontend/src/utils/youtube.ts",
+    "frontend/src/utils/duration.ts",
+    "frontend/src/components/DurationInput/DurationInput.tsx",
+    "frontend/src/components/DurationInput/DurationInput.css",
+    "frontend/src/components/YouTubeEmbed/YouTubeEmbed.tsx",
+    "frontend/src/components/YouTubeEmbed/YouTubeEmbed.css",
+    "frontend/src/components/Modal/Modal.tsx",
+    "frontend/src/components/Modal/Modal.css",
+    "frontend/src/components/LearnersModal/LearnersModal.tsx",
+    "frontend/src/components/LearnersModal/LearnersModal.css",
+    "frontend/src/pages/Courses/CoursesPage.tsx",
+    "frontend/src/pages/Courses/CoursesPage.css",
+    "frontend/src/components/YouTubePlayer/YouTubePlayer.tsx",
+    "frontend/src/components/YouTubePlayer/YouTubePlayer.css",
+    "frontend/src/components/CourseraRichText/CourseraRichText.tsx",
+    "frontend/src/components/CourseraRichText/CourseraRichText.css",
+    "frontend/src/pages/CoursePlayer/CoursePlayer.css",
+    "frontend/src/components/Navbar/Navbar.css",
+    "frontend/src/pages/Dashboard/Dashboard.css",
 
     # 9. Frontend Config
     "frontend/vite.config.ts",

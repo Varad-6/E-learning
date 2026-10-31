@@ -102,6 +102,8 @@ export const Login: React.FC = () => {
       localStorage.setItem('refresh_token', data.refresh_token);
 
       // Save session credentials
+      localStorage.setItem('userId', data.user.id);
+      localStorage.setItem('profileUserId', data.user.id);
       localStorage.setItem('isLoggedInEmail', data.user.email);
       
       const selectedDept = departmentsList.find(d => d.id === data.user.department_id);

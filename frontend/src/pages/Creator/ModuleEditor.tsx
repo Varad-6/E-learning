@@ -7,6 +7,9 @@ import { ArrowLeft, Save, Eye, Edit3, HelpCircle, FileText, Heading, Type, Link,
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
+import { CourseraRichText } from '../../components/CourseraRichText/CourseraRichText';
+import { YouTubePlayer } from '../../components/YouTubePlayer/YouTubePlayer';
+import { isValidYouTubeUrl } from '../../utils/youtube';
 import './Creator.css';
 
 interface Block {
@@ -149,7 +152,13 @@ export const ModuleEditor: React.FC = () => {
   useEffect(() => {
     const rawRolesStr = localStorage.getItem('rawRoles');
     const rawRoles = rawRolesStr ? JSON.parse(rawRolesStr) : [];
-    const hasAccess = rawRoles.includes('SYSTEM_ADMIN') || rawRoles.includes('COURSE_MANAGER');
+    const savedRole = localStorage.getItem('isLoggedInRole') || 'Employee';
+    const hasAccess = 
+      ['Admin', 'HR Admin', 'HR Manager', 'Manager'].includes(savedRole) ||
+      rawRoles.includes('SYSTEM_ADMIN') || 
+      rawRoles.includes('COURSE_MANAGER') || 
+      rawRoles.includes('HR_ADMIN') || 
+      rawRoles.includes('MANAGER');
     if (!hasAccess) {
       navigate('/dashboard');
       return;
@@ -188,9 +197,8 @@ export const ModuleEditor: React.FC = () => {
     } else if (!isUrl) {
       errorMsg = 'Please enter a valid URL';
     } else if (type === 'youtube') {
-      const isYoutube = value.includes('youtube.com') || value.includes('youtu.be');
-      if (!isYoutube) {
-        errorMsg = 'Must be a valid YouTube URL (contains youtube.com or youtu.be)';
+      if (!isValidYouTubeUrl(value.trim())) {
+        errorMsg = 'Please enter a valid YouTube URL (e.g. https://www.youtube.com/watch?v=... or https://youtu.be/...)';
       }
     }
 
@@ -474,8 +482,6 @@ export const ModuleEditor: React.FC = () => {
           variant="primary" 
           onClick={handleSave}
           leftIcon={<Save size={16} />}
-          disabled={courseIsPublished}
-          title={courseIsPublished ? 'Revert course to draft to save changes' : undefined}
         >
           Save Workspace
         </Button>
@@ -498,7 +504,6 @@ export const ModuleEditor: React.FC = () => {
                 onChange={(e) => setModuleTitle(e.target.value)}
                 placeholder="Module Name (e.g. Continuous Improvement Foundations)"
                 style={{ fontSize: '1.3rem', fontWeight: '700', padding: '8px 12px' }}
-                disabled={courseIsPublished}
               />
             </div>
             <textarea 
@@ -507,7 +512,6 @@ export const ModuleEditor: React.FC = () => {
               onChange={(e) => setModuleDescription(e.target.value)}
               placeholder="Module description and overview notes..."
               style={{ minHeight: '60px', fontSize: '0.9rem', padding: '8px 12px' }}
-              disabled={courseIsPublished}
             />
           </div>
         </div>
@@ -546,7 +550,6 @@ export const ModuleEditor: React.FC = () => {
               Create and reorder headers, textual descriptions, links, attachments, and videos. Use the ↑ and ↓ cursor control arrows to shift element hierarchy.
             </p>
 
-            <fieldset disabled={courseIsPublished} style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
               <div className="content-blocks-list">
               {blocks.map((block, index) => (
                 <div 
@@ -620,7 +623,7 @@ export const ModuleEditor: React.FC = () => {
                         <input 
                           type="url" 
                           className="form-input-styled" 
-                          placeholder={`Enter URL for ${block.type} link...`}
+                          placeholder={block.type === 'youtube' ? "Paste YouTube URL (e.g. https://www.youtube.com/watch?v=...)" : `Enter URL for ${block.type} link...`}
                           value={block.value}
                           onChange={(e) => updateBlockValue(block.id, e.target.value)}
                         />
@@ -628,6 +631,14 @@ export const ModuleEditor: React.FC = () => {
                           <span style={{ color: 'var(--neon-coral, #ef4444)', fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', display: 'block' }}>
                             ⚠️ {validationErrors[block.id]}
                           </span>
+                        )}
+                        {block.type === 'youtube' && isValidYouTubeUrl(block.value) && (
+                          <div style={{ marginTop: '10px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', maxWidth: '520px' }}>
+                            <div style={{ padding: '6px 12px', background: 'var(--bg-input)', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                              Live Video Preview:
+                            </div>
+                            <YouTubePlayer videoUrl={block.value} readOnly={true} />
+                          </div>
                         )}
                       </div>
                     )}
@@ -767,7 +778,6 @@ export const ModuleEditor: React.FC = () => {
                 </button>
               </div>
             </div>
-            </fieldset>
           </div>
         </div>
 
@@ -823,18 +833,12 @@ export const ModuleEditor: React.FC = () => {
                       )}
                       {block.type === 'text' && block.value.trim() && (
                         <div className="preview-block-text">
-                          <p style={{ whiteSpace: 'pre-wrap' }}>{block.value}</p>
+                          <CourseraRichText content={block.value} />
                         </div>
                       )}
                       {block.type === 'youtube' && block.value.trim() && (
-                        <div className="youtube-embed-container">
-                          <iframe 
-                            src={block.value}
-                            title="YouTube Video Lecture Player"
-                            frameBorder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          ></iframe>
+                        <div style={{ borderRadius: '10px', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+                          <YouTubePlayer videoUrl={block.value} readOnly={true} />
                         </div>
                       )}
                       {block.type === 'blog' && block.value.trim() && (
@@ -875,7 +879,6 @@ export const ModuleEditor: React.FC = () => {
             )}
             {activeTab === 'quiz' && (
               <div className="quiz-builder-workspace animate-fade-in">
-                <fieldset disabled={courseIsPublished} style={{ border: 'none', padding: 0, margin: 0 }}>
                   {/* Optional Quiz Configuration */}
                   <div style={{
                     display: 'flex',
@@ -1027,7 +1030,6 @@ export const ModuleEditor: React.FC = () => {
                       Add Question to Quiz
                     </Button>
                   </form>
-                </fieldset>
               </div>
             )}
 
@@ -1038,14 +1040,12 @@ export const ModuleEditor: React.FC = () => {
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>
                   Document curriculum objectives, reference papers, and reminders. These notes are saved locally with your project workspace drafts.
                 </p>
-                <fieldset disabled={courseIsPublished} style={{ border: 'none', padding: 0, margin: 0 }}>
                   <textarea 
                     className="creator-notes-textarea"
                     placeholder="Take private module notes here..."
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                   />
-                </fieldset>
               </div>
             )}
           </div>

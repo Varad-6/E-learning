@@ -26,8 +26,8 @@ router = APIRouter(prefix="/api/users", tags=["User Management"])
 
 def _is_admin_or_hr(user: User) -> bool:
     roles = [r.name for r in user.roles]
-    is_hr_dept = bool(user.department and user.department.code in ["HR", "HR_ADMIN"])
-    return "SYSTEM_ADMIN" in roles or "HR_ADMIN" in roles or is_hr_dept
+    is_hr_manager = bool(user.department and user.department.code in ["HR", "HR_ADMIN"] and "COURSE_MANAGER" in roles)
+    return "SYSTEM_ADMIN" in roles or "HR_ADMIN" in roles or is_hr_manager
 
 
 def _require_admin_or_hr(current_user: User = Depends(get_current_user)):

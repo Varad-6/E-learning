@@ -3,8 +3,12 @@
   top: 0;
   z-index: 100;
   width: 100%;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-card) !important;
+  border-radius: 0 !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: 1px solid var(--border-color) !important;
   transition: var(--transition-smooth);
 }
 
@@ -14,9 +18,9 @@
   justify-content: space-between;
   height: var(--navbar-height);
   width: 100%;
-  max-width: 1280px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 0 24px;
   box-sizing: border-box;
 }
 
@@ -46,18 +50,19 @@
 .navbar-links {
   display: flex;
   align-items: center;
-  gap: 16px; /* slightly tighter spacing */
+  gap: 8px;
 }
 
 .nav-link {
   font-family: var(--font-title);
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--text-secondary);
-  padding: 10px 18px;
-  border-radius: var(--border-radius-md); /* rounded-xl (12px) */
+  padding: 8px 12px;
+  border-radius: var(--border-radius-md);
   border: 1px solid transparent;
   transition: var(--transition-smooth);
+  white-space: nowrap;
 }
 
 .nav-link:hover {
@@ -402,3 +407,72 @@
 
 
 
+
+/* Responsive Navbar Rules for Laptop & Mobile */
+@media (max-width: 1366px) {
+  .navbar-container {
+    padding: 0 16px;
+  }
+  .navbar-links {
+    gap: 4px;
+  }
+  .nav-link {
+    font-size: 0.78rem;
+    padding: 6px 10px;
+  }
+  .navbar-actions {
+    gap: 10px;
+  }
+  .user-badge {
+    padding: 6px 10px;
+    font-size: 0.76rem;
+  }
+  .username-text {
+    max-width: 80px;
+  }
+  .logout-btn {
+    padding: 6px 12px !important;
+    font-size: 0.78rem !important;
+    min-height: 32px !important;
+  }
+}
+
+@media (max-width: 1080px) {
+  .navbar-links {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .navbar-container {
+    padding: 0 12px;
+  }
+  .navbar-logo .logo-text {
+    font-size: 1.1rem !important;
+  }
+  .navbar-actions {
+    gap: 8px;
+  }
+  .notif-bell-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .user-badge {
+    padding: 5px 8px;
+    font-size: 0.72rem;
+  }
+  .username-text {
+    max-width: 65px;
+  }
+  .logout-btn {
+    padding: 6px 8px !important;
+    min-height: 32px !important;
+    font-size: 0.75rem !important;
+  }
+  .logout-btn .btn-text {
+    display: none;
+  }
+  .logout-btn .btn-icon {
+    margin: 0 !important;
+  }
+}

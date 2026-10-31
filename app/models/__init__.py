@@ -6,7 +6,8 @@ from app.models.otp import PasswordResetOTP, EmailVerificationOTP
 from app.models.refresh_token import RefreshToken
 from app.models.department import Department
 from app.models.course import Course
-from app.models.course_module import CourseModule
+from app.models.course_department import CourseDepartment
+from app.models.course_module import CourseModule, CourseModuleAssociation
 from app.models.module_content import ModuleContent
 from app.models.course_enrollment import CourseEnrollment
 from app.models.user_course_progress import UserCourseProgress
@@ -32,6 +33,7 @@ __all__ = [
     "RefreshToken",
     "Department",
     "Course",
+    "CourseDepartment",
     "CourseModule",
     "ModuleContent",
     "CourseEnrollment",

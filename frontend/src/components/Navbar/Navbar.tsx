@@ -378,40 +378,52 @@ export const Navbar: React.FC = () => {
               >
                 Dashboard
               </div>
+              <div 
+                onClick={() => safeNavigate('/courses?tab=in_progress')} 
+                className={`nav-link ${(location.pathname === '/courses' && (!location.search || location.search.includes('tab=in_progress') || location.search.includes('tab=not_started') || location.search.includes('tab=completed') || location.search.includes('tab=all'))) || (location.pathname === '/dashboard' && location.search.includes('tab=my-courses')) ? 'active' : ''}`} 
+                style={{ cursor: 'pointer' }}
+                role="button"
+              >
+                My Courses
+              </div>
+              <div 
+                onClick={() => safeNavigate('/courses?tab=available')} 
+                className={`nav-link ${location.pathname === '/courses' && location.search.includes('tab=available') ? 'active' : ''}`} 
+                style={{ cursor: 'pointer' }}
+                role="button"
+              >
+                Course Catalog
+              </div>
+              <div 
+                onClick={() => safeNavigate('/dashboard?tab=badges')} 
+                className={`nav-link ${location.pathname === '/dashboard' && location.search.includes('tab=badges') ? 'active' : ''}`} 
+                style={{ cursor: 'pointer' }}
+                role="button"
+              >
+                My Awards
+              </div>
               {userRole === 'Employee' && (
-                <>
-                  <div 
-                    onClick={() => safeNavigate('/dashboard?tab=my-courses')} 
-                    className={`nav-link ${location.pathname === '/dashboard' && location.search.includes('tab=my-courses') ? 'active' : ''}`} 
-                    style={{ cursor: 'pointer' }}
-                    role="button"
-                  >
-                    My Courses
-                  </div>
-                  <div 
-                    onClick={() => safeNavigate('/exams')} 
-                    className={`nav-link ${location.pathname === '/exams' ? 'active' : ''}`} 
-                    style={{ cursor: 'pointer' }}
-                    role="button"
-                  >
-                    Attempt Exam
-                  </div>
-                  <div 
-                    onClick={() => safeNavigate('/dashboard?tab=badges')} 
-                    className={`nav-link ${location.pathname === '/dashboard' && location.search.includes('tab=badges') ? 'active' : ''}`} 
-                    style={{ cursor: 'pointer' }}
-                    role="button"
-                  >
-                    Badges
-                  </div>
-                </>
+                <div 
+                  onClick={() => safeNavigate('/exams')} 
+                  className={`nav-link ${location.pathname === '/exams' ? 'active' : ''}`} 
+                  style={{ cursor: 'pointer' }}
+                  role="button"
+                >
+                  Attempt Exam
+                </div>
               )}
             </>
           )}
           {userEmail && (() => {
             const rawRolesStr = localStorage.getItem('rawRoles');
-            const rawRoles = rawRolesStr ? JSON.parse(rawRolesStr) : [];
-            const hasAccess = rawRoles.includes('SYSTEM_ADMIN') || rawRoles.includes('COURSE_MANAGER') || rawRoles.includes('HR_ADMIN');
+            let rawRoles: string[] = [];
+            try { rawRoles = rawRolesStr ? JSON.parse(rawRolesStr) : []; } catch {}
+            const hasAccess = 
+              rawRoles.includes('SYSTEM_ADMIN') || 
+              rawRoles.includes('COURSE_MANAGER') || 
+              rawRoles.includes('HR_ADMIN') || 
+              rawRoles.includes('MANAGER') ||
+              ['Admin', 'HR Admin', 'HR Manager', 'Manager'].includes(userRole);
             if (!hasAccess) return null;
             return (
               <div 

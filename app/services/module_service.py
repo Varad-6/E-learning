@@ -1,33 +1,33 @@
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+from sqlalchemy import case
 
 from app.models.course import Course
-from app.models.course_module import CourseModule
+from app.models.course_module import CourseModule, CourseModuleAssociation
 from app.models.module_content import ModuleContent
 from app.schemas.course import (
     ModuleCreate, ModuleUpdate, ModuleContentCreate, ModuleContentUpdate, ReorderItem
 )
 
-from sqlalchemy import case
-
 class ModuleService:
     @staticmethod
     def create_module(db: Session, request: ModuleCreate) -> CourseModule:
-        course = db.query(Course).filter(Course.id == request.course_id).first()
-        if not course:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Course with ID {request.course_id} not found."
-            )
-        
-        # Shift modules with sequence_no >= request.sequence_no in the same tier
-        db.query(CourseModule).filter(
-            CourseModule.course_id == request.course_id,
-            CourseModule.tier == request.tier,
-            CourseModule.sequence_no >= request.sequence_no
-        ).update({CourseModule.sequence_no: CourseModule.sequence_no + 1})
+        if request.course_id:
+            course = db.query(Course).filter(Course.id == request.course_id).first()
+            if not course:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Course with ID {request.course_id} not found."
+                )
+            
+            # Shift modules with sequence_no >= request.sequence_no in the same tier
+            db.query(CourseModule).filter(
+                CourseModule.course_id == request.course_id,
+                CourseModule.tier == request.tier,
+                CourseModule.sequence_no >= request.sequence_no
+            ).update({CourseModule.sequence_no: CourseModule.sequence_no + 1})
         
         db_module = CourseModule(
             course_id=request.course_id,
@@ -39,6 +39,16 @@ class ModuleService:
         db.add(db_module)
         db.commit()
         db.refresh(db_module)
+
+        if request.course_id:
+            assoc = CourseModuleAssociation(
+                course_id=request.course_id,
+                module_id=db_module.id,
+                sequence_no=request.sequence_no
+            )
+            db.add(assoc)
+            db.commit()
+
         return db_module
 
     @staticmethod
@@ -56,15 +66,17 @@ class ModuleService:
             db_module.description = request.description
         if request.tier is not None:
             db_module.tier = request.tier
+        if request.course_id is not None:
+            db_module.course_id = request.course_id
         if request.sequence_no is not None:
-            # Shift modules in target tier
             tier_val = request.tier if request.tier is not None else db_module.tier
-            db.query(CourseModule).filter(
-                CourseModule.course_id == db_module.course_id,
-                CourseModule.tier == tier_val,
-                CourseModule.sequence_no >= request.sequence_no,
-                CourseModule.id != module_id
-            ).update({CourseModule.sequence_no: CourseModule.sequence_no + 1})
+            if db_module.course_id:
+                db.query(CourseModule).filter(
+                    CourseModule.course_id == db_module.course_id,
+                    CourseModule.tier == tier_val,
+                    CourseModule.sequence_no >= request.sequence_no,
+                    CourseModule.id != module_id
+                ).update({CourseModule.sequence_no: CourseModule.sequence_no + 1})
             db_module.sequence_no = request.sequence_no
 
         db.commit()
@@ -79,6 +91,8 @@ class ModuleService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Module with ID {module_id} not found."
             )
+        # Remove from any course association
+        db.query(CourseModuleAssociation).filter(CourseModuleAssociation.module_id == module_id).delete()
         db.delete(db_module)
         db.commit()
 
@@ -93,8 +107,8 @@ class ModuleService:
         return db_module
 
     @staticmethod
-    def list_modules(db: Session, skip: int = 0, limit: int = 100) -> List[CourseModule]:
-        return db.query(CourseModule).offset(skip).limit(limit).all()
+    def list_modules(db: Session, skip: int = 0, limit: int = 200) -> List[CourseModule]:
+        return db.query(CourseModule).order_by(CourseModule.title).offset(skip).limit(limit).all()
 
     @staticmethod
     def get_modules_by_course(db: Session, course_id: UUID) -> List[CourseModule]:
@@ -104,13 +118,76 @@ class ModuleService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Course with ID {course_id} not found."
             )
+        
+        # Look in course_module_associations first
+        assocs = db.query(CourseModuleAssociation).filter(
+            CourseModuleAssociation.course_id == course_id
+        ).order_by(CourseModuleAssociation.sequence_no).all()
+
         tier_order = case(
             (CourseModule.tier == "beginner", 0),
             (CourseModule.tier == "intermediate", 1),
             (CourseModule.tier == "advanced", 2),
             else_=3
         )
-        return db.query(CourseModule).filter(CourseModule.course_id == course_id).order_by(tier_order, CourseModule.sequence_no).all()
+
+        if assocs:
+            assoc_ids = [a.module_id for a in assocs]
+            # Fetch modules
+            mods = db.query(CourseModule).filter(CourseModule.id.in_(assoc_ids)).order_by(tier_order, CourseModule.sequence_no).all()
+            return mods
+        
+        # Fallback to direct course_id
+        return db.query(CourseModule).filter(
+            CourseModule.course_id == course_id
+        ).order_by(tier_order, CourseModule.sequence_no).all()
+
+    @staticmethod
+    def assign_modules_to_course(db: Session, course_id: UUID, module_ids: List[UUID]) -> List[CourseModule]:
+        course = db.query(Course).filter(Course.id == course_id).first()
+        if not course:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Course with ID {course_id} not found."
+            )
+        
+        # Clear existing associations for this course
+        db.query(CourseModuleAssociation).filter(CourseModuleAssociation.course_id == course_id).delete()
+        
+        # Add new associations
+        for idx, mod_id in enumerate(module_ids):
+            mod = db.query(CourseModule).filter(CourseModule.id == mod_id).first()
+            if mod:
+                assoc = CourseModuleAssociation(
+                    course_id=course_id,
+                    module_id=mod_id,
+                    sequence_no=idx + 1
+                )
+                db.add(assoc)
+                # If module has no primary course_id, set it to this course
+                if not mod.course_id:
+                    mod.course_id = course_id
+
+        db.commit()
+        return ModuleService.get_modules_by_course(db, course_id)
+
+    @staticmethod
+    def unassign_module_from_course(db: Session, course_id: UUID, module_id: UUID) -> None:
+        db.query(CourseModuleAssociation).filter(
+            CourseModuleAssociation.course_id == course_id,
+            CourseModuleAssociation.module_id == module_id
+        ).delete()
+        
+        # If this module's course_id was course_id, reassign to another course or None
+        mod = db.query(CourseModule).filter(CourseModule.id == module_id).first()
+        if mod and mod.course_id == course_id:
+            other = db.query(CourseModuleAssociation).filter(
+                CourseModuleAssociation.module_id == module_id,
+                CourseModuleAssociation.course_id != course_id
+            ).first()
+            mod.course_id = other.course_id if other else None
+
+        db.commit()
 
     @staticmethod
     def create_content(db: Session, module_id: UUID, request: ModuleContentCreate) -> ModuleContent:
@@ -138,6 +215,34 @@ class ModuleService:
         return db_content
 
     @staticmethod
+    def get_contents_by_module(db: Session, module_id: UUID) -> List[ModuleContent]:
+        return db.query(ModuleContent).filter(
+            ModuleContent.module_id == module_id
+        ).order_by(ModuleContent.sequence_no).all()
+
+    @staticmethod
+    def list_module_contents(db: Session, module_id: UUID) -> List[ModuleContent]:
+        module = db.query(CourseModule).filter(CourseModule.id == module_id).first()
+        if not module:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Module with ID {module_id} not found."
+            )
+        return db.query(ModuleContent).filter(
+            ModuleContent.module_id == module_id
+        ).order_by(ModuleContent.sequence_no).all()
+
+    @staticmethod
+    def get_content(db: Session, content_id: UUID) -> ModuleContent:
+        db_content = db.query(ModuleContent).filter(ModuleContent.id == content_id).first()
+        if not db_content:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Content with ID {content_id} not found."
+            )
+        return db_content
+
+    @staticmethod
     def update_content(db: Session, content_id: UUID, request: ModuleContentUpdate) -> ModuleContent:
         db_content = db.query(ModuleContent).filter(ModuleContent.id == content_id).first()
         if not db_content:
@@ -145,7 +250,7 @@ class ModuleService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Content with ID {content_id} not found."
             )
-
+        
         if request.title is not None:
             db_content.title = request.title
         if request.content_type is not None:
@@ -179,51 +284,17 @@ class ModuleService:
         db.commit()
 
     @staticmethod
-    def get_content(db: Session, content_id: UUID) -> ModuleContent:
-        db_content = db.query(ModuleContent).filter(ModuleContent.id == content_id).first()
-        if not db_content:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Content with ID {content_id} not found."
-            )
-        return db_content
-
-    @staticmethod
-    def list_module_contents(db: Session, module_id: UUID) -> List[ModuleContent]:
-        module = db.query(CourseModule).filter(CourseModule.id == module_id).first()
-        if not module:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Module with ID {module_id} not found."
-            )
-        return db.query(ModuleContent).filter(ModuleContent.module_id == module_id).order_by(ModuleContent.sequence_no).all()
-
-    @staticmethod
-    def validate_module_belongs_to_course(db: Session, module_id: UUID, course_id: UUID) -> None:
-        module = db.query(CourseModule).filter(CourseModule.id == module_id).first()
-        if not module:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Module with ID {module_id} not found."
-            )
-        if module.course_id != course_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Module with ID {module_id} does not belong to course with ID {course_id}."
-            )
-
-    @staticmethod
     def reorder_modules(db: Session, items: List[ReorderItem]) -> None:
         for item in items:
-            db_module = db.query(CourseModule).filter(CourseModule.id == item.id).first()
-            if db_module:
-                db_module.sequence_no = item.sequence_no
+            db.query(CourseModule).filter(CourseModule.id == item.id).update(
+                {CourseModule.sequence_no: item.sequence_no}
+            )
         db.commit()
 
     @staticmethod
     def reorder_contents(db: Session, items: List[ReorderItem]) -> None:
         for item in items:
-            db_content = db.query(ModuleContent).filter(ModuleContent.id == item.id).first()
-            if db_content:
-                db_content.sequence_no = item.sequence_no
+            db.query(ModuleContent).filter(ModuleContent.id == item.id).update(
+                {ModuleContent.sequence_no: item.sequence_no}
+            )
         db.commit()

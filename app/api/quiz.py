@@ -10,6 +10,7 @@ from app.schemas.quiz import (
     QuizAttemptCreate, QuizAttemptResponse, QuizResult
 )
 from app.services.quiz_service import QuizService
+from app.api.module import check_module_write_permission
 
 router = APIRouter(prefix="/api/quizzes", tags=["Quizzes"])
 
@@ -18,13 +19,14 @@ router = APIRouter(prefix="/api/quizzes", tags=["Quizzes"])
     response_model=QuizResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Quiz",
-    description="Create a new quiz. Restricted to System Admin and Course Manager."
+    description="Create a new quiz. Restricted to Admins and the Course Creator."
 )
 def create_quiz(
     request: QuizCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
+    check_module_write_permission(db, request.module_id, current_user)
     return QuizService.create_quiz(db, request=request)
 
 @router.get(
@@ -48,7 +50,7 @@ def get_quiz(
     response_model=QuizQuestionResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create Quiz Question",
-    description="Add a new question to a quiz. Restricted to System Admin and Course Manager."
+    description="Add a new question to a quiz. Restricted to Admins and the Course Creator."
 )
 def create_question(
     quiz_id: UUID,
@@ -56,6 +58,8 @@ def create_question(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
+    quiz = QuizService.get_quiz(db, quiz_id=quiz_id)
+    check_module_write_permission(db, quiz.module_id, current_user)
     return QuizService.create_question(db, quiz_id=quiz_id, request=request)
 
 @router.post(
@@ -63,7 +67,7 @@ def create_question(
     response_model=QuizAttemptResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Submit Quiz Attempt",
-    description="Submit user answers for a quiz attempt."
+    description="Submit user answers for a quiz attempt and calculate score."
 )
 def submit_attempt(
     quiz_id: UUID,
@@ -71,12 +75,9 @@ def submit_attempt(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Ensure request quiz_id matches path parameter quiz_id
-    if request.quiz_id != quiz_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Quiz ID in path must match Quiz ID in body."
-        )
+    # Verify user has access to take this quiz
+    quiz = QuizService.get_quiz(db, quiz_id=quiz_id)
+    QuizService.verify_quiz_access(db, user=current_user, quiz=quiz)
     return QuizService.submit_attempt(db, user_id=current_user.id, request=request)
 
 @router.get(
@@ -128,12 +129,13 @@ def get_quiz_by_module(
     "/module/{module_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Quiz by Module",
-    description="Delete a quiz and its questions for a course module."
+    description="Delete a quiz and its questions for a course module. Restricted to Admins and the Course Creator."
 )
 def delete_quiz_by_module(
     module_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
+    check_module_write_permission(db, module_id, current_user)
     QuizService.delete_quiz_by_module(db, module_id=module_id)
     return None

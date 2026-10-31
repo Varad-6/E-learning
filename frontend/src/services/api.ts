@@ -23,6 +23,7 @@ export interface UserDetail {
   department_id: string | null;
   is_active: boolean;
   must_change_password: boolean;
+  roles?: { id: string; name: string }[] | string[];
 }
 
 export interface LoginResponseData {
@@ -70,9 +71,12 @@ export const apiCall = async (
         headers,
       });
     } else {
-      // Token refresh failed or token is revoked - invalidate session
+      // Token refresh failed or token is revoked - invalidate session completely
       handleLogoutLocal();
-      window.location.href = '/login';
+      sessionStorage.setItem('auth_notice', 'Your session has expired. Please log in again.');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
       throw new Error('Session expired. Please log in again.');
     }
   }
@@ -83,7 +87,7 @@ export const apiCall = async (
 /**
  * Attempt to obtain a new JWT pair using the refresh token.
  */
-const attemptTokenRefresh = async (): Promise<boolean> => {
+export const attemptTokenRefresh = async (): Promise<boolean> => {
   const refreshToken = localStorage.getItem('refresh_token');
   if (!refreshToken) return false;
 
@@ -109,14 +113,18 @@ const attemptTokenRefresh = async (): Promise<boolean> => {
 };
 
 /**
- * Clean up local storage authentication keys on logout or session expiration.
+ * Clean up local and session storage authentication keys on logout or session expiration.
+ * Ensures NO previous user session or cached data remains for subsequent logins.
  */
 export const handleLogoutLocal = () => {
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('refresh_token');
-  localStorage.removeItem('isLoggedInEmail');
-  localStorage.removeItem('isLoggedInRole');
-  localStorage.removeItem('isLoggedInDept');
-  localStorage.removeItem('profileName');
-  localStorage.removeItem('profileEmpId');
+  const theme = localStorage.getItem('theme');
+  localStorage.clear();
+  sessionStorage.clear();
+  if (theme) {
+    localStorage.setItem('theme', theme);
+  }
+  if (typeof document !== 'undefined') {
+    document.cookie = "kaizen_session_active=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  }
+  window.dispatchEvent(new Event('kaizen_auth_state_changed'));
 };

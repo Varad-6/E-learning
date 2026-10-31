@@ -39,7 +39,7 @@ class AuthService:
         if not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="User account is inactive"
+                detail="Your account has been deactivated. Please contact an administrator."
             )
 
         # Verify password
@@ -154,7 +154,7 @@ class AuthService:
         if not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="User account is inactive"
+                detail="Your account has been deactivated. Please contact an administrator."
             )
 
         # Rate limit: allow 1 OTP request per 60 seconds
@@ -239,7 +239,7 @@ class AuthService:
         if not user or not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User associated with this token is inactive or deleted"
+                detail="User account is inactive or disabled. Please contact an administrator."
             )
 
         # Revoke old refresh token (rotation)

@@ -1,12 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Play, Pause, Check, Volume2, RotateCcw,
+  ArrowLeft, ArrowRight, Play, Pause, Check, Volume2, RotateCcw,
   BookOpen, ChevronDown, ChevronRight, HelpCircle, Award, 
-  FileText, Download, Menu, X, Lock, Unlock, Clock, CheckCircle, AlertCircle
+  FileText, Download, Menu, X, Lock, Unlock, Clock, CheckCircle, AlertCircle,
+  ExternalLink, Save
 } from 'lucide-react';
 import { apiCall } from '../../services/api';
 import { Button } from '../../components/Button/Button';
+import { CourseraRichText } from '../../components/CourseraRichText/CourseraRichText';
+import { YouTubePlayer } from '../../components/YouTubePlayer/YouTubePlayer';
+import { extractYouTubeId, isValidYouTubeUrl, buildYouTubeWatchUrl } from '../../utils/youtube';
+import { formatDuration } from '../../utils/duration';
 import './CoursePlayer.css';
 
 interface ContentItem {
@@ -22,6 +27,7 @@ interface ContentItem {
 interface Module {
   id: string;
   title: string;
+  description?: string;
   contents: ContentItem[];
   tier?: 'beginner' | 'intermediate' | 'advanced';
 }
@@ -44,6 +50,7 @@ export const CoursePlayer: React.FC = () => {
   const [expandedModules, setExpandedModules] = useState<{ [key: string]: boolean }>({});
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoTime, setVideoTime] = useState(0);
+  const [currentVideoPercent, setCurrentVideoPercent] = useState<number>(0);
   const [notesText, setNotesText] = useState('');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -64,6 +71,9 @@ export const CoursePlayer: React.FC = () => {
   const [countdownText, setCountdownText] = useState<string>('00d : 00h : 00m : 00s');
   const [courseLocked, setCourseLocked] = useState<boolean>(false);
   const [showTimeUpModal, setShowTimeUpModal] = useState<boolean>(false);
+  const [playerTab, setPlayerTab] = useState<'overview' | 'notes' | 'resources'>('overview');
+  const [notesSavedFeedback, setNotesSavedFeedback] = useState<boolean>(false);
+  const [autoAdvanceToast, setAutoAdvanceToast] = useState<string | null>(null);
 
   // Default modules structure if none exist in the database for the course
   const defaultModules: Module[] = [
@@ -88,14 +98,6 @@ export const CoursePlayer: React.FC = () => {
           subtitle: 'CI/CD Architecture Pipeline Lecture',
           description: 'A deep dive presentation outlining build triggers, test pipelines, and deployment orchestration workflows.',
           videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
-        },
-        { 
-          id: 'c1_quiz', 
-          title: '1.3 Philosophy Assessment', 
-          type: 'quiz', 
-          duration: '3 questions',
-          subtitle: 'Module 1 Core MCQ Exam',
-          description: 'Complete the multiple-choice assessment to prove module mastery and unlock the next module.'
         }
       ]
     },
@@ -120,14 +122,6 @@ export const CoursePlayer: React.FC = () => {
           subtitle: 'Optimizing SQL Queries Lecture',
           description: 'Master indexed scans, database connection pooling configurations, and lazy loading relationships without overhead.',
           videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
-        },
-        { 
-          id: 'c2_quiz', 
-          title: '2.3 Database Assessment', 
-          type: 'quiz', 
-          duration: '3 questions',
-          subtitle: 'Module 2 DB MCQ Exam',
-          description: 'Complete the multiple-choice assessment to prove module mastery and unlock the next module.'
         }
       ]
     }
@@ -144,26 +138,88 @@ export const CoursePlayer: React.FC = () => {
     const loadEnrollmentData = async () => {
       try {
         setLoading(true);
+        let enrollData: any = null;
+        let targetCourseId = '';
+
         // 1. Fetch enrollment
         const enrollRes = await apiCall(`/api/enrollments/${enrollmentId}`);
-        if (!enrollRes.ok) {
-          throw new Error('Enrollment not found.');
+        if (enrollRes.ok) {
+          enrollData = await enrollRes.json();
+          targetCourseId = enrollData.course_id;
+        } else {
+          // Check if parameter is a course ID
+          const courseCheck = await apiCall(`/api/courses/${enrollmentId}`);
+          if (courseCheck.ok) {
+            targetCourseId = enrollmentId || '';
+            const cData = await courseCheck.json();
+            setCourse(cData);
+
+            // Check existing enrollments
+            try {
+              const myCoursesRes = await apiCall('/api/my-courses');
+              if (myCoursesRes.ok) {
+                const myCoursesData = await myCoursesRes.json();
+                const found = (myCoursesData.courses || []).find((c: any) => c.id === targetCourseId);
+                if (found && found.enrollment_id) {
+                  const enrRes = await apiCall(`/api/enrollments/${found.enrollment_id}`);
+                  if (enrRes.ok) {
+                    enrollData = await enrRes.json();
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn('Could not check existing enrollments:', e);
+            }
+
+            // Auto-enroll if not enrolled
+            if (!enrollData) {
+              try {
+                const enrollAction = await apiCall(`/api/courses/${targetCourseId}/enroll`, { method: 'POST' });
+                if (enrollAction.ok) {
+                  const actionData = await enrollAction.json();
+                  if (actionData.enrollment_id) {
+                    const enrRes = await apiCall(`/api/enrollments/${actionData.enrollment_id}`);
+                    if (enrRes.ok) {
+                      enrollData = await enrRes.json();
+                    }
+                  }
+                }
+              } catch (e) {
+                console.warn('Auto-enroll error:', e);
+              }
+            }
+
+            // Fallback preview object
+            if (!enrollData) {
+              enrollData = {
+                id: `preview_${targetCourseId}`,
+                course_id: targetCourseId,
+                status: 'in_progress',
+                progress_percent: 0,
+                is_locked: false
+              };
+            }
+          } else {
+            throw new Error('Course or enrollment not found.');
+          }
         }
-        const enrollData = await enrollRes.json();
+
         setEnrollment(enrollData);
-        if (enrollData.is_locked) {
+        if (enrollData && enrollData.is_locked) {
           setCourseLocked(true);
         }
 
-        // 2. Fetch course
-        const courseRes = await apiCall(`/api/courses/${enrollData.course_id}`);
-        if (courseRes.ok) {
-          const courseData = await courseRes.json();
-          setCourse(courseData);
+        // 2. Fetch course details
+        if (targetCourseId && !course) {
+          const courseRes = await apiCall(`/api/courses/${targetCourseId}`);
+          if (courseRes.ok) {
+            const courseData = await courseRes.json();
+            setCourse(courseData);
+          }
         }
 
         // 3. Fetch modules from database
-        const modulesRes = await apiCall(`/api/courses/${enrollData.course_id}/modules`);
+        const modulesRes = await apiCall(`/api/courses/${targetCourseId || enrollData?.course_id}/modules`);
         let fetchedModules: any[] = [];
         if (modulesRes.ok) {
           fetchedModules = await modulesRes.json();
@@ -203,7 +259,7 @@ export const CoursePlayer: React.FC = () => {
             let currentSubtitle = "";
 
             mod.contents.forEach((block: any) => {
-              const type = block.content_type;
+              const type = block.content_type || block.type;
               const val = block.value || '';
               const label = block.label || '';
               
@@ -211,26 +267,26 @@ export const CoursePlayer: React.FC = () => {
                 currentTitle = val;
               } else if (type === 'subtitle') {
                 currentSubtitle = val;
-              } else if (type === 'text') {
+              } else if (type === 'text' || type === 'article' || type === 'reading' || type === 'document') {
                 contents.push({
                   id: block.id,
-                  title: currentTitle || `Lecture ${index + 1}.${contents.length + 1}`,
+                  title: block.title || currentTitle || `Lecture ${index + 1}.${contents.length + 1}`,
                   type: 'document',
-                  duration: '5 min read',
-                  subtitle: currentSubtitle || `Reading lesson`,
-                  description: val
+                  duration: block.duration_seconds ? formatDuration(block.duration_seconds) : (block.duration || '5 min read'),
+                  subtitle: block.subtitle || currentSubtitle || `Reading lesson`,
+                  description: val || block.description
                 });
                 currentTitle = "";
                 currentSubtitle = "";
               } else if (type === 'youtube' || type === 'video') {
                 contents.push({
                   id: block.id,
-                  title: currentTitle || `Video Lecture ${index + 1}.${contents.length + 1}`,
+                  title: block.title || currentTitle || `Video Lecture ${index + 1}.${contents.length + 1}`,
                   type: 'video',
-                  duration: '10:00',
-                  subtitle: currentSubtitle || "Media presentation",
-                  description: "Watch the video presentation explaining this section's topic.",
-                  videoUrl: block.file_path || val
+                  duration: block.duration_seconds ? formatDuration(block.duration_seconds) : (block.duration || '10:00'),
+                  subtitle: block.subtitle || currentSubtitle || "Media presentation",
+                  description: val || block.description || "Watch the video presentation explaining this section's topic.",
+                  videoUrl: block.file_path || val || block.videoUrl
                 });
                 currentTitle = "";
                 currentSubtitle = "";
@@ -286,16 +342,18 @@ export const CoursePlayer: React.FC = () => {
             ];
           }
 
-          // Append Quiz slide (MCQ Assessment)
+          // Append Quiz slide (MCQ Assessment) ONLY if the creator added quiz questions for this module
           const moduleQuizzes = quizzesMap[mod.id] || [];
-          contents.push({
-            id: `quiz_${mod.id}`,
-            title: `${index + 1}.3 Module Assessment`,
-            type: 'quiz',
-            duration: moduleQuizzes.length > 0 ? `${moduleQuizzes.length} Questions` : '3 Questions',
-            subtitle: `Final Test on ${mod.title}`,
-            description: 'Complete the multiple-choice assessment to prove module mastery.'
-          });
+          if (moduleQuizzes.length > 0) {
+            contents.push({
+              id: `quiz_${mod.id}`,
+              title: `${index + 1}.${contents.length + 1} Module Assessment`,
+              type: 'quiz',
+              duration: `${moduleQuizzes.length} Question${moduleQuizzes.length > 1 ? 's' : ''}`,
+              subtitle: `Final Test on ${mod.title}`,
+              description: 'Complete the multiple-choice assessment to prove module mastery.'
+            });
+          }
 
           return {
             id: mod.id,
@@ -418,6 +476,7 @@ export const CoursePlayer: React.FC = () => {
     // Reset states on content index change
     setIsPlaying(false);
     setVideoTime(0);
+    setCurrentVideoPercent(0);
     maxWatchedTimeRef.current = 0;
     setQuizAnswers({});
     setQuizSubmitted(false);
@@ -483,8 +542,8 @@ export const CoursePlayer: React.FC = () => {
             setIsPlaying(false);
             if (activeContent?.id) {
               setWatchedVideos(old => new Set(old).add(activeContent.id));
+              handleAutoAdvanceNext(activeContent.id);
             }
-            handleMarkContentComplete(activeContent.id);
             return 100;
           }
           return prev + 5;
@@ -506,23 +565,76 @@ export const CoursePlayer: React.FC = () => {
     }
   };
 
+  // Pause any playing HTML5 media immediately when tab switches or window loses focus
+  useEffect(() => {
+    const pauseAllMedia = () => {
+      const videos = document.querySelectorAll('video');
+      videos.forEach(v => {
+        if (!v.paused) v.pause();
+      });
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) pauseAllMedia();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('blur', pauseAllMedia);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('blur', pauseAllMedia);
+    };
+  }, []);
+
   // Completion & sequential unlock helpers
   const isModuleCompleted = (mod: Module) => {
     return mod.contents.every(item => completedContentIds.has(item.id));
   };
 
-  const isModuleUnlocked = (modId: string) => {
+  const lastSyncTimeRef = useRef<number>(Date.now());
+
+  const handlePeriodicVideoProgress = useCallback((contentId: string, moduleId: string, percent: number, curTime: number, dur: number) => {
+    const now = Date.now();
+    if (now - lastSyncTimeRef.current >= 12000) {
+      const elapsedSec = Math.min(30, Math.round((now - lastSyncTimeRef.current) / 1000));
+      lastSyncTimeRef.current = now;
+      if (enrollmentId && !courseLocked) {
+        apiCall(`/api/enrollments/${enrollmentId}/progress`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            module_id: moduleId,
+            content_id: contentId,
+            completed: percent >= 90,
+            time_spent_seconds: elapsedSec,
+            current_time_seconds: curTime,
+            duration_seconds: dur
+          })
+        }).catch(err => console.warn('Periodic progress sync failed:', err));
+      }
+    }
+  }, [enrollmentId, courseLocked]);
+
+  const isModuleUnlocked = (modId: string, customCompleted?: Set<string>) => {
     if (courseLocked) return true; // Review Mode: all modules unlocked
     const modIndex = modules.findIndex(m => m.id === modId);
     if (modIndex <= 0) return true; // First module is always unlocked
-    return isModuleCompleted(modules[modIndex - 1]);
+    const currentSet = customCompleted || completedContentIds;
+    return modules[modIndex - 1].contents.every(item => currentSet.has(item.id));
   };
 
-  const isItemUnlocked = (itemId: string) => {
+  const isItemUnlocked = (itemId: string, customCompleted?: Set<string>) => {
     if (courseLocked) return true; // Review Mode: all items unlocked
-    const parentMod = modules.find(m => m.contents.some(item => item.id === itemId));
-    if (!parentMod) return true;
-    return isModuleUnlocked(parentMod.id);
+    const currentSet = customCompleted || completedContentIds;
+    const targetIdx = flatContents.findIndex(c => c.id === itemId);
+    if (targetIdx <= 0) return true; // First lesson is always unlocked
+    // Every previous lesson in sequence must be completed
+    for (let i = 0; i < targetIdx; i++) {
+      if (!currentSet.has(flatContents[i].id)) {
+        return false;
+      }
+    }
+    return true;
   };
 
   const handleMarkContentComplete = async (contentId: string) => {
@@ -536,6 +648,18 @@ export const CoursePlayer: React.FC = () => {
     // Save progress to database
     const progressPercent = Math.round((updated.size / flatContents.length) * 100);
     try {
+      const currentParentMod = modules.find(m => m.contents.some(c => c.id === contentId));
+      if (currentParentMod) {
+        await apiCall(`/api/enrollments/${enrollmentId}/progress`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            module_id: currentParentMod.id,
+            content_id: contentId,
+            completed: true,
+            time_spent_seconds: 15
+          })
+        });
+      }
       await apiCall(`/api/enrollments/${enrollmentId}/progress-percent?percent=${progressPercent}`, {
         method: 'PUT'
       });
@@ -549,27 +673,30 @@ export const CoursePlayer: React.FC = () => {
   const handleNextSection = async () => {
     const currentItem = flatContents[activeContentIndex];
     
-    // Video completion verification: Employees must watch every video completely
-    if (currentItem && currentItem.type === 'video' && !courseLocked) {
-      const alreadyCompleted = completedContentIds.has(currentItem.id);
-      const fullyWatched = watchedVideos.has(currentItem.id) || (videoTime >= 95 && !currentItem.videoUrl);
-      if (!alreadyCompleted && !fullyWatched) {
-        alert('You must watch this video completely before proceeding to the next topic.');
+    // Strict Option A Gate: If current item is a video, verify user watched at least 90%
+    if (currentItem?.type === 'video' && !completedContentIds.has(currentItem.id) && !courseLocked) {
+      const watched = watchedVideos.has(currentItem.id) || currentVideoPercent >= 90;
+      if (!watched) {
+        alert(`Video Incomplete: You must watch at least 90% of this lecture video to unlock the next lesson. (Currently watched: ${currentVideoPercent}%).`);
         return;
       }
-    }
-
-    if (currentItem && !completedContentIds.has(currentItem.id) && !courseLocked) {
+      setWatchedVideos(prev => new Set(prev).add(currentItem.id));
+      await handleMarkContentComplete(currentItem.id);
+    } else if (currentItem && !courseLocked && !completedContentIds.has(currentItem.id)) {
+      // Auto-complete reading/document items on proceed
       await handleMarkContentComplete(currentItem.id);
     }
+
+    const updatedCompleted = new Set(completedContentIds);
+    if (currentItem) updatedCompleted.add(currentItem.id);
 
     if (activeContentIndex < flatContents.length - 1) {
       const nextIndex = activeContentIndex + 1;
       const nextItem = flatContents[nextIndex];
-      if (isItemUnlocked(nextItem.id) || courseLocked) {
+      if (isItemUnlocked(nextItem.id, updatedCompleted) || courseLocked) {
         setActiveContentIndex(nextIndex);
       } else {
-        alert('This module is locked. You must complete the preceding module first!');
+        alert('This lesson is locked. Please complete the preceding lesson first.');
       }
     }
   };
@@ -585,7 +712,8 @@ export const CoursePlayer: React.FC = () => {
   };
 
   const getActiveQuizQuestions = () => {
-    const moduleQuizzes = dbQuizzes[activeModule?.id] || [];
+    const currentActiveModule = modules.find(mod => mod.contents.some(c => c.id === activeContent?.id));
+    const moduleQuizzes = (currentActiveModule?.id ? dbQuizzes[currentActiveModule.id] : null) || [];
     
     if (moduleQuizzes.length > 0) {
       return moduleQuizzes.map((q: any) => {
@@ -605,31 +733,13 @@ export const CoursePlayer: React.FC = () => {
       });
     }
     
-    // Default fallback questions
-    return [
-      {
-        question: "Which core philosophy or pattern ensures continuous compliance in enterprise systems?",
-        options: ["Rigid release gating and automated testing checks", "Ad-hoc updates without version control logs", "Manual regression verification cycles only"],
-        correctAnswer: "A",
-        questionType: "mcq"
-      },
-      {
-        question: "What tool is used to manage database migrations in this project?",
-        options: ["Alembic", "Docker Compose", "Pip"],
-        correctAnswer: "A",
-        questionType: "mcq"
-      },
-      {
-        question: "In FastAPI, what dependency wrapper enforces Role-Based Access Control?",
-        options: ["RequireRoles", "get_db", "verify_password"],
-        correctAnswer: "A",
-        questionType: "mcq"
-      }
-    ];
+    // No questions configured by creator - return empty array
+    return [];
   };
 
   const handleSubmitQuiz = () => {
     const questionsList = getActiveQuizQuestions();
+    if (questionsList.length === 0) return;
     let correctCount = 0;
     
     questionsList.forEach((q: any, idx: number) => {
@@ -695,11 +805,65 @@ export const CoursePlayer: React.FC = () => {
     }
   };
 
+  // Auto-advance directly to the next lesson when video finishes
+  const handleAutoAdvanceNext = useCallback(async (contentId?: string) => {
+    const currentItem = flatContents[activeContentIndex];
+    const targetId = contentId || currentItem?.id;
+    if (!targetId || courseLocked) return;
+
+    setWatchedVideos(prev => new Set(prev).add(targetId));
+    await handleMarkContentComplete(targetId);
+
+    const updatedCompleted = new Set(completedContentIds);
+    updatedCompleted.add(targetId);
+
+    if (activeContentIndex < flatContents.length - 1) {
+      const nextIndex = activeContentIndex + 1;
+      const nextItem = flatContents[nextIndex];
+      if (isItemUnlocked(nextItem.id, updatedCompleted) || courseLocked) {
+        setAutoAdvanceToast(`Video completed! Advancing to ${nextItem.title}...`);
+        setTimeout(() => {
+          setActiveContentIndex(nextIndex);
+          setAutoAdvanceToast(null);
+        }, 1200);
+      }
+    } else {
+      // Last lesson completed: celebrate course completion
+      setAutoAdvanceToast("Congratulations! All curriculum lessons completed.");
+      setTimeout(() => {
+        setAutoAdvanceToast(null);
+        handleFinalCompleteCourse();
+      }, 1500);
+    }
+  }, [activeContentIndex, completedContentIds, courseLocked, flatContents, isItemUnlocked]);
+
   if (loading) {
     return (
       <div className="course-player-container" style={{ alignItems: 'center', justifyContent: 'center' }}>
         <div className="animate-spin" style={{ width: '40px', height: '40px', border: '4px solid var(--accent-color)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
         <p style={{ marginTop: '16px', color: '#9ca3af' }}>Initializing Course Player workspace...</p>
+      </div>
+    );
+  }
+
+  if (!course) {
+    return (
+      <div className="course-player-container" style={{ alignItems: 'center', justifyContent: 'center', minHeight: '80vh', textAlign: 'center', padding: '24px' }}>
+        <div className="glass-panel" style={{ padding: '40px', maxWidth: '480px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <AlertCircle size={48} style={{ color: '#ef4444' }} />
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>Course Not Available</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.6', margin: 0 }}>
+            Unable to load this course curriculum. The course may be currently unassigned or pending review.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+            <Button variant="outline" onClick={() => navigate('/dashboard')}>
+              Back to Dashboard
+            </Button>
+            <Button variant="primary" onClick={() => navigate('/courses')}>
+              Explore Catalog
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -741,9 +905,9 @@ export const CoursePlayer: React.FC = () => {
                 {course.course_code}
               </span>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '12px' }}>About this Course</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: '1.6', margin: 0 }}>
-                {course.description || "Learn Kaizen principles and compliance standards scoped to this team department."}
-              </p>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: '1.6', margin: 0 }}>
+                <CourseraRichText content={course.description || "Learn Kaizen principles and compliance standards scoped to this team department."} />
+              </div>
             </div>
 
             {/* Metadata Cards Grid */}
@@ -754,7 +918,7 @@ export const CoursePlayer: React.FC = () => {
               </div>
               <div className="glass-panel" style={{ padding: '16px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Estimated Duration</span>
-                <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-color)' }}>{course.duration || 'N/A'}</span>
+                <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-color)' }}>{formatDuration(course.duration)}</span>
               </div>
               <div className="glass-panel" style={{ padding: '16px', borderRadius: 'var(--border-radius-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Target Scope</span>
@@ -879,12 +1043,14 @@ export const CoursePlayer: React.FC = () => {
   }
 
   const youtubeId = activeContent?.videoUrl ? getYouTubeId(activeContent.videoUrl) : null;
-  const currentModuleIndex = Math.floor(activeContentIndex / 3);
-  const activeModule = modules[currentModuleIndex] || modules[0];
+  const currentModuleIndex = modules.findIndex(m => m.contents.some(c => c.id === activeContent?.id));
+  const activeModule = currentModuleIndex >= 0 ? modules[currentModuleIndex] : (modules[0] || null);
+  const isCurrentItemCompleted = activeContent ? completedContentIds.has(activeContent.id) : false;
+  const isVideoWatched = activeContent ? (watchedVideos.has(activeContent.id) || currentVideoPercent >= 90 || (videoTime >= 95 && !activeContent.videoUrl)) : false;
 
   return (
     <div className="course-player-container">
-      {/* Drawer Sidebar for curriculum */}
+      {/* Mobile Syllabus Drawer Overlay */}
       <div className={`drawer-overlay ${isDrawerOpen ? 'open' : ''}`} onClick={() => setIsDrawerOpen(false)}>
         <div className="curriculum-drawer" onClick={(e) => e.stopPropagation()}>
           <div className="drawer-header">
@@ -895,8 +1061,8 @@ export const CoursePlayer: React.FC = () => {
           </div>
           <div className="drawer-body">
             <div className="sidebar-modules-list">
-              {modules.map((mod) => {
-                const isExpanded = expandedModules[mod.id];
+              {modules.map((mod, modIdx) => {
+                const isExpanded = expandedModules[mod.id] !== false;
                 const isUnlocked = isModuleUnlocked(mod.id);
                 return (
                   <div key={mod.id} className={`sidebar-module-group ${!isUnlocked ? 'module-locked' : ''}`}>
@@ -908,7 +1074,7 @@ export const CoursePlayer: React.FC = () => {
                       <div className="module-header-left">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {!isUnlocked ? <Lock size={14} style={{ color: 'var(--text-secondary)' }} /> : <Unlock size={14} style={{ color: 'var(--accent-color)' }} />}
-                          <h4>{mod.title}</h4>
+                          <h4>Module {modIdx + 1}: {mod.title.replace(/^module\s*\d+\s*:\s*/i, '')}</h4>
                         </div>
                         <span>
                           {mod.contents.filter(c => completedContentIds.has(c.id)).length} / {mod.contents.length} Completed
@@ -923,18 +1089,28 @@ export const CoursePlayer: React.FC = () => {
                           const indexInFlat = flatContents.findIndex(c => c.id === item.id);
                           const isItemActive = activeContentIndex === indexInFlat;
                           const isItemCompleted = completedContentIds.has(item.id);
+                          const itemUnlocked = isItemUnlocked(item.id) || courseLocked;
                           
                           return (
                             <div 
                               key={item.id} 
-                              className={`content-item-row ${isItemActive ? 'active' : ''}`}
+                              className={`content-item-row ${isItemActive ? 'active' : ''} ${!itemUnlocked ? 'item-locked' : ''}`}
+                              style={{ opacity: itemUnlocked ? 1 : 0.65, cursor: itemUnlocked ? 'pointer' : 'not-allowed' }}
                               onClick={() => {
-                                setActiveContentIndex(indexInFlat);
-                                setIsDrawerOpen(false);
+                                if (itemUnlocked) {
+                                  setActiveContentIndex(indexInFlat);
+                                  setIsDrawerOpen(false);
+                                } else {
+                                  alert('This lesson is locked. Please complete preceding lessons first.');
+                                }
                               }}
                             >
                               <div className={`content-item-checkbox ${isItemCompleted ? 'checked' : ''}`}>
-                                {isItemCompleted && <Check size={12} />}
+                                {!itemUnlocked ? (
+                                  <Lock size={10} style={{ color: 'var(--text-secondary)' }} />
+                                ) : isItemCompleted ? (
+                                  <Check size={12} />
+                                ) : null}
                               </div>
                               <div className="content-item-meta">
                                 <h5>{item.title}</h5>
@@ -962,13 +1138,13 @@ export const CoursePlayer: React.FC = () => {
       <header className="player-header">
         <div className="player-header-left">
           <button className="hamburger-btn" onClick={() => setIsDrawerOpen(true)} title="Open Syllabus Menu">
-            <Menu size={24} />
+            <Menu size={22} />
           </button>
           <button className="back-dashboard-btn" onClick={() => navigate(-1)}>
             <ArrowLeft size={16} /> Back
           </button>
           <div className="player-course-title-group">
-            <span>{course?.course_code || 'KZN-101'}</span>
+            <span>{course?.course_code || 'COURSE'}</span>
             <h2>{course?.title || 'Course Player'}</h2>
           </div>
         </div>
@@ -976,15 +1152,14 @@ export const CoursePlayer: React.FC = () => {
         <div className="player-header-right">
           {enrollment?.expires_at && (
             <div className="countdown-timer-widget" style={{
-              marginRight: '20px',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               padding: '6px 12px',
               borderRadius: 'var(--border-radius-sm)',
-              background: courseLocked ? 'var(--neon-coral-glow)' : 'var(--bg-card)',
-              border: courseLocked ? '1px solid var(--neon-coral)' : '1px solid var(--border-color)',
-              color: courseLocked ? 'var(--neon-coral)' : 'var(--text-secondary)'
+              background: courseLocked ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-card)',
+              border: courseLocked ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-color)',
+              color: courseLocked ? '#ef4444' : 'var(--text-secondary)'
             }}>
               <Clock size={14} className={courseLocked ? '' : 'animate-pulse'} />
               <span style={{ fontSize: '0.82rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
@@ -1074,34 +1249,42 @@ export const CoursePlayer: React.FC = () => {
           </div>
         </div>
       ) : (
-        <>
-          {/* Main Split Grid */}
-          <div className="player-layout-grid">
-        {/* Left Side: Viewer & Progression (65%) */}
-        <div className="player-main-content">
-          <div className="study-content-scroll">
-            {courseLocked && (
-              <div className="form-info-banner" style={{ 
-                backgroundColor: 'rgba(239, 68, 68, 0.1)', 
-                color: '#ef4444', 
-                border: '1px solid rgba(239, 68, 68, 0.2)', 
-                marginBottom: '16px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '8px', 
-                padding: '12px 16px', 
-                borderRadius: '6px', 
-                fontSize: '0.88rem' 
-              }}>
-                <Lock size={16} />
-                <span><strong>Review Mode:</strong> This course is locked. Your learning progress is frozen, but you can review all materials and attempt assessments.</span>
+        /* Two-Column Coursera Learning Layout */
+        <div className="player-layout-grid">
+          {/* Left Column: Main Viewer & Content (minmax 1fr) */}
+          <div className="player-main-content">
+            {/* Top Lesson Metadata Row */}
+            <div className="lesson-top-meta">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span className="lesson-badge">{activeModule?.title || 'Lesson Topic'}</span>
+                <span className={`player-status-indicator ${isCurrentItemCompleted ? 'completed' : 'pending'}`}>
+                  {isCurrentItemCompleted ? (
+                    <>
+                      <CheckCircle size={15} /> Completed
+                    </>
+                  ) : (
+                    <>
+                      <Clock size={15} /> In Progress
+                    </>
+                  )}
+                </span>
               </div>
-            )}
-            <div className="lesson-heading-container">
-              <span className="lesson-module-tag">{activeModule?.title}</span>
-              <h2 className="lesson-title">{activeContent?.title}</h2>
-              {activeContent?.subtitle && <h3 className="lesson-subtitle">{activeContent.subtitle}</h3>}
-              {activeContent?.description && <p className="lesson-description">{activeContent.description}</p>}
+              <button 
+                className="mobile-outline-toggle-bar"
+                onClick={() => setIsDrawerOpen(true)}
+              >
+                <Menu size={16} /> Outline ({completedContentIds.size}/{flatContents.length})
+              </button>
+            </div>
+
+            {/* Lesson Title & Subtitle */}
+            <div>
+              <h1 className="lesson-heading">{activeContent?.title}</h1>
+              {activeContent?.subtitle && (
+                <p style={{ color: 'var(--text-secondary)', margin: '6px 0 0 0', fontSize: '0.92rem' }}>
+                  {activeContent.subtitle}
+                </p>
+              )}
             </div>
 
             {/* Content Media Area */}
@@ -1125,34 +1308,80 @@ export const CoursePlayer: React.FC = () => {
                         className="embedded-video-element"
                         onTimeUpdate={(e) => {
                           const v = e.currentTarget;
-                          // Prevent forward scrubbing past max watched duration
+                          // Forward-seek lockdown: snap back if seeking ahead of max watched time
                           if (v.currentTime > maxWatchedTimeRef.current + 2.0) {
                             v.currentTime = maxWatchedTimeRef.current;
                           } else if (v.currentTime > maxWatchedTimeRef.current) {
                             maxWatchedTimeRef.current = v.currentTime;
                           }
-                          // Mark as watched once 95% of video is completed
-                          if (v.duration && v.currentTime >= v.duration * 0.95 && activeContent?.id) {
+                          if (v.duration) {
+                            const pct = Math.min(100, Math.round((v.currentTime / v.duration) * 100));
+                            setCurrentVideoPercent(pct);
+                          }
+                          if (v.duration && v.currentTime >= v.duration * 0.90 && activeContent?.id) {
                             setWatchedVideos(prev => new Set(prev).add(activeContent.id));
+                            handleMarkContentComplete(activeContent.id);
+                          }
+                        }}
+                        onRateChange={(e) => {
+                          // Speed lockdown: force 1.0x playback speed
+                          const v = e.currentTarget;
+                          if (v.playbackRate !== 1.0) {
+                            v.playbackRate = 1.0;
                           }
                         }}
                         onEnded={() => {
                           if (activeContent?.id) {
-                            setWatchedVideos(prev => new Set(prev).add(activeContent.id));
+                            handleAutoAdvanceNext(activeContent.id);
                           }
                         }}
                       />
                     </div>
-                  ) : youtubeId && !isCustomVideo ? (
-                    <div className="video-viewport embedded-video-wrapper">
-                      <iframe
-                        src={`https://www.youtube.com/embed/${youtubeId}?enablejsapi=1`}
+                  ) : (activeContent?.videoUrl && isValidYouTubeUrl(activeContent.videoUrl)) ? (
+                    <div className="youtube-player-viewport-wrapper">
+                      <YouTubePlayer
+                        key={activeContent.id || activeContent.videoUrl}
+                        videoUrl={activeContent.videoUrl}
+                        contentId={activeContent.id}
                         title={activeContent.title}
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                        style={{ width: '100%', height: '480px', border: 'none' }}
+                        isCompleted={isCurrentItemCompleted || isVideoWatched}
+                        completionThreshold={0.90}
+                        onProgress={(pct, cur, dur) => {
+                          setCurrentVideoPercent(pct);
+                          if (pct >= 90 && activeContent?.id) {
+                            setWatchedVideos(prev => new Set(prev).add(activeContent.id));
+                          }
+                          if (activeModule?.id && activeContent?.id) {
+                            handlePeriodicVideoProgress(activeContent.id, activeModule.id, pct, cur, dur);
+                          }
+                        }}
+                        onComplete={() => {
+                          if (activeContent?.id) {
+                            setWatchedVideos(prev => new Set(prev).add(activeContent.id));
+                            handleMarkContentComplete(activeContent.id);
+                          }
+                        }}
+                        onEnded={() => {
+                          if (activeContent?.id) {
+                            handleAutoAdvanceNext(activeContent.id);
+                          }
+                        }}
                       />
+                    </div>
+                  ) : (activeContent?.videoUrl) ? (
+                    <div className="video-viewport embedded-video-wrapper" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '36px', textAlign: 'center', background: 'var(--bg-card)' }}>
+                      <Play size={44} style={{ color: 'var(--accent-color)', marginBottom: '14px' }} />
+                      <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '0 0 8px 0', color: 'var(--text-primary)' }}>
+                        {activeContent.title}
+                      </h3>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', maxWidth: '480px', margin: '0 0 20px 0' }}>
+                        This video lecture is linked externally. Click below to open and study the lesson material.
+                      </p>
+                      <a href={activeContent.videoUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                        <Button variant="primary" leftIcon={<ExternalLink size={16} />}>
+                          Open Video Resource
+                        </Button>
+                      </a>
                     </div>
                   ) : (
                     /* Simulated Video Player */
@@ -1191,42 +1420,83 @@ export const CoursePlayer: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Mandatory Watch Status Alert */}
-                  {!courseLocked && activeContent && !completedContentIds.has(activeContent.id) && !watchedVideos.has(activeContent.id) && !(videoTime >= 95 && !activeContent.videoUrl) && (
-                    <div style={{
-                      marginTop: '14px',
-                      padding: '12px 18px',
-                      background: 'rgba(239, 68, 68, 0.08)',
-                      border: '1px solid rgba(239, 68, 68, 0.3)',
-                      borderRadius: '10px',
-                      color: 'var(--danger-color)',
-                      fontSize: '0.88rem',
-                      fontWeight: '500',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px'
-                    }}>
-                      <AlertCircle size={18} style={{ flexShrink: 0 }} />
-                      <span>Employees must watch every video completely. The <strong>Next</strong> button is locked until the video finishes.</span>
+                  {/* Professional Video Action & Status Bar */}
+                  <div className="player-video-action-bar">
+                    <div className="player-video-status">
+                      <span className={`player-status-badge ${isCurrentItemCompleted || isVideoWatched ? 'completed' : 'in-progress'}`}>
+                        {isCurrentItemCompleted || isVideoWatched ? (
+                          <>
+                            <CheckCircle size={15} /> Completed
+                          </>
+                        ) : (
+                          <>
+                            <Clock size={15} /> Lesson in Progress {currentVideoPercent > 0 ? `(${currentVideoPercent}%)` : ''}
+                          </>
+                        )}
+                      </span>
+                      <span className="player-video-duration">
+                        Duration: {activeContent.duration || '10:00'}
+                      </span>
                     </div>
-                  )}
 
-                  {/* Video Upload Control Panel */}
-                  <div className="video-upload-panel glass-panel">
-                    <label className="video-upload-button-styled">
-                      <span>Upload Local Video File</span>
-                      <input 
-                        type="file" 
-                        accept="video/*" 
-                        onChange={handleLocalVideoUpload} 
-                        style={{ display: 'none' }} 
-                      />
-                    </label>
-                    {isCustomVideo && (
-                      <button className="reset-video-btn" onClick={() => { setIsCustomVideo(false); setCustomVideoUrl(''); }}>
-                        Reset to Original Lecture
-                      </button>
-                    )}
+                    <div className="player-video-actions">
+                      {!isCurrentItemCompleted && !courseLocked && (
+                        (currentVideoPercent >= 90 || isVideoWatched) ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            leftIcon={<CheckCircle size={15} />}
+                            onClick={() => {
+                              if (activeContent?.id) {
+                                handleAutoAdvanceNext(activeContent.id);
+                              }
+                            }}
+                          >
+                            Mark Video Completed & Next
+                          </Button>
+                        ) : (
+                          <div style={{ 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '8px', 
+                            padding: '6px 14px', 
+                            background: 'var(--bg-input)', 
+                            border: '1px solid var(--border-color)', 
+                            borderRadius: '6px', 
+                            fontSize: '0.82rem', 
+                            color: 'var(--text-secondary)',
+                            fontWeight: 600
+                          }}>
+                            <Lock size={14} style={{ color: 'var(--accent-color)' }} />
+                            <span>Watched: <strong style={{ color: 'var(--text-primary)' }}>{currentVideoPercent}%</strong> (90% required to complete)</span>
+                          </div>
+                        )
+                      )}
+                      {activeContent?.videoUrl && isValidYouTubeUrl(activeContent.videoUrl) && (isCurrentItemCompleted || isVideoWatched) && (
+                        <a 
+                          href={buildYouTubeWatchUrl(activeContent.videoUrl)} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ textDecoration: 'none' }}
+                        >
+                          <Button variant="outline" size="sm" rightIcon={<ExternalLink size={14} />}>
+                            Watch on YouTube
+                          </Button>
+                        </a>
+                      )}
+                      {activeContent?.videoUrl && !isValidYouTubeUrl(activeContent.videoUrl) && !activeContent.videoUrl.startsWith('/uploads/') && (
+                        <a 
+                          href={activeContent.videoUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ textDecoration: 'none' }}
+                        >
+                          <Button variant="outline" size="sm" rightIcon={<ExternalLink size={14} />}>
+                            Open Video Link
+                          </Button>
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1234,40 +1504,51 @@ export const CoursePlayer: React.FC = () => {
               {activeContent?.type === 'document' && (
                 <div className="reading-mode-viewer">
                   <div className="reading-content-card course-reading-content">
-                    <h3>Course Companion Study Guide</h3>
-                    <p>Use the <strong>Study Notes</strong> workspace on the right side of the screen to write down your personal summaries. You can save notes locally or download them to your PC for offline preparation.</p>
-                    
-                    {/* Render Direct Embedded Image if available */}
-                    {activeContent.id.includes('image') || (activeContent.videoUrl && (
-                      activeContent.videoUrl.startsWith('/uploads/') ||
-                      activeContent.videoUrl.endsWith('.png') || 
-                      activeContent.videoUrl.endsWith('.jpg') || 
-                      activeContent.videoUrl.endsWith('.jpeg') || 
-                      activeContent.videoUrl.endsWith('.webp') ||
-                      activeContent.videoUrl.endsWith('.gif') ||
-                      activeContent.videoUrl.endsWith('.svg')
-                    )) ? (
-                      <div className="embedded-image-wrapper">
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '14px', color: 'var(--text-primary)' }}>
+                      {activeContent.title}
+                    </h3>
+                    {activeContent.description ? (
+                      <CourseraRichText content={activeContent.description} />
+                    ) : (
+                      <p style={{ color: 'var(--text-secondary)', lineHeight: '1.7' }}>
+                        Study the reading guide and reference instructions for this topic. Once you have finished reading, click below to mark this lesson completed.
+                      </p>
+                    )}
+
+                    {/* Render Embedded Image if available */}
+                    {activeContent.videoUrl && (activeContent.videoUrl.startsWith('/uploads/') || activeContent.videoUrl.match(/\.(png|jpg|jpeg|gif|webp|svg)$/i)) && (
+                      <div className="embedded-image-wrapper" style={{ marginTop: '20px' }}>
                         <img 
                           src={activeContent.videoUrl} 
                           alt={activeContent.title} 
                           className="embedded-image-element"
+                          style={{ maxWidth: '100%', borderRadius: '8px' }}
                         />
                       </div>
-                    ) : null}
+                    )}
 
-                    {/* Render Reference/Attachment Link button only for non-image external links */}
+                    {/* External Link Resource Button */}
                     {activeContent.videoUrl && !activeContent.videoUrl.startsWith('/uploads/') && !activeContent.videoUrl.match(/\.(png|jpg|jpeg|gif|webp|svg)$/i) && (
-                      <div style={{ marginTop: '24px' }}>
+                      <div style={{ marginTop: '20px' }}>
                         <a href={activeContent.videoUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block' }}>
                           <Button variant="primary" leftIcon={<FileText size={18} />}>
-                            Open Reference Link / Attachment
+                            Open External Reference Link
                           </Button>
                         </a>
                       </div>
                     )}
-                    
-                    <p style={{ marginTop: '24px' }}>Once you are ready, click the <strong>Next</strong> button at the bottom right to advance to the next step of the module syllabus.</p>
+
+                    {!isCurrentItemCompleted && !courseLocked && (
+                      <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button 
+                          variant="primary" 
+                          leftIcon={<CheckCircle size={16} />}
+                          onClick={() => handleMarkContentComplete(activeContent.id)}
+                        >
+                          Mark Lesson Completed
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1275,15 +1556,15 @@ export const CoursePlayer: React.FC = () => {
               {activeContent?.type === 'quiz' && (
                 <div className="quiz-player-panel">
                   <div className="quiz-content-card">
-                    <span className="quiz-badge">Module Assessment (Optional)</span>
+                    <span className="quiz-badge">Module Assessment</span>
                     
                     {!quizSubmitted ? (
                       (() => {
                         const questionsList = getActiveQuizQuestions();
                         const currentQ = questionsList[currentQuizQuestionIndex];
                         
-                        if (!currentQ) return <p>No questions configured.</p>;
- 
+                        if (!currentQ) return <p>No questions configured for this assessment.</p>;
+
                         return (
                           <>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
@@ -1416,7 +1697,7 @@ export const CoursePlayer: React.FC = () => {
                           {quizScore >= 66 ? 'Passed! Module Completed' : 'Failed. Try Again'}
                         </h3>
                         <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
-                          Your Score: {quizScore}% (Passing requirements: 66%)
+                          Your Score: {quizScore}% (Passing requirement: 66%)
                         </p>
                         {quizScore >= 66 ? (
                           <>
@@ -1450,79 +1731,336 @@ export const CoursePlayer: React.FC = () => {
                 </div>
               )}
             </div>
-          </div>
 
-      </div>
-
-        {/* Right Side: Notes Notepad Panel (35%) */}
-        <div className="player-sidebar-notes">
-          <div className="notes-header-row">
-            <h3>Study Notes</h3>
-            <button 
-              className="notes-download-btn" 
-              onClick={handleDownloadNotes} 
-              title="Download Notes to PC"
-            >
-              <Download size={18} />
-            </button>
-          </div>
-          <div className="notes-body">
-            <textarea
-              className="notes-textarea"
-              placeholder="Take your personal notes here... Keep summaries of continuous learning definitions or formulas."
-              value={notesText}
-              onChange={(e) => setNotesText(e.target.value)}
-            />
-            <div className="notes-footer-actions">
+            {/* Under-Video Navigation Controls Bar */}
+            <div className="player-under-video-controls">
               <Button 
-                variant="primary" 
-                onClick={handleSaveNotes} 
-                style={{ width: '100%' }}
+                variant="outline" 
+                onClick={handlePrevSection}
+                disabled={activeContentIndex === 0}
+                leftIcon={<ArrowLeft size={16} />}
               >
-                Save Notes
+                Previous Lesson
               </Button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                <span>Lesson {activeContentIndex + 1} of {flatContents.length}</span>
+              </div>
+
+              {activeContentIndex === flatContents.length - 1 ? (
+                courseLocked ? (
+                  <Button variant="outline" disabled>
+                    Course Completed
+                  </Button>
+                ) : activeContent?.type === 'quiz' && !completedContentIds.has(activeContent?.id) ? (
+                  <Button 
+                    variant="primary" 
+                    disabled={true}
+                    title="Please complete the assessment above to finish the course"
+                  >
+                    Complete Assessment
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="primary" 
+                    onClick={async () => {
+                      if (activeContent?.id && !completedContentIds.has(activeContent.id)) {
+                        await handleMarkContentComplete(activeContent.id);
+                      }
+                      await handleFinalCompleteCourse();
+                    }}
+                    rightIcon={<CheckCircle size={16} />}
+                  >
+                    Complete Course
+                  </Button>
+                )
+              ) : (
+                <Button 
+                  variant="primary" 
+                  onClick={handleNextSection}
+                  disabled={activeContent?.type === 'video' && !isCurrentItemCompleted && !watchedVideos.has(activeContent?.id) && currentVideoPercent < 90 && !courseLocked}
+                  rightIcon={activeContent?.type === 'video' && !isCurrentItemCompleted && !watchedVideos.has(activeContent?.id) && currentVideoPercent < 90 && !courseLocked ? <Lock size={14} /> : <ArrowRight size={16} />}
+                  title={activeContent?.type === 'video' && !isCurrentItemCompleted && !watchedVideos.has(activeContent?.id) && currentVideoPercent < 90 && !courseLocked ? `Watch at least 90% to unlock (${currentVideoPercent}% watched)` : undefined}
+                >
+                  {activeContent?.type === 'video' && !isCurrentItemCompleted && !watchedVideos.has(activeContent?.id) && currentVideoPercent < 90 && !courseLocked
+                    ? `Next Lesson (${currentVideoPercent}% / 90%)`
+                    : 'Next Lesson'
+                  }
+                </Button>
+              )}
+            </div>
+
+            {/* Tabbed Content Area Under Video: Overview, Notes & Description, Resources */}
+            <div className="player-tabs-card">
+              <div className="player-tabs-header">
+                <button 
+                  className={`player-tab-nav-btn ${playerTab === 'overview' ? 'active' : ''}`}
+                  onClick={() => setPlayerTab('overview')}
+                >
+                  Overview
+                </button>
+                <button 
+                  className={`player-tab-nav-btn ${playerTab === 'notes' ? 'active' : ''}`}
+                  onClick={() => setPlayerTab('notes')}
+                >
+                  Notes & Description
+                </button>
+                <button 
+                  className={`player-tab-nav-btn ${playerTab === 'resources' ? 'active' : ''}`}
+                  onClick={() => setPlayerTab('resources')}
+                >
+                  Resources
+                </button>
+              </div>
+
+              <div className="player-tab-body">
+                {playerTab === 'overview' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <h4 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                      About this Lesson: {activeContent?.title}
+                    </h4>
+                    {activeContent?.description ? (
+                      <CourseraRichText content={activeContent.description} />
+                    ) : activeModule?.description ? (
+                      <CourseraRichText content={activeModule.description} />
+                    ) : (
+                      <p style={{ color: 'var(--text-secondary)', margin: 0, lineHeight: '1.6' }}>
+                        This lesson is part of <strong>{activeModule?.title}</strong>. Follow through the lecture presentation and complete all assessments to advance through the curriculum.
+                      </p>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexWrap: 'wrap' }}>
+                      <div style={{ padding: '8px 14px', background: 'var(--bg-input)', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                        <strong>Module:</strong> {activeModule?.title}
+                      </div>
+                      <div style={{ padding: '8px 14px', background: 'var(--bg-input)', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                        <strong>Duration:</strong> {activeContent?.duration || '10:00'}
+                      </div>
+                      <div style={{ padding: '8px 14px', background: 'var(--bg-input)', borderRadius: '8px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                        <strong>Type:</strong> <span style={{ textTransform: 'capitalize' }}>{activeContent?.type}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {playerTab === 'notes' && (
+                  <div className="notes-tab-container">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        Take personal notes for this lesson. Notes are synced to your database account.
+                      </p>
+                      {notesSavedFeedback && (
+                        <span style={{ color: '#10b981', fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Check size={14} /> Notes saved!
+                        </span>
+                      )}
+                    </div>
+                    <textarea
+                      className="notes-textarea-styled"
+                      placeholder="Take your personal notes here... Key takeaways, definitions, and action points."
+                      value={notesText}
+                      onChange={(e) => setNotesText(e.target.value)}
+                    />
+                    <div className="notes-actions-bar">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleDownloadNotes}
+                        leftIcon={<Download size={14} />}
+                      >
+                        Download Notes (.txt)
+                      </Button>
+                      <Button 
+                        variant="primary" 
+                        size="sm"
+                        onClick={async () => {
+                          await handleSaveNotes();
+                          setNotesSavedFeedback(true);
+                          setTimeout(() => setNotesSavedFeedback(false), 2500);
+                        }}
+                        leftIcon={<Save size={14} />}
+                      >
+                        Save Notes
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {playerTab === 'resources' && (
+                  <div className="resources-list-group">
+                    {activeContent?.videoUrl && (
+                      <div className="resource-item-row">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <FileText size={18} style={{ color: 'var(--accent-color)' }} />
+                          <div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Lesson Video Link / Resource</div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{activeContent.videoUrl}</div>
+                          </div>
+                        </div>
+                        <a href={activeContent.videoUrl} target="_blank" rel="noopener noreferrer">
+                          <Button variant="outline" size="sm" rightIcon={<ExternalLink size={14} />}>
+                            Open Link
+                          </Button>
+                        </a>
+                      </div>
+                    )}
+                    <div className="resource-item-row">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <BookOpen size={18} style={{ color: 'var(--accent-color)' }} />
+                        <div>
+                          <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Course Curriculum & Syllabus</div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Review complete learning path</div>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => setShowLanding(true)}>
+                        View Full Syllabus
+                      </Button>
+                    </div>
+
+                    <div className="resource-item-row" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px dashed var(--border-color)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <Play size={18} style={{ color: 'var(--text-secondary)' }} />
+                        <div>
+                          <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>Test Local Video File (Preview)</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Load a video file from your computer for playback preview</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <label className="btn-outline-sm" style={{ 
+                          cursor: 'pointer',
+                          padding: '6px 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          background: 'var(--bg-input)',
+                          color: 'var(--text-primary)',
+                          display: 'inline-flex',
+                          alignItems: 'center'
+                        }}>
+                          <span>Choose Video File</span>
+                          <input 
+                            type="file" 
+                            accept="video/*" 
+                            onChange={handleLocalVideoUpload} 
+                            style={{ display: 'none' }} 
+                          />
+                        </label>
+                        {isCustomVideo && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => { setIsCustomVideo(false); setCustomVideoUrl(''); }}
+                          >
+                            Reset
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Footer Navigation Bar */}
-      <footer className="player-footer-navigation">
-        <div className="footer-nav-left">
-          <Button 
-            variant="outline" 
-            onClick={handlePrevSection}
-            disabled={activeContentIndex === 0}
-            leftIcon={<ChevronRight size={16} style={{ transform: 'rotate(180deg)' }} />}
-          >
-            Previous
-          </Button>
+          {/* Right Column: Sticky Course Outline Sidebar */}
+          <aside className="player-outline-sidebar">
+            <div className="outline-sidebar-header">
+              <div>
+                <h3>Course Outline</h3>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  {modules.length} Modules &bull; {flatContents.length} Lessons
+                </span>
+              </div>
+              <span className="outline-progress-badge">
+                {completedContentIds.size} / {flatContents.length} Done
+              </span>
+            </div>
+
+            <div className="outline-modules-scroll-area">
+              {modules.map((mod, modIdx) => {
+                const isExpanded = expandedModules[mod.id] !== false;
+                const isUnlocked = isModuleUnlocked(mod.id);
+                const isModActive = activeModule?.id === mod.id;
+                const completedInMod = mod.contents.filter(c => completedContentIds.has(c.id)).length;
+                const allInModCompleted = mod.contents.length > 0 && completedInMod === mod.contents.length;
+
+                return (
+                  <div key={mod.id} className={`outline-module-card ${isModActive ? 'active-module' : ''}`}>
+                    <button 
+                      className="outline-module-header"
+                      onClick={() => isUnlocked && setExpandedModules(prev => ({ ...prev, [mod.id]: !isExpanded }))}
+                      disabled={!isUnlocked}
+                      title={!isUnlocked ? 'Complete previous module to unlock' : undefined}
+                    >
+                      <div className="outline-module-title-wrap">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {!isUnlocked ? (
+                            <Lock size={14} style={{ color: 'var(--text-secondary)' }} />
+                          ) : allInModCompleted ? (
+                            <CheckCircle size={14} style={{ color: '#10b981' }} />
+                          ) : (
+                            <Unlock size={14} style={{ color: 'var(--accent-color)' }} />
+                          )}
+                          <span className="outline-module-title">
+                            Module {modIdx + 1}: {mod.title.replace(/^module\s*\d+\s*:\s*/i, '')}
+                          </span>
+                        </div>
+                        <span className="outline-module-duration">
+                          {completedInMod}/{mod.contents.length} completed &bull; {mod.tier || 'all levels'}
+                        </span>
+                      </div>
+                      {isUnlocked && (isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
+                    </button>
+
+                    {isUnlocked && isExpanded && (
+                      <div className="outline-lessons-list">
+                        {mod.contents.map((item) => {
+                          const indexInFlat = flatContents.findIndex(c => c.id === item.id);
+                          const isItemActive = activeContentIndex === indexInFlat;
+                          const isItemCompleted = completedContentIds.has(item.id);
+                          const itemUnlocked = isItemUnlocked(item.id) || courseLocked;
+
+                          return (
+                            <div 
+                              key={item.id}
+                              className={`outline-lesson-item ${isItemActive ? 'active-lesson' : ''} ${!itemUnlocked ? 'item-locked' : ''}`}
+                              style={{ opacity: itemUnlocked ? 1 : 0.65, cursor: itemUnlocked ? 'pointer' : 'not-allowed' }}
+                              onClick={() => {
+                                if (itemUnlocked) {
+                                  setActiveContentIndex(indexInFlat);
+                                } else {
+                                  alert('This lesson is locked. Complete previous lessons and watch required videos first.');
+                                }
+                              }}
+                            >
+                              <div className="outline-lesson-left">
+                                <div className={`outline-lesson-check ${isItemCompleted ? 'completed' : ''}`}>
+                                  {!itemUnlocked ? (
+                                    <Lock size={10} style={{ color: 'var(--text-secondary)' }} />
+                                  ) : isItemCompleted ? (
+                                    <Check size={11} strokeWidth={3} />
+                                  ) : null}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                                  {item.type === 'video' && <Play size={12} style={{ color: isItemActive ? 'var(--accent-color)' : 'var(--text-secondary)', flexShrink: 0 }} />}
+                                  {item.type === 'document' && <BookOpen size={12} style={{ color: isItemActive ? 'var(--accent-color)' : 'var(--text-secondary)', flexShrink: 0 }} />}
+                                  {item.type === 'quiz' && <HelpCircle size={12} style={{ color: isItemActive ? 'var(--accent-color)' : 'var(--text-secondary)', flexShrink: 0 }} />}
+                                  <span className="outline-lesson-title">{item.title}</span>
+                                </div>
+                              </div>
+                              <span className="outline-lesson-duration">{item.duration}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </aside>
         </div>
-        <div className="footer-nav-center">
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Topic {activeContentIndex + 1} of {flatContents.length}
-          </span>
-        </div>
-        <div className="footer-nav-right">
-          {activeContent?.type === 'video' && !courseLocked && activeContent && !completedContentIds.has(activeContent.id) && !watchedVideos.has(activeContent.id) && !(videoTime >= 95 && !activeContent.videoUrl) && (
-            <span style={{ fontSize: '0.8rem', color: 'var(--danger-color)', marginRight: '12px', fontWeight: '600' }}>
-              Watch video completely to proceed
-            </span>
-          )}
-          <Button 
-            variant="primary" 
-            onClick={handleNextSection}
-            disabled={
-              activeContentIndex === flatContents.length - 1 || 
-              (activeContent?.type === 'video' && !courseLocked && activeContent && !completedContentIds.has(activeContent.id) && !watchedVideos.has(activeContent.id) && !(videoTime >= 95 && !activeContent.videoUrl))
-            }
-            rightIcon={<ChevronRight size={16} />}
-          >
-            Next
-          </Button>
-        </div>
-      </footer>
-        </>
       )}
 
       {showTimeUpModal && (
@@ -1557,6 +2095,27 @@ export const CoursePlayer: React.FC = () => {
               Close & Review
             </Button>
           </div>
+        </div>
+      )}
+      {autoAdvanceToast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+          color: '#ffffff',
+          padding: '12px 22px',
+          borderRadius: '10px',
+          fontWeight: 700,
+          fontSize: '0.92rem',
+          boxShadow: '0 10px 25px rgba(16, 185, 129, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          zIndex: 99999
+        }}>
+          <CheckCircle size={18} />
+          <span>{autoAdvanceToast}</span>
         </div>
       )}
     </div>

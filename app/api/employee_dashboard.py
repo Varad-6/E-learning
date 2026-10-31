@@ -128,12 +128,15 @@ def get_employee_dashboard(
     is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles
     if not is_global_admin and current_user.department_id:
         from sqlalchemy import or_
-        available_query = available_query.filter(
-            or_(
-                Course.department_id == current_user.department_id,
-                Course.department_id.is_(None)
-            )
-        )
+        from app.models.course_department import CourseDepartment
+        dept_course_ids = [r[0] for r in db.query(CourseDepartment.course_id).filter(CourseDepartment.department_id == current_user.department_id).all()]
+        filters = [
+            Course.department_id == current_user.department_id,
+            Course.department_id.is_(None)
+        ]
+        if dept_course_ids:
+            filters.append(Course.id.in_(dept_course_ids))
+        available_query = available_query.filter(or_(*filters))
 
     db_available = available_query.limit(4).all()
     available_courses = [
