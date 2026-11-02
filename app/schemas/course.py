@@ -181,12 +181,12 @@ class MyCourseItem(BaseModel):
     difficulty_level: Optional[str] = None
     department_name: Optional[str] = None
     department_id: Optional[UUID] = None
-    is_mandatory: bool = False
+    is_mandatory: Optional[bool] = False
     total_modules: int = 0
     completed_modules: int = 0
     progress_percent: int = 0
     status: str = "not_started"  # not_started, in_progress, completed
-    enrolled_at: datetime
+    enrolled_at: Optional[datetime] = None
     last_accessed_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
@@ -213,9 +213,9 @@ class CatalogCourseItem(BaseModel):
     difficulty_level: Optional[str] = None
     department_name: Optional[str] = None
     department_id: Optional[UUID] = None
-    is_mandatory: bool = False
-    is_published: bool = True
-    created_at: datetime
+    is_mandatory: Optional[bool] = False
+    is_published: Optional[bool] = True
+    created_at: Optional[datetime] = None
     total_modules: int = 0
     enrollment_id: Optional[UUID] = None
     user_status: str = "not_enrolled"  # not_enrolled, assigned, not_started, in_progress, completed
@@ -223,8 +223,8 @@ class CatalogCourseItem(BaseModel):
     last_accessed_at: Optional[datetime] = None
     creator_name: Optional[str] = None
     created_by: Optional[UUID] = None
-    can_delete: bool = False
-    can_edit: bool = False
+    can_delete: Optional[bool] = False
+    can_edit: Optional[bool] = False
 
 class CatalogResponse(BaseModel):
     courses: List[CatalogCourseItem]

@@ -549,11 +549,19 @@ class CourseService:
 
     @staticmethod
     def _get_course_modules(db: Session, course_id: UUID) -> List[CourseModule]:
-        assoc_ids = [r[0] for r in db.query(CourseModuleAssociation.module_id).filter(CourseModuleAssociation.course_id == course_id).all()]
-        filters = [CourseModule.course_id == course_id]
-        if assoc_ids:
-            filters.append(CourseModule.id.in_(assoc_ids))
-        modules = db.query(CourseModule).filter(or_(*filters)).order_by(CourseModule.sequence_no.asc()).all()
+        try:
+            assoc_ids = [r[0] for r in db.query(CourseModuleAssociation.module_id).filter(CourseModuleAssociation.course_id == course_id).all()]
+            filters = [CourseModule.course_id == course_id]
+            if assoc_ids:
+                filters.append(CourseModule.id.in_(assoc_ids))
+            modules = db.query(CourseModule).filter(or_(*filters)).order_by(CourseModule.sequence_no.asc()).all()
+        except Exception:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            modules = db.query(CourseModule).filter(CourseModule.course_id == course_id).order_by(CourseModule.sequence_no.asc()).all()
+
         seen = set()
         unique_mods = []
         for m in modules:
@@ -660,12 +668,12 @@ class CourseService:
                 difficulty_level=course.difficulty_level or "All Levels",
                 department_name=course.department_name,
                 department_id=course.department_id,
-                is_mandatory=course.is_mandatory,
+                is_mandatory=bool(course.is_mandatory) if course.is_mandatory is not None else False,
                 total_modules=total_mods,
                 completed_modules=completed_mods_count,
-                progress_percent=progress_pct,
+                progress_percent=int(progress_pct),
                 status=card_status,
-                enrolled_at=enr.enrolled_at,
+                enrolled_at=enr.enrolled_at or datetime.now(timezone.utc),
                 last_accessed_at=enr.last_accessed_at,
                 completed_at=enr.completed_at,
                 expires_at=enr.expires_at,
@@ -675,15 +683,20 @@ class CourseService:
 
         # Sort: In-progress courses by most recently accessed (fallback enrolled_at)
         def sort_key(item: MyCourseItem):
+            def to_ts(dt):
+                if dt is None:
+                    return 0.0
+                return dt.timestamp() if hasattr(dt, "timestamp") else 0.0
+
             if item.status == "in_progress":
                 ts = item.last_accessed_at or item.enrolled_at
-                return (0, -(ts.timestamp() if ts else 0))
+                return (0, -to_ts(ts))
             elif item.status == "not_started":
                 ts = item.enrolled_at
-                return (1, -(ts.timestamp() if ts else 0))
+                return (1, -to_ts(ts))
             else:
                 ts = item.completed_at or item.enrolled_at
-                return (2, -(ts.timestamp() if ts else 0))
+                return (2, -to_ts(ts))
 
         items.sort(key=sort_key)
 
@@ -766,13 +779,13 @@ class CourseService:
                 difficulty_level=c.difficulty_level or "All Levels",
                 department_name=c.department_name,
                 department_id=c.department_id,
-                is_mandatory=c.is_mandatory,
-                is_published=c.is_published,
-                created_at=c.created_at,
+                is_mandatory=bool(c.is_mandatory) if c.is_mandatory is not None else False,
+                is_published=bool(c.is_published) if c.is_published is not None else True,
+                created_at=c.created_at or datetime.now(timezone.utc),
                 total_modules=total_mods,
                 enrollment_id=enr.id if enr else None,
                 user_status=u_status,
-                progress_percent=enr.progress_percent if enr else 0,
+                progress_percent=int(enr.progress_percent or 0) if enr else 0,
                 last_accessed_at=enr.last_accessed_at if enr else None,
                 creator_name=c.creator_name,
                 created_by=c.created_by,
@@ -842,7 +855,10 @@ class CourseService:
         elif sort_mode == "longest_duration" or sort_mode == "duration_desc":
             filtered.sort(key=lambda x: CourseService._parse_duration_minutes(x.duration), reverse=True)
         else: # newest
-            filtered.sort(key=lambda x: x.created_at.timestamp() if x.created_at else 0, reverse=True)
+            def get_cat_ts(x):
+                dt = getattr(x, "created_at", None)
+                return dt.timestamp() if (dt and hasattr(dt, "timestamp")) else 0.0
+            filtered.sort(key=get_cat_ts, reverse=True)
 
         total_count = len(filtered)
         paged_items = filtered[skip : skip + limit]
