@@ -5,15 +5,22 @@ import hashlib
 
 EXCLUDE_PATTERNS = [
     "__pycache__", ".pyc", ".git", ".env", "node_modules", "scratch",
-    ".png", ".jpg", ".jpeg", ".mp4", "uploads", "venv", ".vite",
+    ".mp4", "uploads", "venv", ".vite",
     "test_", "audit_", "verify_", "patch_", "demo.txt", "logfile"
 ]
 
 def should_exclude(rel_path):
     rel_normalized = rel_path.replace("\\", "/").lower()
+    
+    # ALWAYS preserve production static assets and badge images
+    if "badges" in rel_normalized or "dist/" in rel_normalized or "public/" in rel_normalized:
+        for pat in ["__pycache__", ".pyc", "node_modules", ".vite", ".git"]:
+            if pat in rel_normalized:
+                return True
+        return False
+
     for pat in EXCLUDE_PATTERNS:
         if pat in rel_normalized:
-            # Special exceptions for legitimate source files if any
             if "courserarichtext" in rel_normalized or "learnersmodal" in rel_normalized or "youtube" in rel_normalized:
                 continue
             return True
@@ -28,7 +35,7 @@ def get_file_hash(path):
 
 def package_production_archive():
     print("=" * 75)
-    print("[ZIP] BUILDING COMPLETE PRODUCTION-GRADE DEPLOYMENT PACKAGE: update.zip")
+    print("[ZIP] BUILDING COMPLETE PRODUCTION-GRADE DEPLOYMENT PACKAGE")
     print("=" * 75)
 
     base_dirs = [
@@ -40,6 +47,9 @@ def package_production_archive():
     ]
 
     single_files = [
+        "Dockerfile",
+        "docker-compose.yml",
+        "start.sh",
         "deploy.py",
         "requirements.txt",
         "alembic.ini",
@@ -75,6 +85,10 @@ def package_production_archive():
     with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for f in sorted(files_to_pack):
             zipf.write(f, arcname=f.replace("\\", "/"))
+            # Mirror frontend/dist to dist/ for nginx webroot compatibility
+            if f.replace("\\", "/").startswith("frontend/dist/"):
+                dist_arcname = f.replace("\\", "/").replace("frontend/dist/", "dist/")
+                zipf.write(f, arcname=dist_arcname)
 
     zip_size = os.path.getsize(zip_filename)
     zip_sha = get_file_hash(zip_filename)
@@ -83,32 +97,36 @@ def package_production_archive():
     print(f"     Size   : {zip_size / (1024 * 1024):.2f} MB ({zip_size:,} bytes)")
     print(f"     SHA256 : {zip_sha}")
 
-    # Destination 1: Downloads
-    userprofile = os.environ.get("USERPROFILE", "C:\\Users\\arati")
+    # Targets to synchronize
+    userprofile = os.environ.get("USERPROFILE", r"C:\Users\Varad")
     downloads_dir = os.path.join(userprofile, "Downloads")
-    downloads_target = os.path.join(downloads_dir, "update.zip")
+    
+    destinations = [
+        os.path.join(downloads_dir, "update.zip"),
+        os.path.join(downloads_dir, "update1.zip"),
+    ]
 
-    if os.path.exists(downloads_dir):
-        shutil.copy2(zip_filename, downloads_target)
-        print(f"\n[OK] Successfully copied to Downloads: {downloads_target}")
-    else:
-        print(f"\n[!] Downloads directory not found: {downloads_dir}")
-
-    # Destination 2: Desktop
+    # Check for desktop targets
     desktop_onedrive = os.path.join(userprofile, "OneDrive - Abhiyanta India Solutions Pvt Ltd", "Desktop")
-    desktop_target = os.path.join(desktop_onedrive, "update.zip")
     if os.path.exists(desktop_onedrive):
-        shutil.copy2(zip_filename, desktop_target)
-        print(f"[OK] Successfully copied to Desktop: {desktop_target}")
+        destinations.append(os.path.join(desktop_onedrive, "update.zip"))
+        destinations.append(os.path.join(desktop_onedrive, "Kaizen_Deployment_Updates.zip"))
 
-    # Destination 3: Also update zip_updates.py target
-    desktop_kaizen = os.path.join(desktop_onedrive, "Kaizen_Deployment_Updates.zip")
-    if os.path.exists(desktop_onedrive):
-        shutil.copy2(zip_filename, desktop_kaizen)
-        print(f"[OK] Successfully copied to Desktop (Kaizen_Deployment_Updates.zip): {desktop_kaizen}")
+    standard_desktop = os.path.join(userprofile, "Desktop")
+    if os.path.exists(standard_desktop):
+        destinations.append(os.path.join(standard_desktop, "update.zip"))
+
+    for dest in destinations:
+        dest_dir = os.path.dirname(dest)
+        if os.path.exists(dest_dir):
+            try:
+                shutil.copy2(zip_filename, dest)
+                print(f"[OK] Synced to: {dest}")
+            except Exception as e:
+                print(f"[!] Failed copying to {dest}: {e}")
 
     print("=" * 75)
-    print("ALL TARGET DESTINATIONS SYNCHRONIZED SUCCESSFULLY!")
+    print("ALL PRODUCTION DEPLOYMENT PACKAGES SYNCHRONIZED SUCCESSFULLY!")
     print("=" * 75)
 
 if __name__ == "__main__":
