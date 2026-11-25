@@ -169,3 +169,53 @@ export const validateDuration = (
   if (d === 0 && h === 0 && m === 0) return 'Duration / Deadline must be at least 1 minute.';
   return null;
 };
+
+export const toLocalDateTimeInput = (iso?: string | null): string => {
+  if (!iso) return '';
+  try {
+    const dt = new Date(iso);
+    if (isNaN(dt.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+  } catch {
+    return '';
+  }
+};
+
+export const fromLocalDateTimeInput = (val: string): string | null => {
+  if (!val || !val.trim()) return null;
+  try {
+    const dt = new Date(val);
+    if (isNaN(dt.getTime())) return null;
+    return dt.toISOString();
+  } catch {
+    return null;
+  }
+};
+
+export const formatCourseDeadline = (
+  startDate?: string | null,
+  endDate?: string | null,
+  duration?: string | null
+): string => {
+  const fmt = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return iso;
+    }
+  };
+  if (startDate && endDate) {
+    return `${fmt(startDate)} – ${fmt(endDate)}`;
+  }
+  if (endDate) {
+    return `Ends ${fmt(endDate)}`;
+  }
+  if (duration && duration.trim() && duration.trim() !== '0h 0m') {
+    return formatDuration(duration);
+  }
+  if (startDate) {
+    return `Starts ${fmt(startDate)}`;
+  }
+  return 'No Deadline';
+};

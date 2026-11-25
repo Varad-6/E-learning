@@ -126,30 +126,9 @@ class QuizService:
         total_points = sum(q.points for q in questions)
         obtained_points = 0
 
-        import json
         for q in questions:
-            q_id_str = str(q.id)
-            user_ans = request.answers.get(q_id_str)
-            if not user_ans:
-                continue
-
-            q_type = getattr(q, 'question_type', 'mcq')
-            is_correct = False
-            if q_type == 'notes':
-                is_correct = True
-            elif q_type == 'msq':
-                try:
-                    correct_set = set(json.loads(q.correct_answer))
-                    user_set = set(json.loads(user_ans))
-                    correct_clean = {s.strip().lower() for s in correct_set}
-                    user_clean = {s.strip().lower() for s in user_set}
-                    is_correct = (correct_clean == user_clean)
-                except Exception:
-                    is_correct = (user_ans.strip().lower() == q.correct_answer.strip().lower())
-            else:
-                is_correct = (user_ans.strip().lower() == q.correct_answer.strip().lower())
-
-            if is_correct:
+            user_ans = (request.answers or {}).get(str(q.id))
+            if QuizService._is_question_correct(q, user_ans):
                 obtained_points += q.points
 
         score_pct = (obtained_points / total_points) * 100.0 if total_points > 0 else 0.0
@@ -170,6 +149,40 @@ class QuizService:
         return attempt
 
     @staticmethod
+    def _normalize_choice(val: str, options: list) -> str:
+        """Resolve single letter ('A', 'B', ...) or option index to normalized option text when possible."""
+        cleaned = (val or "").strip()
+        if len(cleaned) == 1 and cleaned.upper().isalpha() and options:
+            idx = ord(cleaned.upper()) - 65
+            if 0 <= idx < len(options):
+                return str(options[idx]).strip().lower()
+        if cleaned.isdigit() and options:
+            idx = int(cleaned)
+            if 0 <= idx < len(options):
+                return str(options[idx]).strip().lower()
+        return cleaned.lower()
+
+    @staticmethod
+    def _is_question_correct(q: QuizQuestion, user_ans) -> bool:
+        if user_ans is None or (isinstance(user_ans, str) and not user_ans.strip()):
+            return False
+        import json
+        q_type = getattr(q, 'question_type', 'mcq')
+        options = q.options or []
+        if q_type == 'notes':
+            return True
+        if q_type == 'msq':
+            try:
+                corr_raw = json.loads(q.correct_answer) if isinstance(q.correct_answer, str) else q.correct_answer
+                user_raw = json.loads(user_ans) if isinstance(user_ans, str) else user_ans
+                corr_set = {QuizService._normalize_choice(str(s), options) for s in (corr_raw or [])}
+                user_set = {QuizService._normalize_choice(str(s), options) for s in (user_raw or [])}
+                return bool(corr_set) and corr_set == user_set
+            except Exception:
+                return QuizService._normalize_choice(str(user_ans), options) == QuizService._normalize_choice(str(q.correct_answer), options)
+        return QuizService._normalize_choice(str(user_ans), options) == QuizService._normalize_choice(str(q.correct_answer), options)
+
+    @staticmethod
     def calculate_score(db: Session, quiz_attempt_id: UUID) -> QuizResult:
         attempt = db.query(QuizAttempt).filter(QuizAttempt.id == quiz_attempt_id).first()
         if not attempt:
@@ -186,33 +199,10 @@ class QuizService:
             )
 
         questions = quiz.questions
-        correct_count = 0
-
-        import json
-        for q in questions:
-            q_id_str = str(q.id)
-            user_ans = attempt.answers.get(q_id_str)
-            if not user_ans:
-                continue
-
-            q_type = getattr(q, 'question_type', 'mcq')
-            is_correct = False
-            if q_type == 'notes':
-                is_correct = True
-            elif q_type == 'msq':
-                try:
-                    correct_set = set(json.loads(q.correct_answer))
-                    user_set = set(json.loads(user_ans))
-                    correct_clean = {s.strip().lower() for s in correct_set}
-                    user_clean = {s.strip().lower() for s in user_set}
-                    is_correct = (correct_clean == user_clean)
-                except Exception:
-                    is_correct = (user_ans.strip().lower() == q.correct_answer.strip().lower())
-            else:
-                is_correct = (user_ans.strip().lower() == q.correct_answer.strip().lower())
-
-            if is_correct:
-                correct_count += 1
+        correct_count = sum(
+            1 for q in questions
+            if QuizService._is_question_correct(q, (attempt.answers or {}).get(str(q.id)))
+        )
 
         return QuizResult(
             attempt_id=attempt.id,

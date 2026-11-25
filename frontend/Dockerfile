@@ -1,18 +1,21 @@
-FROM node:20-slim
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package.json and package-lock.json first for caching
 COPY package.json package-lock.json* ./
+RUN npm ci
 
-# Install npm dependencies
-RUN npm install
-
-# Copy application files
 COPY . .
+RUN npm run build
 
-# Expose the Vite development port
-EXPOSE 5173
+FROM nginx:1.27-alpine AS runtime
 
-# Run development server with host option to accept external connections
-CMD ["npm", "run", "dev", "--", "--host"]
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -qO- http://127.0.0.1/health || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

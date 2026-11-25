@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db, get_current_user
+from app.core.rate_limit import rate_limit
 from app.models.user import User
 from app.schemas.auth import (
     LoginRequest, LoginResponse, ChangePasswordRequest,
@@ -15,15 +16,18 @@ from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
+
 @router.post(
-    "/login", 
-    response_model=LoginResponse, 
+    "/login",
+    response_model=LoginResponse,
     status_code=status.HTTP_200_OK,
     summary="Authenticate User",
-    description="Login using employee code and password. Returns access and refresh JWTs."
+    description="Login using corporate email and password. Returns access and refresh JWTs.",
+    dependencies=[Depends(rate_limit("auth_login", max_requests=10, window_seconds=60))],
 )
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     return AuthService.login(db, request)
+
 
 @router.post(
     "/change-password",
@@ -40,41 +44,47 @@ def change_password(
     AuthService.change_password(db, current_user, request)
     return MessageResponse(message="Password changed successfully")
 
+
 @router.post(
     "/forgot-password",
     response_model=MessageResponse,
     status_code=status.HTTP_200_OK,
     summary="Request Password Reset OTP",
-    description="Generates a 6-digit OTP code, stores it, and sends it to the user's registered email."
+    description="Generates a 6-digit OTP code, stores it, and sends it to the user's registered email.",
+    dependencies=[Depends(rate_limit("auth_forgot", max_requests=5, window_seconds=60))],
 )
 def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    otp_code = AuthService.forgot_password(db, request)
+    AuthService.forgot_password(db, request)
     return MessageResponse(
-        message="OTP has been sent to your registered email address.",
-        dev_otp=otp_code
+        message="If an account with that email exists, an OTP has been sent to the registered email address."
     )
+
 
 @router.post(
     "/verify-otp",
     response_model=MessageResponse,
     status_code=status.HTTP_200_OK,
     summary="Verify Password Reset OTP",
-    description="Checks if the OTP code matches the employee, has not expired, and has not been used."
+    description="Checks if the OTP code matches the employee, has not expired, and has not been used.",
+    dependencies=[Depends(rate_limit("auth_verify_otp", max_requests=10, window_seconds=60))],
 )
 def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
     AuthService.verify_otp(db, request)
     return MessageResponse(message="OTP verification successful")
+
 
 @router.post(
     "/reset-password",
     response_model=MessageResponse,
     status_code=status.HTTP_200_OK,
     summary="Reset Password with OTP",
-    description="Resets the user's password using the verified OTP, invalidating the OTP, and clearing must_change_password."
+    description="Resets the user's password using the verified OTP, invalidating the OTP, and clearing must_change_password.",
+    dependencies=[Depends(rate_limit("auth_reset_pwd", max_requests=5, window_seconds=60))],
 )
 def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
     AuthService.reset_password(db, request)
     return MessageResponse(message="Password has been reset successfully")
+
 
 @router.post(
     "/refresh",
@@ -86,6 +96,7 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
 def refresh(request: RefreshTokenRequest, db: Session = Depends(get_db)):
     return AuthService.refresh_token(db, request)
 
+
 @router.post(
     "/logout",
     response_model=MessageResponse,
@@ -94,11 +105,12 @@ def refresh(request: RefreshTokenRequest, db: Session = Depends(get_db)):
     description="Revokes the provided refresh token in the database to prevent further access token generation."
 )
 def logout(
-    request: RefreshTokenRequest, 
+    request: RefreshTokenRequest,
     db: Session = Depends(get_db)
 ):
     AuthService.logout(db, request.refresh_token)
     return MessageResponse(message="Logged out successfully")
+
 
 @router.put(
     "/profile",
@@ -115,6 +127,7 @@ def update_profile(
     user = AuthService.update_profile(db, user=current_user, request=request)
     AuditService.log_model_event(user, event_type="UPDATE", performed_by=current_user.id)
     return user
+
 
 @router.get(
     "/profile",

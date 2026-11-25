@@ -23,32 +23,6 @@ from app.schemas.dashboard import (
 
 router = APIRouter(prefix="/api/employee/dashboard", tags=["Employee Dashboard"])
 
-BADGES = {
-    1: "Novice Explorer",
-    2: "Pathway Learner",
-    3: "Skill Builder",
-    4: "Knowledge Seeker",
-    5: "Pro Practitioner",
-    6: "Subject Specialist",
-    7: "Elite Achiever",
-    8: "Master Mentor",
-    9: "Continuous Improver",
-    10: "Grandmaster of Kaizen"
-}
-
-BADGE_ICONS = {
-    1: "🥉",
-    2: "🥉✨",
-    3: "🥈",
-    4: "🥈✨",
-    5: "🥇",
-    6: "🥇✨",
-    7: "🎖️",
-    8: "🎖️✨",
-    9: "💎",
-    10: "👑"
-}
-
 DEPT_COLORS = {
     "AI": "#3b82f6",
     "FICO": "#10b981",
@@ -67,11 +41,17 @@ def get_employee_dashboard(
 ):
     now = datetime.datetime.now(datetime.timezone.utc)
 
+    # Ensure user is auto-enrolled in all applicable department / all-department published courses
+    from app.services.enrollment_service import EnrollmentService
+    EnrollmentService.auto_enroll_user_in_mandatory_courses(db, current_user.id)
+
     # 1. Fetch Enrolled Courses
     enrollments = db.query(CourseEnrollment).join(
         Course, CourseEnrollment.course_id == Course.id
     ).filter(
-        CourseEnrollment.user_id == current_user.id
+        CourseEnrollment.user_id == current_user.id,
+        Course.is_published == True,
+        Course.status.in_(["approved", "published"])
     ).all()
 
     mandatory_courses = []
@@ -119,24 +99,28 @@ def get_employee_dashboard(
 
     available_query = db.query(Course).filter(
         Course.is_published == True,
-        Course.status.in_(["approved", "published"]),
-        Course.id.notin_(enrolled_course_ids)
+        Course.status.in_(["approved", "published"])
     )
+    if enrolled_course_ids:
+        available_query = available_query.filter(Course.id.notin_(enrolled_course_ids))
 
     # Scoping: Non-admin users are strictly scoped to their department or company-wide (NULL) courses
     user_roles = [r.name for r in current_user.roles]
     is_global_admin = "SYSTEM_ADMIN" in user_roles or "HR_ADMIN" in user_roles
-    if not is_global_admin and current_user.department_id:
+    if not is_global_admin:
         from sqlalchemy import or_
         from app.models.course_department import CourseDepartment
-        dept_course_ids = [r[0] for r in db.query(CourseDepartment.course_id).filter(CourseDepartment.department_id == current_user.department_id).all()]
-        filters = [
-            Course.department_id == current_user.department_id,
-            Course.department_id.is_(None)
-        ]
-        if dept_course_ids:
-            filters.append(Course.id.in_(dept_course_ids))
-        available_query = available_query.filter(or_(*filters))
+        if current_user.department_id:
+            dept_course_ids = [r[0] for r in db.query(CourseDepartment.course_id).filter(CourseDepartment.department_id == current_user.department_id).all()]
+            filters = [
+                Course.department_id == current_user.department_id,
+                Course.department_id.is_(None)
+            ]
+            if dept_course_ids:
+                filters.append(Course.id.in_(dept_course_ids))
+            available_query = available_query.filter(or_(*filters))
+        else:
+            available_query = available_query.filter(Course.department_id.is_(None))
 
     db_available = available_query.limit(4).all()
     available_courses = [
@@ -158,18 +142,25 @@ def get_employee_dashboard(
         percent=round(percent, 1)
     )
 
-    # 4. Next Badge Milestone
-    next_step = completed_count + 1
-    if next_step <= 10:
-        tier_name = f"{BADGE_ICONS[next_step]} {BADGES[next_step]}"
-        courses_remaining = 1
+    # 4. Next Badge Milestone & Earned Badges (Real DB-driven, zero hardcoding)
+    from app.services.badge_service import BadgeService
+    from app.models.badge_tier import BadgeTier
+
+    all_badge_tiers = BadgeService.ensure_badge_tiers(db)
+    earned_user_badges = BadgeService.get_user_badges(db, user_id=current_user.id)
+    earned_tier_ids = {ub.badge_tier_id for ub in earned_user_badges}
+
+    next_tier = next((t for t in all_badge_tiers if t.id not in earned_tier_ids), None)
+    if next_tier:
+        next_badge_milestone = NextBadgeMilestone(
+            tier_name=next_tier.name,
+            courses_remaining=max(0, next_tier.courses_required_cumulative - completed_count)
+        )
     else:
-        tier_name = f"{BADGE_ICONS[10]} {BADGES[10]}"
-        courses_remaining = 0
-    next_badge_milestone = NextBadgeMilestone(
-        tier_name=tier_name,
-        courses_remaining=courses_remaining
-    )
+        next_badge_milestone = NextBadgeMilestone(
+            tier_name=None,
+            courses_remaining=0
+        )
 
     # 5. Upcoming Exams — query published exams for the employee's department directly,
     # not joined through enrollments (exams are assigned department-wide, independent of enrollment).
@@ -312,9 +303,9 @@ def get_employee_dashboard(
     if current_user_id_str in final_rankings:
         position = final_rankings.index(current_user_id_str) + 1
 
-    if completed_count > 0:
-        step = min(completed_count, 10)
-        badge_tier = f"{BADGE_ICONS[step]} {BADGES[step]}"
+    if earned_user_badges:
+        highest_earned = earned_user_badges[-1]
+        badge_tier = highest_earned.badge_tier.name if highest_earned.badge_tier else None
 
     my_rank = MyRank(
         position=position,
@@ -347,11 +338,24 @@ def get_employee_dashboard(
     depts = depts_query.all()
     course_categories = []
 
+    from sqlalchemy import or_ as cat_or
+    from app.models.course_department import CourseDepartment as CatCourseDept
     for d in depts:
-        course_count = db.query(Course).filter(
+        dept_course_ids = [
+            r[0] for r in db.query(CatCourseDept.course_id).filter(
+                CatCourseDept.department_id == d.id
+            ).all()
+        ]
+        cat_filters = [
             Course.department_id == d.id,
+            Course.department_id.is_(None)
+        ]
+        if dept_course_ids:
+            cat_filters.append(Course.id.in_(dept_course_ids))
+        course_count = db.query(Course).filter(
             Course.is_published == True,
-            Course.status.in_(["approved", "published"])
+            Course.status.in_(["approved", "published"]),
+            cat_or(*cat_filters)
         ).count()
 
         color = DEPT_COLORS.get(d.code, "#6b7280")

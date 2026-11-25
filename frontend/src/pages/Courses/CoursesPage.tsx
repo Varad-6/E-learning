@@ -8,11 +8,13 @@ import {
   Check, Sparkles, ChevronRight
 } from 'lucide-react';
 import { apiCall } from '../../services/api';
+import { useLiveSync } from '../../services/liveSync';
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { YouTubeEmbed } from '../../components/YouTubeEmbed/YouTubeEmbed';
 import { isValidYouTubeUrl } from '../../utils/youtube';
 import { canDeleteCourse } from '../../utils/coursePermissions';
+import { formatCourseDeadline } from '../../utils/duration';
 import './CoursesPage.css';
 
 // Types matching backend response schemas
@@ -37,6 +39,9 @@ interface MyCourseItem {
   last_accessed_at: string | null;
   completed_at: string | null;
   expires_at: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  is_locked?: boolean;
   next_module_id: string | null;
   next_module_title: string | null;
 }
@@ -66,6 +71,9 @@ interface CatalogCourseItem {
   user_status: 'not_enrolled' | 'assigned' | 'not_started' | 'in_progress' | 'completed';
   progress_percent: number;
   last_accessed_at: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  is_locked?: boolean;
   creator_name: string | null;
   created_by?: string | null;
 }
@@ -97,6 +105,10 @@ interface CourseDetail {
   user_status: string;
   progress_percent: number;
   video_url?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  expires_at?: string | null;
+  is_locked?: boolean;
   modules: CourseDetailModule[];
 }
 
@@ -256,21 +268,38 @@ export const CoursesPage: React.FC = () => {
     }
   };
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent: boolean | unknown = false) => {
+    const isSilent = silent === true;
+    if (!isSilent) setLoading(true);
     setError(null);
     try {
       await Promise.all([fetchMyCourses(), fetchCatalog()]);
     } catch (err: any) {
-      setError('Unable to load courses. Please check your connection and try again.');
+      if (!isSilent) {
+        setError('Unable to load courses. Please check your connection and try again.');
+      }
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
   }, [selectedCategory, selectedDuration, selectedStatus, sortBy]);
+
+  useLiveSync(['courses', 'enrollments', 'departments'], async () => {
+    await loadData(true);
+    if (activeDetailCourse) {
+      try {
+        const res = await apiCall(`/api/courses/${activeDetailCourse.id}`);
+        if (res.ok) {
+          setActiveDetailCourse(await res.json());
+        }
+      } catch {
+        // silent background refresh
+      }
+    }
+  });
 
   // Handle switching between My Courses and Course Catalog
   const handleSwitchMainTab = (targetMode: 'my_courses' | 'catalog') => {
@@ -785,7 +814,12 @@ export const CoursesPage: React.FC = () => {
                       </div>
 
                       <div className="banner-top-actions">
-                        {course.status === 'completed' ? (
+                        {course.is_locked ? (
+                          <span className="badge-pill" style={{ background: 'rgba(239, 68, 68, 0.14)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                            <AlertCircle size={12} />
+                            <span>Locked</span>
+                          </span>
+                        ) : course.status === 'completed' ? (
                           <span className="badge-pill badge-status-completed">
                             <CheckCircle2 size={12} />
                             <span>Completed</span>
@@ -860,7 +894,7 @@ export const CoursesPage: React.FC = () => {
                       <div className="enterprise-card-meta">
                         <div className="meta-pill">
                           <Clock size={13} />
-                          <span>{course.duration || 'Self-paced'}</span>
+                          <span>{(course.start_date || course.end_date) ? formatCourseDeadline(course.start_date, course.end_date, course.duration) : (course.duration || 'Self-paced')}</span>
                         </div>
                         <span className="meta-separator">•</span>
                         <div className="meta-pill">
@@ -1075,7 +1109,7 @@ export const CoursesPage: React.FC = () => {
                       <div className="enterprise-card-meta">
                         <div className="meta-pill">
                           <Clock size={13} />
-                          <span>{course.duration || 'Self-paced'}</span>
+                          <span>{(course.start_date || course.end_date) ? formatCourseDeadline(course.start_date, course.end_date, course.duration) : (course.duration || 'Self-paced')}</span>
                         </div>
                         <span className="meta-separator">•</span>
                         <div className="meta-pill">
@@ -1225,7 +1259,7 @@ export const CoursesPage: React.FC = () => {
 
               <div className="modal-meta-row">
                 <span className="modal-meta-item">
-                  <Clock size={14} /> Total Duration: {activeDetailCourse.duration || 'Self-paced'}
+                  <Clock size={14} /> Schedule / Deadline: {(activeDetailCourse.start_date || activeDetailCourse.end_date) ? formatCourseDeadline(activeDetailCourse.start_date, activeDetailCourse.end_date, activeDetailCourse.duration) : (activeDetailCourse.duration || 'No Deadline')}
                 </span>
                 <span className="modal-meta-item">
                   <Layers size={14} /> {activeDetailCourse.total_modules} Modules

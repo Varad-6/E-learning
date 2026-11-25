@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
 from uuid import UUID
-from typing import List
+from typing import List, Optional
+from datetime import datetime
 
 from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
@@ -158,12 +159,17 @@ def complete_course(
     
     # Permission check
     user_roles = [r.name for r in current_user.roles]
-    if enrollment.user_id != current_user.id and not any(r in user_roles for r in ["SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER", "ADMIN"]):
+    is_privileged = any(r in user_roles for r in ["SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER", "ADMIN"])
+    if enrollment.user_id != current_user.id and not is_privileged:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied: Cannot modify completion status of another user's enrollment."
         )
-    result = EnrollmentService.complete_course(db, enrollment_id=enrollment_id)
+    result = EnrollmentService.complete_course(
+        db,
+        enrollment_id=enrollment_id,
+        require_all_completed=not is_privileged,
+    )
     AuditService.log_model_event(result, event_type="UPDATE", performed_by=current_user.id)
     BadgeService.check_and_award_badges(db, enrollment.user_id)
     
@@ -207,15 +213,27 @@ def update_progress_percent(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if percent < 0 or percent > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Progress percentage must be between 0 and 100."
+        )
     enrollment = EnrollmentService.get_enrollment(db, enrollment_id=enrollment_id)
-    if enrollment.user_id != current_user.id:
+    user_roles = [r.name for r in current_user.roles]
+    is_privileged = any(r in user_roles for r in ["SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER", "ADMIN"])
+    if enrollment.user_id != current_user.id and not is_privileged:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied: Cannot update progress for another user."
         )
-    result = EnrollmentService.update_progress_percent(db, enrollment_id=enrollment_id, percent=percent)
+    result = EnrollmentService.update_progress_percent(
+        db,
+        enrollment_id=enrollment_id,
+        percent=percent,
+        trust_client_percent=is_privileged,
+    )
     AuditService.log_model_event(result, event_type="UPDATE", performed_by=current_user.id)
-    if percent >= 100:
+    if result.progress_percent >= 100:
         BadgeService.check_and_award_badges(db, enrollment.user_id)
     return result
 
@@ -224,15 +242,21 @@ def update_progress_percent(
     response_model=EnrollmentResponse,
     status_code=status.HTTP_200_OK,
     summary="Unlock Course Enrollment",
-    description="Unlock a locked course enrollment and grant a duration extension (defaults to 3 days). Restricted to System Admin and Course Manager."
+    description="Unlock a locked course enrollment and optionally set extension days or a new end date. Restricted to Administrators."
 )
 def unlock_enrollment(
     enrollment_id: UUID,
-    extension_days: int = 3,
+    extension_days: Optional[int] = None,
+    new_end_date: Optional[datetime] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
-    result = EnrollmentService.unlock_enrollment(db, enrollment_id=enrollment_id, extension_days=extension_days)
+    result = EnrollmentService.unlock_enrollment(
+        db,
+        enrollment_id=enrollment_id,
+        extension_days=extension_days,
+        new_end_date=new_end_date
+    )
     AuditService.log_model_event(result, event_type="UPDATE", performed_by=current_user.id)
     return result
 

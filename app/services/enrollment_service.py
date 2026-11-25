@@ -1,7 +1,8 @@
 from datetime import datetime, timezone, timedelta
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from fastapi import HTTPException, status
 import re
 
@@ -13,9 +14,16 @@ from app.models.user import User
 from app.models.user_course_progress import UserCourseProgress
 from app.schemas.enrollment import ProgressUpdate
 
-def parse_duration(duration_str: str) -> timedelta:
-    if not duration_str:
-        return timedelta(days=3)  # default fallback
+def _ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """Normalize a datetime to timezone-aware UTC."""
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+def parse_duration(duration_str: Optional[str]) -> Optional[timedelta]:
+    """Parse a duration string into a timedelta, returning None if unset or zero (no hardcoded fallback)."""
+    if not duration_str or not duration_str.strip():
+        return None
     
     duration_str = duration_str.strip().lower()
     days, hours, minutes, seconds = 0, 0, 0, 0
@@ -48,9 +56,20 @@ def parse_duration(duration_str: str) -> timedelta:
         try:
             hours = int(duration_str)
         except ValueError:
-            return timedelta(days=3)
+            return None
             
-    return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+    delta = timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+    return delta if delta.total_seconds() > 0 else None
+
+def compute_course_deadline(course: Course, enrolled_at: Optional[datetime] = None) -> Optional[datetime]:
+    """Compute enrollment expiration from explicit course end_date or Admin-configured duration; None if no deadline."""
+    if getattr(course, "end_date", None) is not None:
+        return _ensure_utc(course.end_date)
+    delta = parse_duration(getattr(course, "duration", None))
+    if delta is None:
+        return None
+    base_time = _ensure_utc(getattr(course, "start_date", None)) or _ensure_utc(enrolled_at) or datetime.now(timezone.utc)
+    return base_time + delta
 
 class EnrollmentService:
     @staticmethod
@@ -66,68 +85,92 @@ class EnrollmentService:
         
         # Check if All Departments
         dept_assocs = db.query(CourseDepartment).filter(CourseDepartment.course_id == course_id).all()
-        target_dept_ids = [da.department_id for da in dept_assocs]
+        target_dept_ids = list({da.department_id for da in dept_assocs})
         total_dept_count = db.query(Department).count()
 
-        is_all_depts = False
-        if course.department_id is None:
-            is_all_depts = True
-        elif total_dept_count > 0 and len(target_dept_ids) >= total_dept_count:
-            is_all_depts = True
+        is_all_depts = (
+            course.department_id is None
+            or (total_dept_count > 0 and len(target_dept_ids) >= total_dept_count)
+        )
 
         user_query = db.query(User).filter(User.is_active == True, User.is_deleted == False)
         if not is_all_depts:
-            if target_dept_ids:
-                user_query = user_query.filter(User.department_id.in_(target_dept_ids))
-            elif course.department_id:
-                user_query = user_query.filter(User.department_id == course.department_id)
+            dept_id_set = set(target_dept_ids)
+            if course.department_id:
+                dept_id_set.add(course.department_id)
+            if dept_id_set:
+                user_query = user_query.filter(User.department_id.in_(dept_id_set))
+            else:
+                user_query = user_query.filter(False)
 
         target_users = user_query.all()
+        target_user_ids = {u.id for u in target_users}
 
         # Clean up stale unstarted enrollments if targeting changed away from their department
         if not is_all_depts:
-            target_user_ids = {u.id for u in target_users}
-            stale_enrollments = db.query(CourseEnrollment).filter(
+            stale_query = db.query(CourseEnrollment).filter(
                 CourseEnrollment.course_id == course.id,
                 CourseEnrollment.progress_percent == 0,
-                CourseEnrollment.status == "enrolled",
-                ~CourseEnrollment.user_id.in_(target_user_ids)
-            ).all()
-            for se in stale_enrollments:
+                CourseEnrollment.status == "enrolled"
+            )
+            if target_user_ids:
+                stale_query = stale_query.filter(~CourseEnrollment.user_id.in_(target_user_ids))
+            for se in stale_query.all():
                 db.delete(se)
+
+        existing_map = {
+            e.user_id: e
+            for e in db.query(CourseEnrollment).filter(CourseEnrollment.course_id == course.id).all()
+        }
+
         assigned_count = 0
-        base_time = course.published_at if course.published_at is not None else datetime.now(timezone.utc)
-        expires_at = base_time + parse_duration(course.duration)
+        newly_assigned_user_ids = []
+        now = datetime.now(timezone.utc)
+        expires_at = compute_course_deadline(course, enrolled_at=now)
 
         for u in target_users:
-            existing = db.query(CourseEnrollment).filter(
-                CourseEnrollment.user_id == u.id,
-                CourseEnrollment.course_id == course.id
-            ).first()
+            existing = existing_map.get(u.id)
             if not existing:
                 new_enr = CourseEnrollment(
                     user_id=u.id,
                     course_id=course.id,
                     status="enrolled",
                     progress_percent=0,
-                    enrolled_at=datetime.now(timezone.utc),
+                    enrolled_at=now,
                     expires_at=expires_at,
                     is_locked=False
                 )
                 db.add(new_enr)
                 assigned_count += 1
-                try:
-                    NotificationService.create_notification(
-                        db,
-                        user_id=u.id,
+                newly_assigned_user_ids.append(u.id)
+            elif existing.status == "dropped" and not existing.is_locked:
+                existing.status = "enrolled"
+                existing.progress_percent = 0
+                existing.enrolled_at = now
+                existing.expires_at = expires_at
+                existing.completed_at = None
+                assigned_count += 1
+                newly_assigned_user_ids.append(u.id)
+
+        db.commit()
+
+        # Batch-create notifications in a single transaction so a notification issue never breaks enrollments
+        if newly_assigned_user_ids:
+            from app.models.notification import Notification
+            try:
+                for uid in newly_assigned_user_ids:
+                    db.add(Notification(
+                        user_id=uid,
                         type="course_assigned",
                         title="New Course Assigned",
                         message=f"You have been assigned to course '{course.title}'.",
-                        related_entity_id=course.id
-                    )
-                except Exception:
-                    pass
-        db.commit()
+                        related_entity_id=course.id,
+                        is_read=False
+                    ))
+                db.commit()
+            except Exception:
+                db.rollback()
+
         return assigned_count
 
     @staticmethod
@@ -138,7 +181,11 @@ class EnrollmentService:
     @staticmethod
     def auto_enroll_user_in_mandatory_courses(db: Session, user_id: UUID) -> None:
         """Auto enroll user in all applicable department / company-wide published courses."""
-        user = db.query(User).filter(User.id == user_id).first()
+        user = db.query(User).filter(
+            User.id == user_id,
+            User.is_active == True,
+            User.is_deleted == False
+        ).first()
         if not user:
             return
         from sqlalchemy import or_
@@ -154,28 +201,37 @@ class EnrollmentService:
             filter_cond.append(Course.id.in_(dept_course_ids))
 
         courses = db.query(Course).filter(
+            Course.is_published == True,
             Course.status.in_(["approved", "published"]),
             or_(*filter_cond)
         ).all()
+        if not courses:
+            return
+
+        existing_course_ids = {
+            r[0] for r in db.query(CourseEnrollment.course_id).filter(
+                CourseEnrollment.user_id == user.id
+            ).all()
+        }
+
+        now = datetime.now(timezone.utc)
+        added = False
         for c in courses:
-            existing = db.query(CourseEnrollment).filter(
-                CourseEnrollment.user_id == user.id,
-                CourseEnrollment.course_id == c.id
-            ).first()
-            if not existing:
-                base_time = c.published_at if c.published_at is not None else datetime.now(timezone.utc)
-                expires_at = base_time + parse_duration(c.duration)
+            if c.id not in existing_course_ids:
+                expires_at = compute_course_deadline(c, enrolled_at=now)
                 new_enr = CourseEnrollment(
                     user_id=user.id,
                     course_id=c.id,
                     status="enrolled",
                     progress_percent=0,
-                    enrolled_at=datetime.now(timezone.utc),
+                    enrolled_at=now,
                     expires_at=expires_at,
                     is_locked=False
                 )
                 db.add(new_enr)
-        db.commit()
+                added = True
+        if added:
+            db.commit()
 
     @staticmethod
     def enroll_user(db: Session, user_id: UUID, course_id: UUID, enrolled_by: UUID = None) -> CourseEnrollment:
@@ -207,12 +263,12 @@ class EnrollmentService:
         ).first()
 
         if existing:
-            if existing.status == "dropped":
+            if existing.status == "dropped" and not existing.is_locked:
+                now = datetime.now(timezone.utc)
                 existing.status = "enrolled"
-                existing.enrolled_at = datetime.now(timezone.utc)
+                existing.enrolled_at = now
                 existing.enrolled_by = enrolled_by
-                base_time = course.published_at if course.published_at is not None else datetime.now(timezone.utc)
-                existing.expires_at = base_time + parse_duration(course.duration)
+                existing.expires_at = compute_course_deadline(course, enrolled_at=now)
                 existing.is_locked = False
                 existing.completed_at = None
                 db.commit()
@@ -224,14 +280,14 @@ class EnrollmentService:
                     detail="User is already enrolled in this course."
                 )
 
-        base_time = course.published_at if course.published_at is not None else datetime.now(timezone.utc)
-        expires_at = base_time + parse_duration(course.duration)
+        now = datetime.now(timezone.utc)
+        expires_at = compute_course_deadline(course, enrolled_at=now)
         enrollment = CourseEnrollment(
             user_id=user_id,
             course_id=course_id,
             enrolled_by=enrolled_by,
             status="enrolled",
-            enrolled_at=datetime.now(timezone.utc),
+            enrolled_at=now,
             expires_at=expires_at,
             is_locked=False
         )
@@ -242,13 +298,14 @@ class EnrollmentService:
 
     @staticmethod
     def get_user_enrollments(db: Session, user_id: UUID) -> List[CourseEnrollment]:
-        from sqlalchemy import or_
         EnrollmentService.auto_enroll_user_in_mandatory_courses(db, user_id)
         return db.query(CourseEnrollment).join(
             Course, CourseEnrollment.course_id == Course.id
         ).filter(
             CourseEnrollment.user_id == user_id,
-            or_(Course.status == "published", Course.status == "approved", Course.is_published == True)
+            Course.is_published == True,
+            Course.status.in_(["published", "approved"]),
+            or_(CourseEnrollment.status != "dropped", CourseEnrollment.is_locked == True)
         ).all()
 
     @staticmethod
@@ -425,7 +482,27 @@ class EnrollmentService:
         return progress
 
     @staticmethod
-    def complete_course(db: Session, enrollment_id: UUID) -> CourseEnrollment:
+    def _recalculate_progress_counts(db: Session, enrollment: CourseEnrollment) -> tuple[int, int]:
+        """Return (completed_contents, total_contents) for an enrollment from server-side DB state."""
+        total_contents = db.query(ModuleContent).join(
+            CourseModule, CourseModule.id == ModuleContent.module_id
+        ).filter(
+            CourseModule.course_id == enrollment.course_id,
+            ModuleContent.is_active == True
+        ).count()
+
+        completed_contents = db.query(UserCourseProgress).filter(
+            UserCourseProgress.enrollment_id == enrollment.id,
+            UserCourseProgress.completed == True
+        ).count()
+        return completed_contents, total_contents
+
+    @staticmethod
+    def complete_course(
+        db: Session,
+        enrollment_id: UUID,
+        require_all_completed: bool = True,
+    ) -> CourseEnrollment:
         enrollment = db.query(CourseEnrollment).filter(CourseEnrollment.id == enrollment_id).first()
         if not enrollment:
             raise HTTPException(
@@ -436,8 +513,17 @@ class EnrollmentService:
         # Check deadline locking
         EnrollmentService._check_and_lock(db, enrollment)
 
+        if require_all_completed:
+            completed_contents, total_contents = EnrollmentService._recalculate_progress_counts(db, enrollment)
+            if total_contents > 0 and completed_contents < total_contents:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot complete course before finishing all required lessons."
+                )
+
         if enrollment.status != "completed":
             enrollment.status = "completed"
+            enrollment.progress_percent = 100
             enrollment.completed_at = datetime.now(timezone.utc)
             db.commit()
             db.refresh(enrollment)
@@ -448,7 +534,15 @@ class EnrollmentService:
 
     @staticmethod
     def _check_and_lock(db: Session, enrollment: CourseEnrollment) -> None:
-        """Helper to evaluate if a course enrollment has expired and locks it."""
+        """Helper to evaluate start date and expiration lock without dropping visibility."""
+        if enrollment.course and getattr(enrollment.course, "start_date", None):
+            start_utc = _ensure_utc(enrollment.course.start_date)
+            if start_utc and datetime.now(timezone.utc) < start_utc:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Course has not started yet. Available from {start_utc.strftime('%Y-%m-%d %H:%M UTC')}."
+                )
+
         if enrollment.is_locked:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -456,13 +550,9 @@ class EnrollmentService:
             )
         
         if enrollment.expires_at:
-            expires_at_utc = enrollment.expires_at
-            if expires_at_utc.tzinfo is None:
-                expires_at_utc = expires_at_utc.replace(tzinfo=timezone.utc)
-            
-            if datetime.now(timezone.utc) > expires_at_utc:
+            expires_at_utc = _ensure_utc(enrollment.expires_at)
+            if expires_at_utc and datetime.now(timezone.utc) > expires_at_utc:
                 enrollment.is_locked = True
-                enrollment.status = "dropped" # mark inactive/dropped when expired
                 db.commit()
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -470,7 +560,12 @@ class EnrollmentService:
                 )
 
     @staticmethod
-    def update_progress_percent(db: Session, enrollment_id: UUID, percent: int) -> CourseEnrollment:
+    def update_progress_percent(
+        db: Session,
+        enrollment_id: UUID,
+        percent: int,
+        trust_client_percent: bool = False,
+    ) -> CourseEnrollment:
         enrollment = db.query(CourseEnrollment).filter(CourseEnrollment.id == enrollment_id).first()
         if not enrollment:
             raise HTTPException(
@@ -481,13 +576,20 @@ class EnrollmentService:
         # Check deadline locking
         EnrollmentService._check_and_lock(db, enrollment)
 
-        enrollment.progress_percent = percent
+        if not trust_client_percent:
+            completed_contents, total_contents = EnrollmentService._recalculate_progress_counts(db, enrollment)
+            if total_contents > 0:
+                percent = int((completed_contents / total_contents) * 100)
+            else:
+                percent = max(0, min(percent, 100))
+
+        enrollment.progress_percent = max(0, min(percent, 100))
         enrollment.last_accessed_at = datetime.now(timezone.utc)
-        if percent >= 100:
+        if enrollment.progress_percent >= 100:
             enrollment.status = "completed"
             if not enrollment.completed_at:
                 enrollment.completed_at = datetime.now(timezone.utc)
-        elif percent > 0:
+        elif enrollment.progress_percent > 0:
             enrollment.status = "in_progress"
         else:
             enrollment.status = "enrolled"
@@ -510,22 +612,24 @@ class EnrollmentService:
                 detail=f"Enrollment with ID {enrollment_id} not found."
             )
         
-        # Reactively check expiration on read
-        if not enrollment.is_locked and enrollment.expires_at:
-            expires_at_utc = enrollment.expires_at
-            if expires_at_utc.tzinfo is None:
-                expires_at_utc = expires_at_utc.replace(tzinfo=timezone.utc)
-            if datetime.now(timezone.utc) > expires_at_utc:
+        # Reactively check expiration on read without hiding enrollment
+        if not enrollment.is_locked and enrollment.expires_at and enrollment.status != "completed":
+            expires_at_utc = _ensure_utc(enrollment.expires_at)
+            if expires_at_utc and datetime.now(timezone.utc) > expires_at_utc:
                 enrollment.is_locked = True
-                enrollment.status = "dropped"
                 db.commit()
                 db.refresh(enrollment)
                 
         return enrollment
 
     @staticmethod
-    def unlock_enrollment(db: Session, enrollment_id: UUID, extension_days: int = 3) -> CourseEnrollment:
-        """Unlock a locked enrollment and extend the expiration date."""
+    def unlock_enrollment(
+        db: Session,
+        enrollment_id: UUID,
+        extension_days: Optional[int] = None,
+        new_end_date: Optional[datetime] = None
+    ) -> CourseEnrollment:
+        """Unlock a locked enrollment with an explicit extension or new end date (or remove expiry)."""
         enrollment = db.query(CourseEnrollment).filter(CourseEnrollment.id == enrollment_id).first()
         if not enrollment:
             raise HTTPException(
@@ -534,11 +638,15 @@ class EnrollmentService:
             )
         
         enrollment.is_locked = False
-        # If it was marked dropped due to lock, reset to enrolled or in_progress
         if enrollment.status == "dropped":
             enrollment.status = "in_progress" if enrollment.progress_percent > 0 else "enrolled"
             
-        enrollment.expires_at = datetime.now(timezone.utc) + timedelta(days=extension_days)
+        if new_end_date is not None:
+            enrollment.expires_at = _ensure_utc(new_end_date)
+        elif extension_days is not None and extension_days > 0:
+            enrollment.expires_at = datetime.now(timezone.utc) + timedelta(days=extension_days)
+        else:
+            enrollment.expires_at = None
         db.commit()
         db.refresh(enrollment)
         return enrollment

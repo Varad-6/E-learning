@@ -21,6 +21,8 @@ class Course(Base):
     duration = Column(String, nullable=True)
     priority = Column(String, nullable=True)
     published_at = Column(DateTime(timezone=True), nullable=True)
+    start_date = Column(DateTime(timezone=True), nullable=True)
+    end_date = Column(DateTime(timezone=True), nullable=True)
     is_mandatory = Column(Boolean, default=False, nullable=False)
     video_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

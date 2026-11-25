@@ -7,6 +7,7 @@ import {
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { apiCall } from '../../services/api';
+import { useLiveSync } from '../../services/liveSync';
 import { useToast } from '../../context/ToastContext';
 import { getBadgeForCompletions } from '../../services/badge';
 
@@ -195,6 +196,16 @@ export const ReportingDashboard: React.FC = () => {
       }
     }
   }, [userId]);
+
+  useLiveSync(['courses', 'enrollments', 'exams', 'badges', 'users', 'departments'], () => {
+    if (selectedEmployee?.user?.id) {
+      handleSelectEmployee(selectedEmployee.user.id);
+    } else if (selectedDept?.id) {
+      loadDeptEmployees(selectedDept.id);
+    } else {
+      fetchDepartments();
+    }
+  });
 
   // Drill down to Level 2
   const handleSelectDepartment = async (dept: DepartmentSummary) => {

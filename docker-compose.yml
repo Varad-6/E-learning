@@ -1,52 +1,56 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16
     container_name: elearning-postgres
-    restart: always
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: elearning_user
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: elearning
-    ports:
-      - "5434:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-elearning_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-elearning}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-elearning_user} -d ${POSTGRES_DB:-elearning}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: elearning-backend
-    restart: always
+    restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=postgresql://elearning_user:postgres@postgres:5432/elearning
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-elearning_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-elearning}
     ports:
       - "8000:8000"
     volumes:
-      - .:/workspace
-      - /workspace/venv
+      - uploads_data:/workspace/uploads
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: elearning-frontend
-    restart: always
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-      - WATCHPACK_POLLING=true
-      - VITE_USE_POLLING=true
+    restart: unless-stopped
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - "5173:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  uploads_data:

@@ -93,8 +93,10 @@ export const ExamCreator: React.FC = () => {
   // Filtered courses by selected department
   const filteredCourses = courses.filter(c =>
     selectedDepartment === 'all' ||
+    c.is_all_departments ||
+    !c.department_id ||
     String(c.department_id) === String(selectedDepartment) ||
-    c.department_id === selectedDepartment
+    (Array.isArray(c.department_ids) && c.department_ids.map(String).includes(String(selectedDepartment)))
   );
 
   // ── Load departments & courses ────────────────────────────

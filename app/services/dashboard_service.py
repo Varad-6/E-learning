@@ -6,10 +6,26 @@ from typing import List, Dict, Any, Optional
 from app.models.department import Department
 from app.models.user import User
 from app.models.course import Course
+from app.models.course_department import CourseDepartment
 from app.models.course_enrollment import CourseEnrollment
 from app.models.exam import Exam, ExamSubmission, ExamGrade
 
 class DashboardService:
+
+    @staticmethod
+    def _dept_course_filter(db: Session, manager_dept_id: Any):
+        dept_course_ids = [
+            r[0] for r in db.query(CourseDepartment.course_id).filter(
+                CourseDepartment.department_id == manager_dept_id
+            ).all()
+        ]
+        filters = [
+            Course.department_id == manager_dept_id,
+            Course.department_id.is_(None)
+        ]
+        if dept_course_ids:
+            filters.append(Course.id.in_(dept_course_ids))
+        return or_(*filters)
 
     @staticmethod
     def get_summary(db: Session, manager_dept_id: Optional[Any] = None) -> Dict[str, Any]:
@@ -27,15 +43,19 @@ class DashboardService:
         )
 
         if manager_dept_id:
+            dept_filter = DashboardService._dept_course_filter(db, manager_dept_id)
             total_departments = 1
             total_users = base_users_query.filter(User.department_id == manager_dept_id).count()
-            total_courses = db.query(Course).filter(Course.is_published == True, Course.department_id == manager_dept_id).count()
-            total_all_courses = db.query(Course).filter(Course.department_id == manager_dept_id).count()
+            total_courses = db.query(Course).filter(Course.is_published == True, dept_filter).count()
+            total_all_courses = db.query(Course).filter(dept_filter).count()
             completed_enrollments = db.query(CourseEnrollment).join(
                 Course, CourseEnrollment.course_id == Course.id
+            ).join(
+                User, CourseEnrollment.user_id == User.id
             ).filter(
                 CourseEnrollment.status == "completed",
-                Course.department_id == manager_dept_id
+                User.department_id == manager_dept_id,
+                dept_filter
             ).count()
         else:
             total_departments = db.query(Department).count()
@@ -113,7 +133,12 @@ class DashboardService:
             Course.status.in_(["published", "approved"])
         )
         if manager_dept_id:
-            base_query = base_query.filter(Course.department_id == manager_dept_id)
+            base_query = base_query.join(
+                User, CourseEnrollment.user_id == User.id
+            ).filter(
+                User.department_id == manager_dept_id,
+                DashboardService._dept_course_filter(db, manager_dept_id)
+            )
             
         total_enrollments = base_query.count()
         if total_enrollments == 0:
@@ -170,7 +195,12 @@ class DashboardService:
                 Course.status.in_(["published", "approved"])
             )
             if manager_dept_id:
-                query = query.filter(Course.department_id == manager_dept_id)
+                query = query.join(
+                    User, CourseEnrollment.user_id == User.id
+                ).filter(
+                    User.department_id == manager_dept_id,
+                    DashboardService._dept_course_filter(db, manager_dept_id)
+                )
                 
             results = query.group_by('date_str').order_by('date_str').all()
             
@@ -191,7 +221,12 @@ class DashboardService:
             Course.status.in_(["published", "approved"])
         )
         if manager_dept_id:
-            query = query.filter(Course.department_id == manager_dept_id)
+            query = query.join(
+                User, CourseEnrollment.user_id == User.id
+            ).filter(
+                User.department_id == manager_dept_id,
+                DashboardService._dept_course_filter(db, manager_dept_id)
+            )
             
         results = query.group_by(
             'month_name', 'month_date'
@@ -345,7 +380,12 @@ class DashboardService:
             Course.status.in_(["published", "approved"])
         )
         if manager_dept_id:
-            query = query.filter(Course.department_id == manager_dept_id)
+            query = query.outerjoin(
+                User, CourseEnrollment.user_id == User.id
+            ).filter(
+                DashboardService._dept_course_filter(db, manager_dept_id),
+                or_(CourseEnrollment.id.is_(None), User.department_id == manager_dept_id)
+            )
             
         results = query.group_by(
             Course.id, Course.course_code, Course.title
@@ -370,11 +410,9 @@ class DashboardService:
             query = query.join(
                 ExamSubmission, ExamGrade.submission_id == ExamSubmission.id
             ).join(
-                Exam, ExamSubmission.exam_id == Exam.id
-            ).join(
-                Course, Exam.course_id == Course.id
+                User, ExamSubmission.user_id == User.id
             ).filter(
-                Course.department_id == manager_dept_id
+                User.department_id == manager_dept_id
             )
             
         graded_grades = query.all()
@@ -418,7 +456,7 @@ class DashboardService:
         submissions_query = db.query(ExamSubmission).filter(ExamSubmission.status == "submitted")
         
         if manager_dept_id:
-            courses_query = courses_query.filter(Course.department_id == manager_dept_id)
+            courses_query = courses_query.filter(DashboardService._dept_course_filter(db, manager_dept_id))
             submissions_query = submissions_query.join(User, ExamSubmission.user_id == User.id).filter(User.department_id == manager_dept_id)
             
         pending_courses = courses_query.count()
@@ -505,7 +543,12 @@ class DashboardService:
         )
         
         if manager_dept_id:
-            query = query.filter(Course.department_id == manager_dept_id)
+            query = query.join(
+                User, ExamSubmission.user_id == User.id
+            ).filter(
+                User.department_id == manager_dept_id,
+                DashboardService._dept_course_filter(db, manager_dept_id)
+            )
             
         results = query.group_by(Course.id, Course.course_code, Course.title).all()
         

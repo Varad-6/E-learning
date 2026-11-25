@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
 import { apiCall } from '../../services/api';
+import { useLiveSync } from '../../services/liveSync';
 import { useToast } from '../../context/ToastContext';
 
 interface RankingUser {
@@ -82,6 +83,13 @@ export const Leaderboard: React.FC = () => {
   useEffect(() => {
     fetchInitialData();
   }, []);
+
+  useLiveSync(['exams', 'badges', 'enrollments', 'users', 'departments'], () => {
+    fetchInitialData();
+    if (selectedDept || selectedExamId) {
+      loadRankings(selectedDept ? selectedDept.id : null, selectedExamId || null);
+    }
+  });
 
   const fetchInitialData = async () => {
     try {
@@ -648,7 +656,7 @@ export const Leaderboard: React.FC = () => {
                                                style={{ width: '16px', height: '16px', objectFit: 'contain', display: 'inline-block' }} 
                                              />
                                            )}
-                                           <strong style={{ color: 'var(--accent-color)' }}>{user.badge_name || "Bronze III"}</strong>
+                                           <strong style={{ color: 'var(--accent-color)' }}>{user.badge_name || "No Badge Yet"}</strong>
                                          </span>
                                       </div>
                                     </div>

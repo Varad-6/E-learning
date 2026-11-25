@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, status, HTTPException, File, UploadFile, Form
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from uuid import UUID
@@ -10,6 +10,7 @@ import shutil
 import uuid
 import io
 
+from app.core.config import settings
 from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
 from app.models.exam import Exam, ExamAssignment, ExamQuestion, ExamSubmission, ExamGrade, ExamReview
@@ -24,8 +25,48 @@ from app.schemas.exam import (
 
 router = APIRouter(prefix="/api/exams", tags=["Exams"])
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+UPLOAD_DIR = os.path.join(settings.UPLOAD_DIR, "exam_submissions")
+
+
+def _is_exam_privileged(user: User) -> bool:
+    roles = [r.name for r in user.roles]
+    return any(r in roles for r in ["SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER", "ADMIN"])
+
+
+def _serialize_exam_for_user(db: Session, exam: Exam, user: User) -> ExamResponse:
+    """Return ExamResponse without leaking correct_answer to ungraded learners."""
+    include_answers = _is_exam_privileged(user)
+    if not include_answers:
+        graded_sub = db.query(ExamSubmission).filter(
+            ExamSubmission.exam_id == exam.id,
+            ExamSubmission.user_id == user.id,
+            ExamSubmission.status == "graded",
+        ).first()
+        include_answers = graded_sub is not None
+
+    questions = [
+        ExamQuestionResponse(
+            id=q.id,
+            exam_id=q.exam_id,
+            question_text=q.question_text,
+            question_type=q.question_type,
+            options=q.options,
+            correct_answer=(q.correct_answer if include_answers else None),
+        )
+        for q in (exam.questions or [])
+    ]
+    return ExamResponse(
+        id=exam.id,
+        title=exam.title,
+        course_id=exam.course_id,
+        department_id=exam.department_id,
+        duration_minutes=exam.duration_minutes,
+        is_published=exam.is_published,
+        status=exam.status,
+        created_by=exam.created_by,
+        created_at=exam.created_at,
+        questions=questions,
+    )
 
 @router.post(
     "",
@@ -394,7 +435,26 @@ def get_exam_details(
     exam = db.query(Exam).filter(Exam.id == exam_id).first()
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
-    return exam
+
+    user_roles = [r.name for r in current_user.roles]
+    if "SYSTEM_ADMIN" not in user_roles and "HR_ADMIN" not in user_roles:
+        if "COURSE_MANAGER" in user_roles:
+            allowed = (
+                exam.department_id is None
+                or exam.department_id == current_user.department_id
+                or exam.created_by == current_user.id
+            )
+            if not allowed:
+                raise HTTPException(status_code=403, detail="Access denied to this exam.")
+        else:
+            allowed = (
+                exam.is_published
+                and (exam.department_id is None or exam.department_id == current_user.department_id)
+            )
+            if not allowed:
+                raise HTTPException(status_code=403, detail="Access denied to this exam.")
+
+    return _serialize_exam_for_user(db, exam, current_user)
 
 @router.post(
     "/{exam_id}/start",
@@ -608,14 +668,55 @@ def upload_submission_file(
     if ext not in allowed_exts:
         raise HTTPException(status_code=400, detail=f"File extension {ext} is not allowed. Only PDF, DOCX, ZIP, PNG, JPG, and TXT are supported.")
 
-    # Save to disk
+    # Save to protected exam_submissions directory (served only via authenticated endpoint)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
     safe_filename = f"{submission_id}_{uuid.uuid4().hex}{ext}"
     target_path = os.path.join(UPLOAD_DIR, safe_filename)
     with open(target_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    relative_url = f"/uploads/{safe_filename}"
+    relative_url = f"/api/exams/submissions/{submission_id}/files/{safe_filename}"
     return {"file_url": relative_url, "original_name": filename}
+
+
+@router.get(
+    "/submissions/{submission_id}/files/{filename}",
+    summary="Download Protected Exam Submission Attachment"
+)
+def download_submission_file(
+    submission_id: UUID,
+    filename: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    sub = db.query(ExamSubmission).filter(ExamSubmission.id == submission_id).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    if not _is_exam_privileged(current_user) and sub.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Permission denied: cannot access another user's attachment.")
+
+    safe_name = os.path.basename(filename)
+    if not safe_name or safe_name != filename:
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+
+    base_dir = os.path.abspath(UPLOAD_DIR)
+    candidate_path = os.path.abspath(os.path.join(base_dir, safe_name))
+    if not candidate_path.startswith(base_dir + os.sep) or not os.path.isfile(candidate_path):
+        # Fallback for legacy files previously stored in uploads/
+        legacy_dir = os.path.abspath("uploads")
+        legacy_path = os.path.abspath(os.path.join(legacy_dir, safe_name))
+        if legacy_path.startswith(legacy_dir + os.sep) and os.path.isfile(legacy_path):
+            candidate_path = legacy_path
+        else:
+            raise HTTPException(status_code=404, detail="Attachment not found")
+
+    return FileResponse(
+        path=candidate_path,
+        filename=safe_name,
+        media_type="application/octet-stream",
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
 
 @router.post(
     "/submissions/{submission_id}/grade",
@@ -949,9 +1050,12 @@ async def generate_questions_from_pdf(
     if not any(r in roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN", "MANAGER", "COURSE_MANAGER"]):
         raise HTTPException(status_code=403, detail="Permission denied.")
 
-    contents = await file.read()
+    max_bytes = settings.MAX_DOC_UPLOAD_BYTES
+    contents = await file.read(max_bytes + 1)
     if not contents:
         raise HTTPException(status_code=400, detail="Empty document file uploaded.")
+    if len(contents) > max_bytes:
+        raise HTTPException(status_code=413, detail="Uploaded document exceeds maximum allowed size (15MB).")
 
     filename = (file.filename or "").lower()
 
@@ -979,7 +1083,7 @@ async def generate_questions_from_pdf(
 )
 def get_ai_staged_questions(
     batch_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER")),
     db: Session = Depends(get_db)
 ):
     from app.models.exam import PendingAIQuestion
@@ -1021,4 +1125,5 @@ def get_all_exams(
             )
         )
 
-    return query.order_by(Exam.created_at.desc()).all()
+    exams = query.order_by(Exam.created_at.desc()).all()
+    return [_serialize_exam_for_user(db, e, current_user) for e in exams]

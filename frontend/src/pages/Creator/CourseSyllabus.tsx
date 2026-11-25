@@ -13,9 +13,10 @@ import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { LearnersModal } from '../../components/LearnersModal/LearnersModal';
 import { CourseraRichText } from '../../components/CourseraRichText/CourseraRichText';
-import { formatDuration, parseDuration, buildDurationString } from '../../utils/duration';
-import { canDeleteCourse } from '../../utils/coursePermissions';
+import { formatDuration, parseDuration, buildDurationString, toLocalDateTimeInput, fromLocalDateTimeInput, formatCourseDeadline } from '../../utils/duration';
+import { canDeleteCourse, isCurrentUserAdmin } from '../../utils/coursePermissions';
 import { apiCall } from '../../services/api';
+import { useLiveSync } from '../../services/liveSync';
 import './Creator.css';
 
 interface CourseData {
@@ -27,7 +28,13 @@ interface CourseData {
   duration: string;
   is_published: boolean;
   created_by?: string | null;
+  department_id?: string | null;
+  department_ids?: string[];
+  is_all_departments?: boolean;
+  department_name?: string | null;
   video_url?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
 }
 
 interface ModuleData {
@@ -89,6 +96,8 @@ export const CourseSyllabus: React.FC = () => {
   const [editCourseDays, setEditCourseDays] = useState(0);
   const [editCourseHours, setEditCourseHours] = useState(0);
   const [editCourseMinutes, setEditCourseMinutes] = useState(0);
+  const [editCourseStartDate, setEditCourseStartDate] = useState('');
+  const [editCourseEndDate, setEditCourseEndDate] = useState('');
   const [editCourseVideoUrl, setEditCourseVideoUrl] = useState('');
   const [isSavingCourseMeta, setIsSavingCourseMeta] = useState(false);
 
@@ -101,6 +110,8 @@ export const CourseSyllabus: React.FC = () => {
     setEditCourseDays(parsed.days || 0);
     setEditCourseHours(parsed.hours || 0);
     setEditCourseMinutes(parsed.minutes || 0);
+    setEditCourseStartDate(toLocalDateTimeInput(course.start_date));
+    setEditCourseEndDate(toLocalDateTimeInput(course.end_date));
     setEditCourseVideoUrl(course.video_url || '');
     setIsEditCourseModalOpen(true);
   };
@@ -111,18 +122,28 @@ export const CourseSyllabus: React.FC = () => {
       alert('Course Title is required.');
       return;
     }
-    const durationStr = buildDurationString(editCourseDays, editCourseHours, editCourseMinutes);
+    const adminAccess = isCurrentUserAdmin();
+    if (adminAccess && editCourseStartDate && editCourseEndDate && new Date(editCourseEndDate) <= new Date(editCourseStartDate)) {
+      alert('Course End Date must be after Start Date.');
+      return;
+    }
     setIsSavingCourseMeta(true);
     try {
+      const payload: Record<string, any> = {
+        title: editCourseTitle.trim(),
+        description: editCourseDesc.trim(),
+        priority: editCoursePriority,
+        video_url: editCourseVideoUrl.trim() || null
+      };
+      if (adminAccess) {
+        const hasDuration = editCourseDays > 0 || editCourseHours > 0 || editCourseMinutes > 0;
+        payload.duration = hasDuration ? buildDurationString(editCourseDays, editCourseHours, editCourseMinutes) : null;
+        payload.start_date = fromLocalDateTimeInput(editCourseStartDate);
+        payload.end_date = fromLocalDateTimeInput(editCourseEndDate);
+      }
       const res = await apiCall(`/api/courses/${courseId}`, {
         method: 'PUT',
-        body: JSON.stringify({
-          title: editCourseTitle.trim(),
-          description: editCourseDesc.trim(),
-          priority: editCoursePriority,
-          duration: durationStr,
-          video_url: editCourseVideoUrl.trim() || null
-        })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         setIsEditCourseModalOpen(false);
@@ -157,10 +178,16 @@ export const CourseSyllabus: React.FC = () => {
           title: courseData.title,
           description: courseData.description || '',
           priority: courseData.priority || 'Medium',
-          duration: courseData.duration || '7d 0h 0m',
+          duration: courseData.duration || '',
           is_published: courseData.is_published,
           created_by: courseData.created_by,
-          video_url: courseData.video_url || null
+          department_id: courseData.department_id,
+          department_ids: courseData.department_ids,
+          is_all_departments: courseData.is_all_departments,
+          department_name: courseData.department_name,
+          video_url: courseData.video_url || null,
+          start_date: courseData.start_date || null,
+          end_date: courseData.end_date || null
         });
       }
       
@@ -202,6 +229,12 @@ export const CourseSyllabus: React.FC = () => {
 
     fetchSyllabus();
   }, [courseId]);
+
+  useLiveSync(['courses', 'enrollments', 'modules'], () => {
+    if (courseId) {
+      fetchSyllabus();
+    }
+  });
 
   const handleAddModuleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,6 +290,7 @@ export const CourseSyllabus: React.FC = () => {
       });
       if (res.ok) {
         setCourse({ ...course, is_published: !course.is_published });
+        fetchSyllabus();
       } else {
         alert('Failed to update publication status.');
       }
@@ -640,7 +674,10 @@ export const CourseSyllabus: React.FC = () => {
               <strong>Priority:</strong> {course.priority}
             </div>
             <div>
-              <strong>Course Deadline:</strong> {formatDuration(course.duration)}
+              <strong>Assigned To:</strong> {course.is_all_departments ? 'All Departments' : (course.department_name || 'All Departments')}
+            </div>
+            <div>
+              <strong>Course Schedule / Deadline:</strong> {formatCourseDeadline(course.start_date, course.end_date, course.duration)}
             </div>
             <div>
               <strong>Status:</strong> {course.is_published ? 'Published' : 'Draft Mode'}
@@ -661,7 +698,7 @@ export const CourseSyllabus: React.FC = () => {
             leftIcon={<Edit3 size={15} />}
             style={{ width: '100%', marginTop: '12px' }}
           >
-            Edit Course Info & Deadline
+            {isCurrentUserAdmin() ? 'Edit Course Info & Deadline' : 'Edit Course Info'}
           </Button>
 
           <Button 
@@ -1461,22 +1498,51 @@ export const CourseSyllabus: React.FC = () => {
             />
           </div>
 
-          <div className="form-group-spaced" style={{ margin: 0 }}>
-            <DurationInput 
-              showDays={true}
-              days={editCourseDays}
-              hours={editCourseHours}
-              minutes={editCourseMinutes}
-              onChange={(d: number, h: number, m: number) => {
-                setEditCourseDays(d);
-                setEditCourseHours(h);
-                setEditCourseMinutes(m);
-              }}
-              label="Course Deadline / Completion Duration"
-              helperNote="Learners will have this duration from enrollment/publish date to complete this course before it locks."
-              idPrefix="syllabus-course-deadline"
-            />
-          </div>
+          {isCurrentUserAdmin() ? (
+            <>
+              <div className="form-group-spaced" style={{ margin: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label className="form-label-styled">Course Start Date (Optional)</label>
+                  <input
+                    type="datetime-local"
+                    className="form-input-styled"
+                    value={editCourseStartDate}
+                    onChange={(e) => setEditCourseStartDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="form-label-styled">Course End Date / Deadline (Optional)</label>
+                  <input
+                    type="datetime-local"
+                    className="form-input-styled"
+                    value={editCourseEndDate}
+                    onChange={(e) => setEditCourseEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="form-group-spaced" style={{ margin: 0 }}>
+                <DurationInput 
+                  showDays={true}
+                  days={editCourseDays}
+                  hours={editCourseHours}
+                  minutes={editCourseMinutes}
+                  onChange={(d: number, h: number, m: number) => {
+                    setEditCourseDays(d);
+                    setEditCourseHours(h);
+                    setEditCourseMinutes(m);
+                  }}
+                  label="Or Completion Duration Window (Optional)"
+                  required={false}
+                  helperNote="Admin only: Set an explicit Start/End Date or relative duration. Leave blank for no automatic lock."
+                  idPrefix="syllabus-course-deadline"
+                />
+              </div>
+            </>
+          ) : (
+            <div className="form-group-spaced" style={{ margin: 0, padding: '12px 14px', borderRadius: '8px', background: 'rgba(107, 114, 128, 0.08)', border: '1px solid var(--border-color)', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              <strong>Course Dates &amp; Deadline (Admin Only):</strong> Only an Administrator can configure or change the course start date, end date, or deadline.
+            </div>
+          )}
 
           <div className="form-group-spaced" style={{ margin: 0 }}>
             <label className="form-label-styled">Priority</label>

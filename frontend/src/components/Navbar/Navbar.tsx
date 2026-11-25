@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../Button/Button';
 import { apiCall, handleLogoutLocal } from '../../services/api';
+import { useLiveSync } from '../../services/liveSync';
 import './Navbar.css';
 
 interface AppNotification {
@@ -199,6 +200,10 @@ export const Navbar: React.FC = () => {
       if (intervalId) clearInterval(intervalId);
     };
   }, [location]);
+
+  useLiveSync(['all', 'users', 'departments', 'courses', 'enrollments', 'exams', 'badges', 'notifications'], () => {
+    loadNotificationsAndProfile();
+  });
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {

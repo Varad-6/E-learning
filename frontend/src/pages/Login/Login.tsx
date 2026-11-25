@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Lock, Mail, Building, ShieldAlert } from 'lucide-react';
 import { Input } from '../../components/Input/Input';
 import { Button } from '../../components/Button/Button';
-import { OTPInput } from '../../components/OTPInput/OTPInput';
 import { apiCall } from '../../services/api';
 import './Login.css';
 
@@ -15,28 +14,10 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [departmentsList, setDepartmentsList] = useState<{ id: string; name: string; code: string }[]>([]);
   
-  // Forgot Password / OTP states
-  const [loginMode, setLoginMode] = useState<'signin' | 'forgot_email' | 'forgot_otp' | 'forgot_reset'>('signin');
-  const [resetEmail, setResetEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [otpTimer, setOtpTimer] = useState(0);
-
   // Loading and Error states
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showTransition, setShowTransition] = useState(false);
-
-  React.useEffect(() => {
-    let interval: any;
-    if (otpTimer > 0 && loginMode === 'forgot_otp') {
-      interval = setInterval(() => {
-        setOtpTimer((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [otpTimer, loginMode]);
 
   React.useEffect(() => {
     const fetchDepts = async () => {
@@ -157,155 +138,6 @@ export const Login: React.FC = () => {
     }
   };
 
-  const handleSendOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!resetEmail.trim()) {
-      setErrors({ resetEmail: 'Email address is required.' });
-      return;
-    } else if (!emailRegex.test(resetEmail)) {
-      setErrors({ resetEmail: 'Email format is invalid.' });
-      return;
-    }
-    setIsLoading(true);
-    setErrors({});
-    try {
-      const response = await apiCall('/api/auth/forgot-password', {
-        method: 'POST',
-        body: JSON.stringify({ email: resetEmail }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setErrors({ form: data.detail || 'Failed to dispatch OTP.' });
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(false);
-      setLoginMode('forgot_otp');
-      setOtpTimer(30);
-      alert('A security OTP code has been dispatched to your email.');
-    } catch (err: any) {
-      setIsLoading(false);
-      setErrors({ form: err.message || 'Connection failed.' });
-    }
-  };
-
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!otpCode.trim()) {
-      setErrors({ otpCode: 'OTP code is required.' });
-      return;
-    }
-    setIsLoading(true);
-    setErrors({});
-    try {
-      const response = await apiCall('/api/auth/verify-otp', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: resetEmail,
-          otp: otpCode
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setErrors({ form: data.detail || 'OTP verification failed.' });
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(false);
-      setLoginMode('forgot_reset');
-    } catch (err: any) {
-      setIsLoading(false);
-      setErrors({ form: err.message || 'Connection failed.' });
-    }
-  };
-
-  const validatePasswordStrength = (pwd: string): string | null => {
-    if (pwd.length < 8) {
-      return 'Password must be at least 8 characters long.';
-    }
-    if (!/[A-Z]/.test(pwd)) {
-      return 'Password must contain at least one uppercase letter.';
-    }
-    if (!/[a-z]/.test(pwd)) {
-      return 'Password must contain at least one lowercase letter.';
-    }
-    if (!/\d/.test(pwd)) {
-      return 'Password must contain at least one number.';
-    }
-    if (!/[!@#$%^&*()_+\-=\[\]{};':",./<>?\\|`~]/.test(pwd)) {
-      return 'Password must contain at least one special character.';
-    }
-    return null;
-  };
-
-  const handleNewPasswordChange = (val: string) => {
-    setNewPassword(val);
-    const pwdErr = validatePasswordStrength(val);
-    setErrors(prev => ({
-      ...prev,
-      newPassword: pwdErr || '',
-      confirmPassword: val !== confirmPassword && confirmPassword ? 'Passwords do not match.' : ''
-    }));
-  };
-
-  const handleConfirmPasswordChange = (val: string) => {
-    setConfirmPassword(val);
-    setErrors(prev => ({
-      ...prev,
-      confirmPassword: val !== newPassword ? 'Passwords do not match.' : ''
-    }));
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const tempErrors: { [key: string]: string } = {};
-    const strengthError = validatePasswordStrength(newPassword);
-    
-    if (!newPassword) {
-      tempErrors.newPassword = 'New password is required.';
-    } else if (strengthError) {
-      tempErrors.newPassword = strengthError;
-    }
-    
-    if (newPassword !== confirmPassword) {
-      tempErrors.confirmPassword = 'Passwords do not match.';
-    }
-    
-    if (Object.keys(tempErrors).length > 0) {
-      setErrors(tempErrors);
-      return;
-    }
-    setIsLoading(true);
-    setErrors({});
-    try {
-      const response = await apiCall('/api/auth/reset-password', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: resetEmail,
-          otp: otpCode,
-          new_password: newPassword
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setErrors({ form: data.detail || 'Password reset failed.' });
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(false);
-      alert('Password has been successfully updated!');
-      setLoginMode('signin');
-      setResetEmail('');
-      setOtpCode('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (err: any) {
-      setIsLoading(false);
-      setErrors({ form: err.message || 'Connection failed.' });
-    }
-  };
-
   return (
     <div className="login-page">
       {showTransition && (
@@ -355,245 +187,50 @@ export const Login: React.FC = () => {
         {/* Right Column - Inputs Form (50%) */}
         <div className="login-right-pane animate-fade-in">
           <div className="login-form-card glass-panel glow-hover">
-            {loginMode === 'signin' && (
-              <>
-                <div className="form-heading">
-                  <h2>Sign In</h2>
-                  <p>Enter your credentials to access the Kaizen platform.</p>
-                </div>
+            <div className="form-heading">
+              <h2>Sign In</h2>
+              <p>Enter your credentials to access the Kaizen platform.</p>
+            </div>
 
-                {errors.form && (
-                  <div className="form-info-banner" style={{ backgroundColor: 'var(--neon-coral-glow)', color: 'var(--neon-coral)', border: '1px solid var(--neon-coral)', marginBottom: '16px' }}>
-                    <ShieldAlert size={14} className="info-icon" style={{ color: 'var(--neon-coral)', marginRight: '8px' }} />
-                    <span>{errors.form}</span>
-                  </div>
-                )}
-                <form onSubmit={handleLoginSubmit} className="login-form">
-                  {/* Corporate Email */}
-                  <Input
-                    label="Corporate Email Address"
-                    placeholder="e.g. employee@company.com"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    error={errors.email}
-                    leftIcon={<Mail size={18} />}
-                  />
-
-                  {/* Password */}
-                  <div style={{ position: 'relative' }}>
-                    <Input
-                      label="Password"
-                      type="password"
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      error={errors.password}
-                      leftIcon={<Lock size={18} />}
-                    />
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setLoginMode('forgot_email');
-                          setErrors({});
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--accent-color)',
-                          fontSize: '0.8rem',
-                          cursor: 'pointer',
-                          fontFamily: 'var(--font-title)',
-                          fontWeight: '600',
-                          padding: 0
-                        }}
-                      >
-                        Forgot Password?
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Submit */}
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    isLoading={isLoading}
-                    className="login-submit-btn"
-                  >
-                    Sign In
-                  </Button>
-                </form>
-              </>
+            {errors.form && (
+              <div className="form-info-banner" style={{ backgroundColor: 'var(--neon-coral-glow)', color: 'var(--neon-coral)', border: '1px solid var(--neon-coral)', marginBottom: '16px' }}>
+                <ShieldAlert size={14} className="info-icon" style={{ color: 'var(--neon-coral)', marginRight: '8px' }} />
+                <span>{errors.form}</span>
+              </div>
             )}
+            <form onSubmit={handleLoginSubmit} className="login-form">
+              {/* Corporate Email */}
+              <Input
+                label="Corporate Email Address"
+                placeholder="e.g. employee@company.com"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                error={errors.email}
+                leftIcon={<Mail size={18} />}
+              />
 
-            {loginMode === 'forgot_email' && (
-              <>
-                <div className="form-heading">
-                  <h2>Forgot Password</h2>
-                  <p>Enter your corporate email address to receive an OTP verification email.</p>
-                </div>
+              {/* Password */}
+              <Input
+                label="Password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                error={errors.password}
+                leftIcon={<Lock size={18} />}
+              />
 
-                {errors.form && (
-                  <div className="form-info-banner" style={{ backgroundColor: 'var(--neon-coral-glow)', color: 'var(--neon-coral)', border: '1px solid var(--neon-coral)', marginBottom: '16px' }}>
-                    <ShieldAlert size={14} className="info-icon" style={{ color: 'var(--neon-coral)', marginRight: '8px' }} />
-                    <span>{errors.form}</span>
-                  </div>
-                )}
-                <form onSubmit={handleSendOTP} className="login-form">
-                  <Input
-                    label="Corporate Email Address"
-                    placeholder="e.g. employee@company.com"
-                    type="email"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    error={errors.resetEmail}
-                    leftIcon={<Mail size={18} />}
-                  />
-
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    isLoading={isLoading}
-                    className="login-submit-btn"
-                  >
-                    Send OTP Verification
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setLoginMode('signin');
-                      setErrors({});
-                    }}
-                    className="login-submit-btn"
-                  >
-                    Back to Sign In
-                  </Button>
-                </form>
-              </>
-            )}
-
-            {loginMode === 'forgot_otp' && (
-              <>
-                <div className="form-heading">
-                  <h2>Verify OTP</h2>
-                  <p>We have dispatched a 6-digit verification code to your email.</p>
-                </div>
-
-                {errors.form && (
-                  <div className="form-info-banner" style={{ backgroundColor: 'var(--neon-coral-glow)', color: 'var(--neon-coral)', border: '1px solid var(--neon-coral)', marginBottom: '16px' }}>
-                    <ShieldAlert size={14} className="info-icon" style={{ color: 'var(--neon-coral)', marginRight: '8px' }} />
-                    <span>{errors.form}</span>
-                  </div>
-                )}
-                <form onSubmit={handleVerifyOTP} className="login-form">
-                  <OTPInput
-                    value={otpCode}
-                    onChange={(val) => setOtpCode(val)}
-                    cooldown={otpTimer}
-                    onResend={async () => {
-                      try {
-                        const response = await apiCall('/api/auth/forgot-password', {
-                          method: 'POST',
-                          body: JSON.stringify({ email: resetEmail }),
-                        });
-                        if (response.ok) {
-                          setOtpTimer(30);
-                          alert('A new security OTP code has been dispatched to your email.');
-                        } else {
-                          const data = await response.json();
-                          setErrors({ form: data.detail || 'Failed to resend OTP.' });
-                        }
-                      } catch (err: any) {
-                        setErrors({ form: err.message || 'Connection failed.' });
-                      }
-                    }}
-                  />
-                  {errors.otpCode && <span className="input-error-msg" style={{ display: 'block', marginTop: '-8px', marginBottom: '8px' }}>{errors.otpCode}</span>}
-
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    isLoading={isLoading}
-                    className="login-submit-btn"
-                  >
-                    Verify Code
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setLoginMode('signin');
-                      setErrors({});
-                    }}
-                    className="login-submit-btn"
-                  >
-                    Back to Sign In
-                  </Button>
-                </form>
-              </>
-            )}
-
-            {loginMode === 'forgot_reset' && (
-              <>
-                <div className="form-heading">
-                  <h2>Reset Password</h2>
-                  <p>Define a new secure password for your corporate profile.</p>
-                </div>
-
-                {errors.form && (
-                  <div className="form-info-banner" style={{ backgroundColor: 'var(--neon-coral-glow)', color: 'var(--neon-coral)', border: '1px solid var(--neon-coral)', marginBottom: '16px' }}>
-                    <ShieldAlert size={14} className="info-icon" style={{ color: 'var(--neon-coral)', marginRight: '8px' }} />
-                    <span>{errors.form}</span>
-                  </div>
-                )}
-                <form onSubmit={handleResetPassword} className="login-form">
-                  <Input
-                    label="New Password"
-                    type="password"
-                    placeholder="Enter new password (min. 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special)"
-                    value={newPassword}
-                    onChange={(e) => handleNewPasswordChange(e.target.value)}
-                    error={errors.newPassword}
-                    leftIcon={<Lock size={18} />}
-                  />
-
-                  <Input
-                    label="Confirm New Password"
-                    type="password"
-                    placeholder="Confirm new password"
-                    value={confirmPassword}
-                    onChange={(e) => handleConfirmPasswordChange(e.target.value)}
-                    error={errors.confirmPassword}
-                    leftIcon={<Lock size={18} />}
-                  />
-
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    isLoading={isLoading}
-                    className="login-submit-btn"
-                  >
-                    Save Password & Sign In
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setLoginMode('signin');
-                      setErrors({});
-                    }}
-                    className="login-submit-btn"
-                  >
-                    Back to Sign In
-                  </Button>
-                </form>
-              </>
-            )}
+              {/* Submit */}
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={isLoading}
+                className="login-submit-btn"
+              >
+                Sign In
+              </Button>
+            </form>
 
             <div className="form-info-banner">
               <ShieldAlert size={14} className="info-icon" />

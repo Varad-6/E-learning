@@ -66,6 +66,8 @@ class CourseCreate(BaseModel):
     is_all_departments: Optional[bool] = Field(False, description="Whether the course is assigned to all departments")
     duration: Optional[str] = Field(None, description="Duration of the course")
     priority: Optional[str] = Field(None, description="Priority of the course")
+    start_date: Optional[datetime] = Field(None, description="Course start date/time (Admin only)")
+    end_date: Optional[datetime] = Field(None, description="Course end date/deadline (Admin only)")
     is_mandatory: bool = Field(False, description="Whether the course is mandatory")
     video_url: Optional[str] = Field(None, description="Introductory or overview YouTube video URL")
     assigned_module_ids: Optional[List[UUID]] = Field(None, description="List of existing module IDs to assign")
@@ -82,6 +84,8 @@ class CourseUpdate(BaseModel):
     status: Optional[CourseStatus] = Field(None, description="Status of the course")
     duration: Optional[str] = Field(None, description="Duration of the course")
     priority: Optional[str] = Field(None, description="Priority of the course")
+    start_date: Optional[datetime] = Field(None, description="Course start date/time (Admin only)")
+    end_date: Optional[datetime] = Field(None, description="Course end date/deadline (Admin only)")
     is_mandatory: Optional[bool] = Field(None, description="Whether the course is mandatory")
     video_url: Optional[str] = Field(None, description="Introductory or overview YouTube video URL")
     assigned_module_ids: Optional[List[UUID]] = Field(None, description="List of existing module IDs to assign")
@@ -107,6 +111,8 @@ class CourseResponse(BaseModel):
     is_mandatory: bool = False
     video_url: Optional[str] = None
     published_at: Optional[datetime] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     modules: List[CourseModuleResponse] = []
@@ -190,6 +196,9 @@ class MyCourseItem(BaseModel):
     last_accessed_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    is_locked: bool = False
     next_module_id: Optional[UUID] = None
     next_module_title: Optional[str] = None
 
@@ -221,6 +230,9 @@ class CatalogCourseItem(BaseModel):
     user_status: str = "not_enrolled"  # not_enrolled, assigned, not_started, in_progress, completed
     progress_percent: int = 0
     last_accessed_at: Optional[datetime] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    is_locked: bool = False
     creator_name: Optional[str] = None
     created_by: Optional[UUID] = None
     can_delete: Optional[bool] = False
@@ -264,6 +276,10 @@ class CourseDetailResponse(BaseModel):
     progress_percent: int = 0
     last_accessed_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    is_locked: bool = False
     modules: List[CourseDetailModule] = []
     can_delete: bool = False
     can_edit: bool = False

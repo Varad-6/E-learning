@@ -14,6 +14,41 @@ from app.api.module import check_module_write_permission
 
 router = APIRouter(prefix="/api/quizzes", tags=["Quizzes"])
 
+
+def _is_privileged_quiz_viewer(user: User) -> bool:
+    roles = [r.name for r in user.roles]
+    return any(r in roles for r in ["SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER", "ADMIN"])
+
+
+def _serialize_quiz_for_user(quiz, user: User) -> QuizResponse:
+    """Strip correct_answer and explanation for non-privileged learners."""
+    include_answers = _is_privileged_quiz_viewer(user)
+    questions = [
+        QuizQuestionResponse(
+            id=q.id,
+            quiz_id=q.quiz_id,
+            question_text=q.question_text,
+            options=q.options or [],
+            correct_answer=(q.correct_answer if include_answers else ""),
+            explanation=(q.explanation if include_answers else None),
+            points=q.points,
+            question_type=q.question_type or "mcq",
+            is_required=bool(getattr(q, "is_required", False)),
+        )
+        for q in (quiz.questions or [])
+    ]
+    return QuizResponse(
+        id=quiz.id,
+        module_id=quiz.module_id,
+        title=quiz.title,
+        passing_score=quiz.passing_score,
+        time_limit_minutes=quiz.time_limit_minutes,
+        is_published=quiz.is_published,
+        is_optional=bool(getattr(quiz, "is_optional", True)),
+        questions=questions,
+    )
+
+
 @router.post(
     "",
     response_model=QuizResponse,
@@ -29,6 +64,7 @@ def create_quiz(
     check_module_write_permission(db, request.module_id, current_user)
     return QuizService.create_quiz(db, request=request)
 
+
 @router.get(
     "/{quiz_id}",
     response_model=QuizResponse,
@@ -43,7 +79,8 @@ def get_quiz(
 ):
     quiz = QuizService.get_quiz(db, quiz_id=quiz_id)
     QuizService.verify_quiz_access(db, user=current_user, quiz=quiz)
-    return quiz
+    return _serialize_quiz_for_user(quiz, current_user)
+
 
 @router.post(
     "/{quiz_id}/questions",
@@ -62,6 +99,7 @@ def create_question(
     check_module_write_permission(db, quiz.module_id, current_user)
     return QuizService.create_question(db, quiz_id=quiz_id, request=request)
 
+
 @router.post(
     "/{quiz_id}/attempt",
     response_model=QuizAttemptResponse,
@@ -75,10 +113,12 @@ def submit_attempt(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify user has access to take this quiz
+    if request.quiz_id != quiz_id:
+        request = QuizAttemptCreate(quiz_id=quiz_id, answers=request.answers)
     quiz = QuizService.get_quiz(db, quiz_id=quiz_id)
     QuizService.verify_quiz_access(db, user=current_user, quiz=quiz)
     return QuizService.submit_attempt(db, user_id=current_user.id, request=request)
+
 
 @router.get(
     "/{quiz_id}/results",
@@ -92,10 +132,7 @@ def get_quiz_results(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Ensure quiz exists
     QuizService.get_quiz(db, quiz_id=quiz_id)
-    
-    # Retrieve user's latest attempt for this quiz
     attempt = db.query(QuizAttempt).filter(
         QuizAttempt.quiz_id == quiz_id,
         QuizAttempt.user_id == current_user.id
@@ -108,6 +145,7 @@ def get_quiz_results(
         )
 
     return QuizService.calculate_score(db, quiz_attempt_id=attempt.id)
+
 
 @router.get(
     "/module/{module_id}",
@@ -123,7 +161,8 @@ def get_quiz_by_module(
 ):
     quiz = QuizService.get_quiz_by_module(db, module_id=module_id)
     QuizService.verify_quiz_access(db, user=current_user, quiz=quiz)
-    return quiz
+    return _serialize_quiz_for_user(quiz, current_user)
+
 
 @router.delete(
     "/module/{module_id}",

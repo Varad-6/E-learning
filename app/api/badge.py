@@ -35,8 +35,7 @@ def get_badge_tiers(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    from app.models.badge_tier import BadgeTier
-    return db.query(BadgeTier).order_by(BadgeTier.tier_order.asc()).all()
+    return BadgeService.ensure_badge_tiers(db)
 
 @users_router.get(
     "/{user_id}/badges",

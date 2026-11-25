@@ -4,8 +4,16 @@ venv/
 __pycache__/
 *.pyc
 
-# Environment
+# Environment & Secrets
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs & Backups
+*.log
+backup_before_reset_*
 
 # VS Code
 .vscode/
@@ -17,6 +25,7 @@ node_modules/
 dist/
 build/
 frontend/node_modules/
+frontend/dist/
 frontend/.vite/
 
 # Scratch & Temporary

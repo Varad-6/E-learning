@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
 from uuid import UUID
 from typing import List
+import uuid
 from app.models.user_badge import UserBadge
 from app.models.badge_tier import BadgeTier
 from app.models.course_enrollment import CourseEnrollment
@@ -8,31 +10,69 @@ from app.models.course import Course
 from app.models.user import User
 from app.services.audit_service import AuditService
 
+DEFAULT_BADGE_TIERS = [
+    ("Bronze III", 1, "bronze_3", 1, 0),
+    ("Bronze II", 2, "bronze_2", 2, 0),
+    ("Bronze I", 3, "bronze_1", 3, 0),
+    ("Silver III", 4, "silver_3", 4, 0),
+    ("Silver II", 5, "silver_2", 5, 0),
+    ("Silver I", 6, "silver_1", 6, 0),
+    ("Gold III", 7, "gold_3", 7, 0),
+    ("Gold II", 8, "gold_2", 8, 0),
+    ("Gold I", 9, "gold_1", 9, 0),
+    ("Ruby Crest", 10, "ruby_crest", 10, 0),
+    ("Amethyst III", 11, "amethyst_3", 11, 0),
+    ("Amethyst II", 12, "amethyst_2", 12, 0),
+    ("Amethyst I", 13, "amethyst_1", 13, 0),
+    ("Emerald III", 14, "emerald_3", 14, 0),
+    ("Emerald II", 15, "emerald_2", 15, 0),
+    ("Emerald I", 16, "emerald_1", 16, 0),
+    ("Sapphire III", 17, "sapphire_3", 17, 0),
+    ("Sapphire II", 18, "sapphire_2", 18, 0),
+    ("Sapphire I", 19, "sapphire_1", 19, 0),
+    ("Diamond Crest", 20, "diamond_crest", 20, 0),
+]
+
+
 class BadgeService:
     @staticmethod
+    def ensure_badge_tiers(db: Session) -> List[BadgeTier]:
+        """Ensure the progression badge tiers exist in the database if table is empty."""
+        tiers = db.query(BadgeTier).order_by(BadgeTier.tier_order.asc()).all()
+        if tiers:
+            return tiers
+
+        for name, tier_order, icon_asset_ref, courses_req, min_score in DEFAULT_BADGE_TIERS:
+            db.add(
+                BadgeTier(
+                    id=uuid.uuid4(),
+                    name=name,
+                    tier_order=tier_order,
+                    icon_asset_ref=icon_asset_ref,
+                    courses_required_cumulative=courses_req,
+                    min_score_percent=min_score,
+                )
+            )
+        db.commit()
+        return db.query(BadgeTier).order_by(BadgeTier.tier_order.asc()).all()
+
+    @staticmethod
     def check_and_award_badges(db: Session, user_id: UUID) -> List[UserBadge]:
-        """Check course completion milestones and award badges dynamically based on configured tiers."""
+        """Check course completion milestones and award badges dynamically based on configured DB tiers."""
+        BadgeService.ensure_badge_tiers(db)
+
         completed_count = db.query(CourseEnrollment).join(
             Course, CourseEnrollment.course_id == Course.id
         ).filter(
             CourseEnrollment.user_id == user_id,
-            CourseEnrollment.status == "completed",
-            Course.status == "published"
+            or_(CourseEnrollment.status == "completed", CourseEnrollment.progress_percent >= 100),
+            or_(Course.is_published == True, Course.status.in_(["published", "approved"]))
         ).count()
-
-        # Also count graded exam submissions and compute performance scores
-        from app.models.exam import ExamSubmission, ExamGrade
-        from app.models.quiz_attempt import QuizAttempt
-        from sqlalchemy import func, or_
-
-        graded_exams = db.query(ExamSubmission).filter(
-            ExamSubmission.user_id == user_id,
-            ExamSubmission.status == "graded"
-        ).count()
-
-        total_milestones = completed_count + graded_exams
 
         # Calculate average score percentage across quizzes and exams
+        from app.models.exam import ExamSubmission, ExamGrade
+        from app.models.quiz_attempt import QuizAttempt
+
         avg_quiz = db.query(func.avg(QuizAttempt.score)).filter(QuizAttempt.user_id == user_id).scalar()
         avg_exam = db.query(func.avg(ExamGrade.overall_score * 10)).join(
             ExamSubmission, ExamGrade.submission_id == ExamSubmission.id
@@ -49,9 +89,9 @@ class BadgeService:
 
         user_score_pct = (sum(scores) / len(scores)) if scores else 100.0
 
-        # Fetch all eligible tiers meeting both milestone count and score threshold
+        # Fetch all eligible tiers meeting both completed courses count and score threshold
         eligible_tiers = db.query(BadgeTier).filter(
-            BadgeTier.courses_required_cumulative <= total_milestones,
+            BadgeTier.courses_required_cumulative <= completed_count,
             or_(
                 BadgeTier.min_score_percent == None,
                 BadgeTier.min_score_percent <= user_score_pct

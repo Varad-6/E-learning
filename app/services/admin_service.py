@@ -2,6 +2,7 @@ from typing import List, Optional
 from uuid import UUID
 import re
 from datetime import datetime, timezone, timedelta
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -34,7 +35,7 @@ class AdminService:
             user_email = candidate_email
         else:
             user_email = str(request.email).strip().lower()
-            existing_email = db.query(User).filter(User.email == user_email).first()
+            existing_email = db.query(User).filter(func.lower(User.email) == user_email).first()
             if existing_email:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -104,14 +105,16 @@ class AdminService:
                 )
             user.employee_code = request.employee_code
 
-        if request.email and request.email != user.email:
-            existing = db.query(User).filter(User.email == request.email, User.id != user.id).first()
-            if existing:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Email '{request.email}' already exists."
-                )
-            user.email = request.email
+        if request.email:
+            normalized_email = str(request.email).strip().lower()
+            if normalized_email != (user.email or "").lower():
+                existing = db.query(User).filter(func.lower(User.email) == normalized_email, User.id != user.id).first()
+                if existing:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Email '{normalized_email}' already exists."
+                    )
+            user.email = normalized_email
 
         dept_changed = False
         if request.department_id is not None and request.department_id != user.department_id:

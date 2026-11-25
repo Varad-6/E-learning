@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BookOpen, Clock, CheckCircle, Upload, Hourglass, Calendar, FileText, Award, AlertCircle } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
-import { apiCall } from '../../services/api';
+import { apiCall, getApiBaseUrl, openProtectedFile } from '../../services/api';
+import { useLiveSync } from '../../services/liveSync';
 import { Modal } from '../../components/Modal/Modal';
 
 interface ExamSubmission {
@@ -58,9 +59,9 @@ export const ExamsCenter: React.FC = () => {
   const [viewingDetails, setViewingDetails] = useState<{ submission: ExamSubmission; exam: ExamDetails } | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
-  const fetchCategorizedExams = async () => {
+  const fetchCategorizedExams = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await apiCall('/api/exams/employee/exams');
       if (res.ok) {
         const data = await res.json();
@@ -71,7 +72,7 @@ export const ExamsCenter: React.FC = () => {
     } catch (e) {
       console.error('Error fetching employee exams:', e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -81,6 +82,12 @@ export const ExamsCenter: React.FC = () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
+
+  useLiveSync(['exams', 'enrollments', 'courses'], () => {
+    if (!activeSubmissionRef.current) {
+      fetchCategorizedExams(true);
+    }
+  });
 
   // Refs to always access the latest state in the unmount cleanup
   const activeSubmissionRef = useRef(activeSubmission);
@@ -212,15 +219,6 @@ export const ExamsCenter: React.FC = () => {
         if (accessToken) {
           headers['Authorization'] = `Bearer ${accessToken}`;
         }
-
-        // Get API base URL
-        const getApiBaseUrl = () => {
-          if (import.meta.env.VITE_API_BASE_URL) {
-            return import.meta.env.VITE_API_BASE_URL;
-          }
-          const port = window.location.port === '5180' || window.location.port === '5181' ? '8000' : '8000';
-          return `${window.location.protocol}//${window.location.hostname}:${port}`;
-        };
 
         const url = `${getApiBaseUrl()}/api/exams/${sub.exam_id}/submit`;
 
@@ -931,14 +929,13 @@ export const ExamsCenter: React.FC = () => {
                     {fileObj ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <CheckCircle size={16} style={{ color: isCorrect ? 'var(--accent-color)' : '#ef4444' }} />
-                        <a 
-                          href={fileObj.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          style={{ color: 'var(--accent-color)', fontWeight: '600', textDecoration: 'underline' }}
+                        <button
+                          type="button"
+                          onClick={() => openProtectedFile(fileObj!.url, fileObj!.name).catch(() => alert('Failed to download attachment.'))}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-color)', fontWeight: '600', textDecoration: 'underline' }}
                         >
                           {fileObj.name}
-                        </a>
+                        </button>
                         <span style={{ fontSize: '0.8rem', fontWeight: 800, color: isCorrect ? 'var(--accent-color)' : '#ef4444', marginLeft: 'auto' }}>
                           {isCorrect ? 'Approved' : 'Needs Improvement'}
                         </span>

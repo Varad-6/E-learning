@@ -118,25 +118,8 @@ def list_courses(
     for c in courses:
         c.can_delete = can_user_delete_course(c, current_user)
         c.can_edit = can_user_edit_course(c, current_user)
-    
-    # Apply the same scope filtering to total count for correct pagination metadata
-    roles = [r.name for r in current_user.roles]
-    is_global_admin = any(r in roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN"]) or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
-    is_manager = any(r in roles for r in ["MANAGER", "COURSE_MANAGER"])
 
-    total_count = db.query(Course)
-    if not is_global_admin:
-        from sqlalchemy import or_, and_
-        total_count = total_count.filter(
-            or_(
-                Course.created_by == current_user.id,
-                Course.status.in_(["approved", "published"])
-            )
-        )
-        
-    if status_filter:
-        total_count = total_count.filter(Course.status == status_filter)
-    total = total_count.count()
+    total = CourseService.count_courses(db, current_user=current_user, status_filter=status_filter)
     return CourseListResponse(courses=courses, total=total)
 
 @router.get(
@@ -175,6 +158,8 @@ def get_available_courses(
             if dept_course_ids:
                 filters.append(Course.id.in_(dept_course_ids))
             query = query.filter(or_(*filters))
+        else:
+            query = query.filter(Course.department_id.is_(None))
     else:
         if department_id is not None:
             dept_course_ids = [r[0] for r in db.query(CourseDepartment.course_id).filter(CourseDepartment.department_id == department_id).all()]
@@ -287,6 +272,17 @@ def create_course(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
+    if not is_admin_user(current_user):
+        if request.start_date is not None or request.end_date is not None or (request.duration is not None and request.duration.strip() != ""):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied: Only an Administrator can set the course start date, end date, or deadline."
+            )
+    if request.start_date and request.end_date and request.end_date <= request.start_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Course end date must be after start date."
+        )
     course = CourseService.create_course(db, request=request, user_id=current_user.id)
     course.can_delete = True
     course.can_edit = True
@@ -318,6 +314,23 @@ def update_course(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied: Only the course creator or an administrator can edit this course."
+        )
+    fields_set = getattr(request, "model_fields_set", set())
+    if not is_admin_user(current_user):
+        changing_start = "start_date" in fields_set and request.start_date != course.start_date
+        changing_end = "end_date" in fields_set and request.end_date != course.end_date
+        changing_duration = "duration" in fields_set and request.duration != course.duration
+        if changing_start or changing_end or changing_duration:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied: Only an Administrator can set or modify the course start date, end date, or deadline."
+            )
+    eff_start = request.start_date if "start_date" in fields_set else course.start_date
+    eff_end = request.end_date if "end_date" in fields_set else course.end_date
+    if eff_start and eff_end and eff_end <= eff_start:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Course end date must be after start date."
         )
     updated_course = CourseService.update_course(db, course_id=course_id, request=request)
     updated_course.can_delete = can_user_delete_course(updated_course, current_user)
@@ -485,42 +498,46 @@ def submit_for_approval(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    course = CourseService.submit_for_approval(db, course_id=course_id, user_id=current_user.id)
+    approval = CourseService.submit_for_approval(db, course_id=course_id, user_id=current_user.id)
+    course = db.query(Course).filter(Course.id == course_id).first()
+    course_title = course.title if course else "Course"
+    course_code = (course.course_code or str(course_id)) if course else str(course_id)
+    creator_id = course.created_by if course else current_user.id
+
     AuditService.create_entry(
         db=db,
         actor=current_user.email,
         action="SUBMIT_COURSE_APPROVAL",
-        target=course.course_code or str(course.id),
-        details=f"Submitted course '{course.title}' for manager approval"
+        target=course_code,
+        details=f"Submitted course '{course_title}' for manager approval"
     )
     
-    # 🟢 Trigger notifications
-    # Creator notification
-    NotificationService.create_notification(
-        db,
-        user_id=course.creator_id,
-        type="course_submitted",
-        title="Course Submitted for Approval",
-        message=f"Your course '{course.title}' has been submitted for review.",
-        related_entity_id=course.id
-    )
+    # Trigger notifications
+    if creator_id:
+        NotificationService.create_notification(
+            db,
+            user_id=creator_id,
+            type="course_submitted",
+            title="Course Submitted for Approval",
+            message=f"Your course '{course_title}' has been submitted for review.",
+            related_entity_id=course_id
+        )
     
-    # Manager notification
-    if course.department_id:
-        managers = db.query(User).join(User.roles).filter(
-            User.department_id == course.department_id,
-            Role.name == "COURSE_MANAGER"
-        ).all()
-        for mgr in managers:
+    # Manager notification across all assigned departments
+    if course:
+        mgr_query = db.query(User).join(User.roles).filter(Role.name == "COURSE_MANAGER")
+        if not course.is_all_departments and course.department_ids:
+            mgr_query = mgr_query.filter(User.department_id.in_(course.department_ids))
+        for mgr in mgr_query.all():
             NotificationService.create_notification(
                 db,
                 user_id=mgr.id,
                 type="course_pending",
                 title="New Course Pending Approval",
-                message=f"Course '{course.title}' by {current_user.first_name} {current_user.last_name} is pending your approval.",
-                related_entity_id=course.id
+                message=f"Course '{course_title}' by {current_user.first_name} {current_user.last_name} is pending your approval.",
+                related_entity_id=course_id
             )
-    return course
+    return approval
 
 @router.post(
     "/{course_id}/approve",

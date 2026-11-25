@@ -8,6 +8,7 @@ import {
 import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { apiCall } from '../../services/api';
+import { useLiveSync } from '../../services/liveSync';
 import { OTPInput } from '../../components/OTPInput/OTPInput';
 import { useToast } from '../../context/ToastContext';
 import { getBadgeForCompletions } from '../../services/badge';
@@ -143,6 +144,10 @@ export const UserAdminStudio: React.FC = () => {
       loadData();
     }
   }, [navigate]);
+
+  useLiveSync(['users', 'departments', 'courses', 'enrollments'], () => {
+    loadData();
+  });
 
   const loadData = async () => {
     setIsLoading(true);

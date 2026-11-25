@@ -36,6 +36,8 @@ export interface Course {
   created_at?: string;
   is_mandatory?: boolean;
   published_at?: string;
+  start_date?: string | null;
+  end_date?: string | null;
 }
 
 export interface CourseModule {

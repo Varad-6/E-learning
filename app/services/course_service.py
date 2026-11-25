@@ -42,27 +42,31 @@ class CourseService:
                 detail=f"Course code '{request.course_code}' already exists. Next available code is '{suggested}'."
             )
 
-        total_dept_count = db.query(Department).count()
-        is_all = False
-        if request.is_all_departments is True:
-            is_all = True
-        elif request.department_ids and total_dept_count > 0 and len(request.department_ids) >= total_dept_count:
-            is_all = True
-
-        primary_dept_id = None
-        if not is_all:
-            if request.department_ids and len(request.department_ids) > 0:
-                primary_dept_id = request.department_ids[0]
-            elif request.department_id:
-                primary_dept_id = request.department_id
-
-        if primary_dept_id:
-            dept = db.query(Department).filter(Department.id == primary_dept_id).first()
+        dept_ids = list(dict.fromkeys(request.department_ids or []))
+        if dept_ids:
+            valid_depts = {r[0] for r in db.query(Department.id).filter(Department.id.in_(dept_ids)).all()}
+            missing = [str(d) for d in dept_ids if d not in valid_depts]
+            if missing:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Department(s) not found: {', '.join(missing)}"
+                )
+        elif request.department_id:
+            dept = db.query(Department).filter(Department.id == request.department_id).first()
             if not dept:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Department with ID {primary_dept_id} not found."
+                    detail=f"Department with ID {request.department_id} not found."
                 )
+            dept_ids = [request.department_id]
+
+        total_dept_count = db.query(Department).count()
+        is_all = (
+            bool(request.is_all_departments)
+            or (total_dept_count > 0 and len(dept_ids) >= total_dept_count)
+            or (not dept_ids and request.department_id is None)
+        )
+        primary_dept_id = None if is_all else dept_ids[0]
 
         db_course = Course(
             course_code=request.course_code,
@@ -75,6 +79,8 @@ class CourseService:
             is_published=False,
             duration=request.duration,
             priority=request.priority,
+            start_date=request.start_date,
+            end_date=request.end_date,
             is_mandatory=request.is_mandatory,
             video_url=request.video_url.strip() if request.video_url else None
         )
@@ -88,12 +94,9 @@ class CourseService:
             for d in all_depts:
                 db.add(CourseDepartment(course_id=db_course.id, department_id=d.id))
             db.commit()
-        elif request.department_ids:
-            for d_id in request.department_ids:
+        elif dept_ids:
+            for d_id in dept_ids:
                 db.add(CourseDepartment(course_id=db_course.id, department_id=d_id))
-            db.commit()
-        elif primary_dept_id:
-            db.add(CourseDepartment(course_id=db_course.id, department_id=primary_dept_id))
             db.commit()
 
         # Assign existing modules if requested
@@ -110,9 +113,10 @@ class CourseService:
                         mod.course_id = db_course.id
             db.commit()
 
-        # Auto-assign to employees in selected departments / company-wide
-        from app.services.enrollment_service import EnrollmentService
-        EnrollmentService.assign_course_to_departments(db, db_course.id)
+        # Auto-assign to employees only once published
+        if db_course.is_published:
+            from app.services.enrollment_service import EnrollmentService
+            EnrollmentService.assign_course_to_departments(db, db_course.id)
 
         db.refresh(db_course)
         return db_course
@@ -140,11 +144,34 @@ class CourseService:
 
         if request.is_all_departments is not None or request.department_ids is not None:
             dept_changed = True
+            dept_ids = list(dict.fromkeys(request.department_ids or []))
+            if dept_ids:
+                valid_depts = {r[0] for r in db.query(Department.id).filter(Department.id.in_(dept_ids)).all()}
+                missing = [str(d) for d in dept_ids if d not in valid_depts]
+                if missing:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Department(s) not found: {', '.join(missing)}"
+                    )
+
             is_all = False
             if request.is_all_departments is True:
                 is_all = True
-            elif request.department_ids and total_dept_count > 0 and len(request.department_ids) >= total_dept_count:
+            elif dept_ids and total_dept_count > 0 and len(dept_ids) >= total_dept_count:
                 is_all = True
+            elif not dept_ids and request.department_id is not None:
+                dept = db.query(Department).filter(Department.id == request.department_id).first()
+                if not dept:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Department with ID {request.department_id} not found."
+                    )
+                dept_ids = [request.department_id]
+            elif request.is_all_departments is False and not dept_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="At least one department must be selected."
+                )
 
             db.query(CourseDepartment).filter(CourseDepartment.course_id == course_id).delete()
             if is_all:
@@ -152,12 +179,15 @@ class CourseService:
                 all_depts = db.query(Department).all()
                 for d in all_depts:
                     db.add(CourseDepartment(course_id=course_id, department_id=d.id))
-            elif request.department_ids:
-                db_course.department_id = request.department_ids[0]
-                for d_id in request.department_ids:
+            elif dept_ids:
+                db_course.department_id = dept_ids[0]
+                for d_id in dept_ids:
                     db.add(CourseDepartment(course_id=course_id, department_id=d_id))
             else:
                 db_course.department_id = None
+                all_depts = db.query(Department).all()
+                for d in all_depts:
+                    db.add(CourseDepartment(course_id=course_id, department_id=d.id))
             db.commit()
         elif request.department_id is not None and request.department_id != db_course.department_id:
             dept_changed = True
@@ -172,14 +202,27 @@ class CourseService:
             db.add(CourseDepartment(course_id=course_id, department_id=request.department_id))
             db.commit()
 
+        fields_set = getattr(request, "model_fields_set", set())
+        deadline_changed = False
+
         if request.title is not None:
             db_course.title = request.title
         if request.description is not None:
             db_course.description = request.description
         if request.difficulty_level is not None:
             db_course.difficulty_level = request.difficulty_level
-        if request.duration is not None:
+        if "duration" in fields_set or request.duration is not None:
+            if db_course.duration != request.duration:
+                deadline_changed = True
             db_course.duration = request.duration
+        if "start_date" in fields_set or request.start_date is not None:
+            if db_course.start_date != request.start_date:
+                deadline_changed = True
+            db_course.start_date = request.start_date
+        if "end_date" in fields_set or request.end_date is not None:
+            if db_course.end_date != request.end_date:
+                deadline_changed = True
+            db_course.end_date = request.end_date
         if request.priority is not None:
             db_course.priority = request.priority
         if request.is_mandatory is not None:
@@ -206,8 +249,6 @@ class CourseService:
             if request.status is not None:
                 db_course.status = request.status.value if hasattr(request.status, 'value') else request.status
 
-        if request.duration is not None:
-            db_course.duration = request.duration
         if request.priority is not None:
             db_course.priority = request.priority
 
@@ -228,8 +269,25 @@ class CourseService:
         db.commit()
         db.refresh(db_course)
 
-        # If department was changed or course published or mandatory, sync enrollments
-        if dept_changed or will_publish or db_course.is_mandatory:
+        # Sync existing enrollments' deadlines if Admin updated start_date/end_date/duration
+        if deadline_changed:
+            from app.services.enrollment_service import compute_course_deadline
+            now_utc = datetime.now(timezone.utc)
+            active_enrs = db.query(CourseEnrollment).filter(
+                CourseEnrollment.course_id == course_id,
+                CourseEnrollment.status != "completed"
+            ).all()
+            for enr in active_enrs:
+                new_exp = compute_course_deadline(db_course, enrolled_at=enr.enrolled_at)
+                enr.expires_at = new_exp
+                if new_exp is None or new_exp > now_utc:
+                    enr.is_locked = False
+                    if enr.status == "dropped":
+                        enr.status = "in_progress" if (enr.progress_percent or 0) > 0 else "enrolled"
+            db.commit()
+
+        # If department was changed or course published or mandatory while published, sync enrollments
+        if db_course.is_published and (dept_changed or will_publish or db_course.is_mandatory):
             from app.services.enrollment_service import EnrollmentService
             EnrollmentService.assign_course_to_departments(db, course_id)
 
@@ -246,6 +304,62 @@ class CourseService:
         return db_course
 
     @staticmethod
+    def _dept_course_filter(db: Session, department_id: Optional[UUID]):
+        """SQLAlchemy filter matching courses assigned to a specific department or all departments."""
+        if department_id is None:
+            return Course.department_id.is_(None)
+        dept_course_ids = [
+            r[0] for r in db.query(CourseDepartment.course_id).filter(
+                CourseDepartment.department_id == department_id
+            ).all()
+        ]
+        filters = [
+            Course.department_id == department_id,
+            Course.department_id.is_(None)
+        ]
+        if dept_course_ids:
+            filters.append(Course.id.in_(dept_course_ids))
+        return or_(*filters)
+
+    @staticmethod
+    def _build_courses_query(db: Session, current_user: User, status_filter: Optional[str] = None):
+        """Build scoped course query for list_courses and total count."""
+        query = db.query(Course)
+        roles = [r.name for r in current_user.roles]
+        is_global_admin = any(r in roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN"]) or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
+        is_manager = any(r in roles for r in ["MANAGER", "COURSE_MANAGER"])
+
+        if not is_global_admin:
+            dept_filter = CourseService._dept_course_filter(db, current_user.department_id)
+            if is_manager:
+                query = query.filter(
+                    or_(
+                        Course.created_by == current_user.id,
+                        and_(Course.status == "pending", dept_filter),
+                        and_(
+                            Course.is_published == True,
+                            Course.status.in_(["approved", "published"]),
+                            dept_filter
+                        )
+                    )
+                )
+            else:
+                query = query.filter(
+                    or_(
+                        Course.created_by == current_user.id,
+                        and_(
+                            Course.is_published == True,
+                            Course.status.in_(["approved", "published"]),
+                            dept_filter
+                        )
+                    )
+                )
+
+        if status_filter:
+            query = query.filter(Course.status == status_filter)
+        return query
+
+    @staticmethod
     def list_courses(
         db: Session, 
         current_user: User,
@@ -253,38 +367,17 @@ class CourseService:
         limit: int = 100, 
         status_filter: Optional[str] = None
     ) -> List[Course]:
-        query = db.query(Course)
-        
-        # Extract user roles
-        roles = [r.name for r in current_user.roles]
-        is_global_admin = any(r in roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN"]) or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
-
-        if not is_global_admin:
-            from sqlalchemy import or_, and_
-            dept_course_ids = []
-            if current_user.department_id:
-                dept_course_ids = [r[0] for r in db.query(CourseDepartment.course_id).filter(CourseDepartment.department_id == current_user.department_id).all()]
-            
-            filter_or = [
-                Course.department_id == current_user.department_id,
-                Course.department_id.is_(None)
-            ]
-            if dept_course_ids:
-                filter_or.append(Course.id.in_(dept_course_ids))
-
-            query = query.filter(
-                or_(
-                    Course.created_by == current_user.id,
-                    and_(
-                        Course.status.in_(["approved", "published"]),
-                        or_(*filter_or)
-                    )
-                )
-            )
-            
-        if status_filter:
-            query = query.filter(Course.status == status_filter)
+        query = CourseService._build_courses_query(db, current_user=current_user, status_filter=status_filter)
         return query.order_by(Course.created_at.desc()).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def count_courses(
+        db: Session,
+        current_user: User,
+        status_filter: Optional[str] = None
+    ) -> int:
+        query = CourseService._build_courses_query(db, current_user=current_user, status_filter=status_filter)
+        return query.count()
 
     @staticmethod
     def publish_course(db: Session, course_id: UUID) -> Course:
@@ -580,8 +673,9 @@ class CourseService:
             Course, CourseEnrollment.course_id == Course.id
         ).filter(
             CourseEnrollment.user_id == current_user.id,
-            CourseEnrollment.status != "dropped",
-            or_(Course.status == "published", Course.status == "approved", Course.is_published == True)
+            or_(CourseEnrollment.status != "dropped", CourseEnrollment.is_locked == True),
+            Course.is_published == True,
+            Course.status.in_(["published", "approved"])
         ).all()
 
         items: List[MyCourseItem] = []
@@ -589,6 +683,20 @@ class CourseService:
         not_started_count = 0
         in_progress_count = 0
         completed_count = 0
+
+        now_utc = datetime.now(timezone.utc)
+        lock_updated = False
+        for enr in enrollments:
+            course = enr.course
+            if not course:
+                continue
+            if not enr.is_locked and enr.expires_at and enr.status != "completed":
+                exp_utc = enr.expires_at.replace(tzinfo=timezone.utc) if enr.expires_at.tzinfo is None else enr.expires_at
+                if now_utc > exp_utc:
+                    enr.is_locked = True
+                    lock_updated = True
+        if lock_updated:
+            db.commit()
 
         for enr in enrollments:
             course = enr.course
@@ -677,6 +785,9 @@ class CourseService:
                 last_accessed_at=enr.last_accessed_at,
                 completed_at=enr.completed_at,
                 expires_at=enr.expires_at,
+                start_date=course.start_date,
+                end_date=course.end_date,
+                is_locked=bool(enr.is_locked),
                 next_module_id=next_mod_id,
                 next_module_title=next_mod_title
             ))
@@ -721,10 +832,21 @@ class CourseService:
         skip: int = 0,
         limit: int = 50
     ) -> CatalogResponse:
-        courses = db.query(Course).filter(
+        from app.services.enrollment_service import EnrollmentService
+        EnrollmentService.auto_enroll_user_in_mandatory_courses(db, current_user.id)
+
+        roles = [r.name for r in current_user.roles]
+        is_global_admin = any(r in roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN"]) or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
+
+        course_query = db.query(Course).filter(
             Course.is_published == True,
             Course.status.in_(["approved", "published"])
-        ).all()
+        )
+
+        if not is_global_admin:
+            course_query = course_query.filter(CourseService._dept_course_filter(db, current_user.department_id))
+
+        courses = course_query.all()
 
         # Collect distinct categories
         cats_set = set()
@@ -737,7 +859,7 @@ class CourseService:
         user_enrollments = {
             e.course_id: e for e in db.query(CourseEnrollment).filter(
                 CourseEnrollment.user_id == current_user.id,
-                CourseEnrollment.status != "dropped"
+                or_(CourseEnrollment.status != "dropped", CourseEnrollment.is_locked == True)
             ).all()
         }
 
@@ -787,6 +909,9 @@ class CourseService:
                 user_status=u_status,
                 progress_percent=int(enr.progress_percent or 0) if enr else 0,
                 last_accessed_at=enr.last_accessed_at if enr else None,
+                start_date=c.start_date,
+                end_date=c.end_date,
+                is_locked=bool(enr.is_locked) if enr else False,
                 creator_name=c.creator_name,
                 created_by=c.created_by,
                 can_delete=can_user_delete_course(c, current_user),
@@ -811,6 +936,7 @@ class CourseService:
                 item for item in filtered
                 if item.department_name and (
                     item.department_name.lower() == cat_lower or
+                    cat_lower in [p.strip().lower() for p in item.department_name.split(",")] or
                     (cat_lower in ["all departments", "company-wide", "general"] and item.department_name.lower() in ["all departments", "company-wide", "general"])
                 )
             ]
@@ -877,7 +1003,7 @@ class CourseService:
         course = db.query(Course).filter(Course.id == course_id).first()
         if not course:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Course with ID {course_id} not found.")
-        if not (course.is_published or course.status in ["approved", "published"]):
+        if not (course.is_published and course.status in ["approved", "published"]):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot enroll in an unpublished course.")
 
         enr = db.query(CourseEnrollment).filter(
@@ -886,16 +1012,19 @@ class CourseService:
         ).first()
 
         if enr:
-            if enr.status == "dropped":
+            if enr.status == "dropped" and not enr.is_locked:
+                now = datetime.now(timezone.utc)
+                from app.services.enrollment_service import compute_course_deadline
                 enr.status = "enrolled"
-                enr.enrolled_at = datetime.now(timezone.utc)
+                enr.enrolled_at = now
+                enr.expires_at = compute_course_deadline(course, enrolled_at=now)
                 db.commit()
                 db.refresh(enr)
             return enr
 
-        from app.services.enrollment_service import parse_duration
-        base_time = course.published_at if course.published_at is not None else datetime.now(timezone.utc)
-        expires_at = base_time + parse_duration(course.duration)
+        from app.services.enrollment_service import compute_course_deadline
+        now = datetime.now(timezone.utc)
+        expires_at = compute_course_deadline(course, enrolled_at=now)
 
         new_enr = CourseEnrollment(
             user_id=current_user.id,
@@ -903,7 +1032,7 @@ class CourseService:
             enrolled_by=None,
             status="enrolled",
             progress_percent=0,
-            enrolled_at=datetime.now(timezone.utc),
+            enrolled_at=now,
             expires_at=expires_at,
             is_locked=False
         )
@@ -995,6 +1124,10 @@ class CourseService:
             progress_percent=enr.progress_percent if enr else 0,
             last_accessed_at=enr.last_accessed_at if enr else None,
             completed_at=enr.completed_at if enr else None,
+            expires_at=enr.expires_at if enr else None,
+            start_date=course.start_date,
+            end_date=course.end_date,
+            is_locked=bool(enr.is_locked) if enr else False,
             modules=detail_modules,
             can_delete=can_user_delete_course(course, current_user),
             can_edit=can_user_edit_course(course, current_user)

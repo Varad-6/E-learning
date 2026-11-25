@@ -9,12 +9,13 @@ import { Button } from '../../components/Button/Button';
 import { Modal } from '../../components/Modal/Modal';
 import { LearnersModal } from '../../components/LearnersModal/LearnersModal';
 import { apiCall } from '../../services/api';
+import { useLiveSync } from '../../services/liveSync';
 import { CourseraRichText } from '../../components/CourseraRichText/CourseraRichText';
 import { DurationInput } from '../../components/DurationInput/DurationInput';
 import { YouTubeEmbed } from '../../components/YouTubeEmbed/YouTubeEmbed';
 import { isValidYouTubeUrl } from '../../utils/youtube';
-import { formatDuration, parseDuration, buildDurationString, validateDuration } from '../../utils/duration';
-import { canDeleteCourse } from '../../utils/coursePermissions';
+import { formatDuration, parseDuration, buildDurationString, validateDuration, toLocalDateTimeInput, fromLocalDateTimeInput, formatCourseDeadline } from '../../utils/duration';
+import { canDeleteCourse, isCurrentUserAdmin } from '../../utils/coursePermissions';
 import './Creator.css';
 
 export interface Department {
@@ -44,6 +45,8 @@ interface CourseData {
   created_by?: string | null;
   createdDate: string;
   published_at?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   is_mandatory?: boolean;
   video_url?: string | null;
 }
@@ -86,7 +89,7 @@ export const CreatorDashboard: React.FC = () => {
   // User context
   const [role, setRole] = useState('Employee');
   const [dept, setDept] = useState('AI');
-  const [profileName, setProfileName] = useState('John Doe');
+  const [profileName, setProfileName] = useState('');
   const [reviewModules, setReviewModules] = useState<any[]>([]);
 
   // Core list states
@@ -120,9 +123,11 @@ export const CreatorDashboard: React.FC = () => {
   const [courseCode, setCourseCode] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
-  const [durationDays, setDurationDays] = useState(7);
+  const [durationDays, setDurationDays] = useState(0);
   const [durationHours, setDurationHours] = useState(0);
   const [durationMinutes, setDurationMinutes] = useState(0);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [courseSearchQuery, setCourseSearchQuery] = useState('');
   const [courseToDelete, setCourseToDelete] = useState<CourseData | null>(null);
@@ -161,11 +166,13 @@ export const CreatorDashboard: React.FC = () => {
             title: c.title,
             description: c.description || '',
             priority: c.priority || 'Medium',
-            duration: c.duration || '10 hours',
+            duration: c.duration || '',
             is_published: c.is_published,
             status: frontendStatus,
             published_at: c.published_at,
-            creatorName: c.creator_name || 'John Doe',
+            start_date: c.start_date || null,
+            end_date: c.end_date || null,
+            creatorName: c.creator_name || '',
             creatorRole: c.creator_role || 'Employee',
             department_id: c.department_id,
             department_ids: c.department_ids || (c.department_id ? [c.department_id] : []),
@@ -179,7 +186,6 @@ export const CreatorDashboard: React.FC = () => {
           };
         });
         setCourses(mapped);
-        localStorage.setItem('creator_courses', JSON.stringify(mapped));
       }
     } catch (err) {
       console.error('Failed to load courses from DB:', err);
@@ -210,6 +216,8 @@ export const CreatorDashboard: React.FC = () => {
   const [editDays, setEditDays] = useState(0);
   const [editHours, setEditHours] = useState(0);
   const [editMinutes, setEditMinutes] = useState(0);
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
   const [editPriority, setEditPriority] = useState('Medium');
   const [editDifficulty, setEditDifficulty] = useState('All Levels');
   const [editIsMandatory, setEditIsMandatory] = useState(false);
@@ -227,21 +235,23 @@ export const CreatorDashboard: React.FC = () => {
     setEditDays(parsed.days || 0);
     setEditHours(parsed.hours || 0);
     setEditMinutes(parsed.minutes || 0);
+    setEditStartDate(toLocalDateTimeInput(course.start_date));
+    setEditEndDate(toLocalDateTimeInput(course.end_date));
     setEditPriority(course.priority || 'Medium');
     setEditDifficulty(course.difficulty_level || 'All Levels');
     setEditIsMandatory(course.is_mandatory || false);
     setEditVideoUrl(course.video_url || '');
     setEditDeptSearchQuery('');
 
-    // Pre-select departments based on course assignments
     if (course.is_all_departments || (!course.department_id && (!course.department_ids || course.department_ids.length === 0))) {
       setSelectedEditDeptIds(departmentsList.map(d => d.id));
     } else if (course.department_ids && course.department_ids.length > 0) {
-      setSelectedEditDeptIds(course.department_ids);
+      const validIds = course.department_ids.filter((id: string) => departmentsList.some(d => d.id === id));
+      setSelectedEditDeptIds(validIds.length > 0 ? validIds : (course.department_id ? [course.department_id] : []));
     } else if (course.department_id) {
       setSelectedEditDeptIds([course.department_id]);
     } else {
-      setSelectedEditDeptIds(departmentsList.map(d => d.id));
+      setSelectedEditDeptIds([]);
     }
 
     setIsEditModalOpen(true);
@@ -257,10 +267,19 @@ export const CreatorDashboard: React.FC = () => {
       triggerToast('At least one department must be selected before saving.', 'error');
       return;
     }
-    const durErr = validateDuration(editDays, editHours, editMinutes);
-    if (durErr) {
-      triggerToast(durErr, 'error');
-      return;
+    const adminAccess = isCurrentUserAdmin();
+    if (adminAccess) {
+      if (editStartDate && editEndDate && new Date(editEndDate) <= new Date(editStartDate)) {
+        triggerToast('Course End Date must be after Start Date.', 'error');
+        return;
+      }
+      if (editDays > 0 || editHours > 0 || editMinutes > 0) {
+        const durErr = validateDuration(editDays, editHours, editMinutes);
+        if (durErr) {
+          triggerToast(durErr, 'error');
+          return;
+        }
+      }
     }
     if (editVideoUrl.trim() && !isValidYouTubeUrl(editVideoUrl.trim())) {
       triggerToast('Please enter a valid YouTube URL for the overview video.', 'error');
@@ -268,22 +287,27 @@ export const CreatorDashboard: React.FC = () => {
     }
     setIsSavingEdit(true);
     try {
-      const durationStr = buildDurationString(editDays, editHours, editMinutes);
       const isAll = departmentsList.length > 0 && selectedEditDeptIds.length === departmentsList.length;
+      const bodyPayload: Record<string, any> = {
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        priority: editPriority,
+        difficulty_level: editDifficulty,
+        is_mandatory: editIsMandatory,
+        video_url: editVideoUrl.trim() || null,
+        department_id: isAll ? null : (selectedEditDeptIds[0] || null),
+        department_ids: selectedEditDeptIds,
+        is_all_departments: isAll
+      };
+      if (adminAccess) {
+        const hasDuration = editDays > 0 || editHours > 0 || editMinutes > 0;
+        bodyPayload.duration = hasDuration ? buildDurationString(editDays, editHours, editMinutes) : null;
+        bodyPayload.start_date = fromLocalDateTimeInput(editStartDate);
+        bodyPayload.end_date = fromLocalDateTimeInput(editEndDate);
+      }
       const res = await apiCall(`/api/courses/${editingCourseId}`, {
         method: 'PUT',
-        body: JSON.stringify({
-          title: editTitle.trim(),
-          description: editDescription.trim(),
-          duration: durationStr,
-          priority: editPriority,
-          difficulty_level: editDifficulty,
-          is_mandatory: editIsMandatory,
-          video_url: editVideoUrl.trim() || null,
-          department_id: isAll ? null : (selectedEditDeptIds[0] || null),
-          department_ids: selectedEditDeptIds,
-          is_all_departments: isAll
-        })
+        body: JSON.stringify(bodyPayload)
       });
       if (res.ok) {
         triggerToast('Course details and department assignments updated successfully!', 'success');
@@ -324,7 +348,7 @@ export const CreatorDashboard: React.FC = () => {
     // Sync user details
     const savedRole = localStorage.getItem('isLoggedInRole') || 'Employee';
     const savedDept = localStorage.getItem('isLoggedInDept') || 'AI';
-    const savedName = localStorage.getItem('profileName') || 'John Doe';
+    const savedName = localStorage.getItem('profileName') || '';
     
     setRole(savedRole);
     setDept(savedDept);
@@ -341,8 +365,11 @@ export const CreatorDashboard: React.FC = () => {
           if (data.length > 0) {
             if (savedRole === 'Manager') {
               setTargetDeptInput(savedDept);
+              const myDept = data.find((d: Department) => d.code === savedDept || d.name === savedDept);
+              setSelectedDeptIds(prev => (prev.length === 0 ? (myDept ? [myDept.id] : [data[0].id]) : prev));
             } else {
               setTargetDeptInput(data[0].code);
+              setSelectedDeptIds(prev => (prev.length === 0 ? data.map((d: Department) => d.id) : prev));
             }
           }
         }
@@ -352,20 +379,21 @@ export const CreatorDashboard: React.FC = () => {
     };
     loadDepts();
 
-    // Initialize course database from cache first
-    const localCourses = localStorage.getItem('creator_courses');
-    if (localCourses) {
-      setCourses(JSON.parse(localCourses));
-    } else {
-      setCourses(INITIAL_COURSES);
-      localStorage.setItem('creator_courses', JSON.stringify(INITIAL_COURSES));
-    }
+    localStorage.removeItem('creator_courses');
+    setCourses(INITIAL_COURSES);
     
     // Sync with database
     fetchDBCourses();
     fetchExams();
     fetchMyEnrollments();
   }, []);
+
+  useLiveSync(['courses', 'enrollments', 'exams', 'departments'], () => {
+    fetchDBCourses();
+    fetchExams();
+    fetchMyEnrollments();
+    fetchDepartments();
+  });
 
   useEffect(() => {
     if (reviewCourse) {
@@ -524,9 +552,11 @@ export const CreatorDashboard: React.FC = () => {
     }
     setDeptSearchQuery('');
     setVideoUrl('');
-    setDurationDays(7);
+    setDurationDays(0);
     setDurationHours(0);
     setDurationMinutes(0);
+    setStartDate('');
+    setEndDate('');
     setIsCreateModalOpen(true);
     setErrors({});
   };
@@ -538,9 +568,11 @@ export const CreatorDashboard: React.FC = () => {
     setDescription('');
     setPriority('Medium');
     setVideoUrl('');
-    setDurationDays(7);
+    setDurationDays(0);
     setDurationHours(0);
     setDurationMinutes(0);
+    setStartDate('');
+    setEndDate('');
     setSelectedDeptIds([]);
     setDeptSearchQuery('');
     setErrors({});
@@ -552,9 +584,16 @@ export const CreatorDashboard: React.FC = () => {
     if (!courseCode.trim()) tempErrors.courseCode = 'Course Code is required.';
     if (!description.trim()) tempErrors.description = 'Course Description is required.';
     if (selectedDeptIds.length === 0) tempErrors.department = 'At least one department must be selected before saving.';
-    const durErr = validateDuration(durationDays, durationHours, durationMinutes);
-    if (durErr) {
-      tempErrors.duration = durErr;
+    if (isCurrentUserAdmin()) {
+      if (startDate && endDate && new Date(endDate) <= new Date(startDate)) {
+        tempErrors.endDate = 'Course End Date must be after Start Date.';
+      }
+      if (durationDays > 0 || durationHours > 0 || durationMinutes > 0) {
+        const durErr = validateDuration(durationDays, durationHours, durationMinutes);
+        if (durErr) {
+          tempErrors.duration = durErr;
+        }
+      }
     }
     if (videoUrl.trim() && !isValidYouTubeUrl(videoUrl.trim())) {
       tempErrors.videoUrl = 'Please enter a valid YouTube URL (e.g. https://www.youtube.com/watch?v=... or https://youtu.be/...)';
@@ -708,10 +747,12 @@ export const CreatorDashboard: React.FC = () => {
     if (!validate()) return;
 
     const isAll = departmentsList.length > 0 && selectedDeptIds.length === departmentsList.length;
-    const durationStr = buildDurationString(durationDays, durationHours, durationMinutes);
+    const adminAccess = isCurrentUserAdmin();
+    const hasDuration = durationDays > 0 || durationHours > 0 || durationMinutes > 0;
+    const durationStr = hasDuration ? buildDurationString(durationDays, durationHours, durationMinutes) : null;
 
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         course_code: courseCode.trim().toUpperCase(),
         title: title.trim(),
         description: description.trim(),
@@ -719,11 +760,15 @@ export const CreatorDashboard: React.FC = () => {
         department_id: isAll ? null : (selectedDeptIds[0] || null),
         department_ids: selectedDeptIds,
         is_all_departments: isAll,
-        duration: durationStr,
         priority: priority,
         is_mandatory: isMandatory,
         video_url: videoUrl.trim() || null
       };
+      if (adminAccess) {
+        payload.duration = durationStr;
+        payload.start_date = fromLocalDateTimeInput(startDate);
+        payload.end_date = fromLocalDateTimeInput(endDate);
+      }
 
       const res = await apiCall('/api/courses', {
         method: 'POST',
@@ -847,36 +892,40 @@ export const CreatorDashboard: React.FC = () => {
   const isAdmin = role === 'Admin' || role === 'HR Admin' || role === 'HR Manager' || role === 'HR' || role === 'SYSTEM_ADMIN' || role === 'HR_ADMIN';
   const isManager = role === 'Manager' || role === 'COURSE_MANAGER';
   
+  // Helper: check if a course targets a specific department (including All Departments & multi-dept assignments)
+  const courseBelongsToDepartment = (c: CourseData, targetDept: { id?: string; code?: string; name?: string }) => {
+    if (c.is_all_departments || (!c.department_id && (!c.department_ids || c.department_ids.length === 0))) {
+      return true;
+    }
+    const targetId = String(targetDept.id || '');
+    if (targetId && Array.isArray(c.department_ids) && c.department_ids.map(String).includes(targetId)) {
+      return true;
+    }
+    if (targetId && c.department_id && String(c.department_id) === targetId) {
+      return true;
+    }
+    const targetCode = (targetDept.code || '').toLowerCase();
+    const targetName = (targetDept.name || '').toLowerCase();
+    const cDeptParts = (c.departmentName || '').split(',').map(p => p.trim().toLowerCase()).filter(Boolean);
+    return (targetName && cDeptParts.includes(targetName)) || (targetCode && cDeptParts.includes(targetCode));
+  };
+
   // Filter courses: Admin/HR/Manager sees all courses across departments; others see courses from their department or created
   const myCreatedCourses = (isAdmin || isManager) ? courses : courses.filter(c => {
     if (selectedDept) {
-      const isDeptMatch = c.departmentName === selectedDept || c.department_id === selectedDept;
-      if (isDeptMatch) return true;
+      const targetDeptObj = departmentsList.find(d => d.code === selectedDept || d.name === selectedDept || d.id === selectedDept);
+      if (targetDeptObj && courseBelongsToDepartment(c, targetDeptObj)) return true;
+      if (c.departmentName === selectedDept || c.department_id === selectedDept) return true;
     }
     return (
       c.creatorName === profileName || 
-      !c.creatorName ||
-      c.creatorName === 'AI Mgr1 User' ||
-      c.creatorName === 'John Doe' ||
-      (profileName === 'John Doe' && c.creatorName === 'John Doe') ||
-      (profileName === 'Dr. Evelyn C.' && c.creatorName === 'Dr. Evelyn C.') ||
-      (profileName === 'Systems Administrator' && c.creatorName === 'Systems Administrator')
+      !c.creatorName
     );
   });
 
   const filteredMyCourses = myCreatedCourses.filter(c => {
     if (selectedCreatorDept && selectedCreatorDept.code !== 'ALL') {
-      const targetCode = (selectedCreatorDept.code || '').toLowerCase();
-      const targetName = (selectedCreatorDept.name || '').toLowerCase();
-      const targetId = String(selectedCreatorDept.id || '');
-      const cDeptName = (c.departmentName || '').toLowerCase();
-      const cDeptId = String(c.department_id || '');
-      
-      const isDeptMatch = (cDeptId && targetId && cDeptId === targetId) || 
-                          cDeptName === targetName || 
-                          cDeptName === targetCode ||
-                          (targetName && cDeptName && (targetName.includes(cDeptName) || cDeptName.includes(targetName)));
-      if (!isDeptMatch) return false;
+      if (!courseBelongsToDepartment(c, selectedCreatorDept)) return false;
     }
     if (statusFilter !== 'All' && c.status !== statusFilter) return false;
     if (courseSearchQuery.trim()) {
@@ -890,10 +939,7 @@ export const CreatorDashboard: React.FC = () => {
   });
 
   const viewCoursesList = courses.filter(c => {
-    const isCreatedByMe = c.creatorName === profileName || 
-      (profileName === 'John Doe' && c.creatorName === 'John Doe') ||
-      (profileName === 'Dr. Evelyn C.' && c.creatorName === 'Dr. Evelyn C.') ||
-      (profileName === 'Systems Administrator' && c.creatorName === 'Systems Administrator');
+    const isCreatedByMe = Boolean(profileName && c.creatorName === profileName);
     const isMandatory = c.is_mandatory || false;
     return isCreatedByMe || isMandatory;
   });
@@ -902,10 +948,13 @@ export const CreatorDashboard: React.FC = () => {
   const pendingApprovals = courses.filter(c => {
     if (c.status !== 'Pending') return false;
     if (isAdmin) {
-      return selectedDept ? (c.departmentName === selectedDept || departmentsList.find(d => d.code === selectedDept)?.name === c.departmentName) : true;
+      if (!selectedDept) return true;
+      const deptNode = departmentsList.find(d => d.code === selectedDept || d.name === selectedDept);
+      return deptNode ? courseBelongsToDepartment(c, deptNode) : c.departmentName === selectedDept;
     }
     if (isDeptHead) {
-      return c.departmentName === dept;
+      const deptNode = departmentsList.find(d => d.code === dept || d.name === dept);
+      return deptNode ? courseBelongsToDepartment(c, deptNode) : c.departmentName === dept;
     }
     return false;
   });
@@ -1143,17 +1192,7 @@ export const CreatorDashboard: React.FC = () => {
                 </div>
 
                 {departmentsList.map(d => {
-                  const deptCourseCount = courses.filter(c => {
-                    const targetCode = (d.code || '').toLowerCase();
-                    const targetName = (d.name || '').toLowerCase();
-                    const targetId = String(d.id || '');
-                    const cDeptName = (c.departmentName || '').toLowerCase();
-                    const cDeptId = String(c.department_id || '');
-                    return (cDeptId && targetId && cDeptId === targetId) || 
-                           cDeptName === targetName || 
-                           cDeptName === targetCode ||
-                           (targetName && cDeptName && (targetName.includes(cDeptName) || cDeptName.includes(targetName)));
-                  }).length;
+                  const deptCourseCount = courses.filter(c => courseBelongsToDepartment(c, d)).length;
                   return (
                     <div
                       key={d.id}
@@ -1323,9 +1362,9 @@ export const CreatorDashboard: React.FC = () => {
                       <div className="course-card-bottom">
                         {/* Course Metadata Bar: Duration & Instructor */}
                         <div className="creator-card-meta-bar">
-                          <div className="creator-meta-duration" title="Course Duration">
+                          <div className="creator-meta-duration" title="Course Schedule / Deadline">
                             <Clock size={13} className="meta-icon" />
-                            <span>{formatDuration(course.duration)}</span>
+                            <span>{formatCourseDeadline(course.start_date, course.end_date, course.duration)}</span>
                           </div>
                           <div 
                             className="creator-meta-instructor" 
@@ -1649,7 +1688,7 @@ export const CreatorDashboard: React.FC = () => {
 
               <div className="dept-selector-grid">
                 {departmentsList.map(deptNode => {
-                  const pendingCount = courses.filter(c => c.status === 'Pending' && (c.departmentName === deptNode.name || c.departmentName === deptNode.code)).length;
+                  const pendingCount = courses.filter(c => c.status === 'Pending' && courseBelongsToDepartment(c, deptNode)).length;
                   return (
                     <div 
                       key={deptNode.id} 
@@ -2163,23 +2202,57 @@ export const CreatorDashboard: React.FC = () => {
             </p>
           </div>
 
-          <div className="form-group-spaced">
-            <DurationInput
-              showDays={true}
-              days={editDays}
-              hours={editHours}
-              minutes={editMinutes}
-              onChange={(d: number, h: number, m: number) => {
-                setEditDays(d);
-                setEditHours(h);
-                setEditMinutes(m);
-              }}
-              label="Course Deadline / Completion Duration"
-              required={true}
-              helperNote="Set the deadline / duration allowed for learners to complete this course before access locks."
-              idPrefix="edit-course-duration"
-            />
-          </div>
+          {isCurrentUserAdmin() ? (
+            <>
+              <div className="form-group-spaced" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label className="form-label-styled" htmlFor="edit-course-start-date">
+                    Course Start Date (Optional)
+                  </label>
+                  <input
+                    id="edit-course-start-date"
+                    type="datetime-local"
+                    className="form-input-styled"
+                    value={editStartDate}
+                    onChange={(e) => setEditStartDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="form-label-styled" htmlFor="edit-course-end-date">
+                    Course End Date / Deadline (Optional)
+                  </label>
+                  <input
+                    id="edit-course-end-date"
+                    type="datetime-local"
+                    className="form-input-styled"
+                    value={editEndDate}
+                    onChange={(e) => setEditEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="form-group-spaced">
+                <DurationInput
+                  showDays={true}
+                  days={editDays}
+                  hours={editHours}
+                  minutes={editMinutes}
+                  onChange={(d: number, h: number, m: number) => {
+                    setEditDays(d);
+                    setEditHours(h);
+                    setEditMinutes(m);
+                  }}
+                  label="Or Completion Duration Window (Optional)"
+                  required={false}
+                  helperNote="Admin only: Set an explicit End Date or a relative completion duration. Leave blank for no automatic lock."
+                  idPrefix="edit-course-duration"
+                />
+              </div>
+            </>
+          ) : (
+            <div className="form-group-spaced" style={{ padding: '12px 14px', borderRadius: '8px', background: 'rgba(107, 114, 128, 0.08)', border: '1px solid var(--border-color)', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              <strong>Course Dates &amp; Deadline (Admin Only):</strong> Only an Administrator can set or modify the course start date, end date, or completion deadline.
+            </div>
+          )}
 
           {/* Course Overview / Introduction Video URL (YouTube) */}
           <div className="form-group-spaced">
@@ -2627,32 +2700,78 @@ export const CreatorDashboard: React.FC = () => {
             </p>
           </div>
 
-          {/* Duration / Deadline */}
-          <div className="form-group-spaced">
-            <DurationInput
-              showDays={true}
-              days={durationDays}
-              hours={durationHours}
-              minutes={durationMinutes}
-              onChange={(d: number, h: number, m: number) => {
-                setDurationDays(d);
-                setDurationHours(h);
-                setDurationMinutes(m);
-                if (errors.duration) {
-                  setErrors(prev => {
-                    const updated = { ...prev };
-                    delete updated.duration;
-                    return updated;
-                  });
-                }
-              }}
-              error={errors.duration}
-              label="Course Deadline / Completion Duration"
-              required={true}
-              helperNote="Set the deadline / duration allowed for learners to complete this course (minimum 1 minute). Courses lock for learners after this deadline."
-              idPrefix="create-course-duration"
-            />
-          </div>
+          {/* Course Dates & Deadline (Admin Only) */}
+          {isCurrentUserAdmin() ? (
+            <>
+              <div className="form-group-spaced" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label className="form-label-styled" htmlFor="create-course-start-date">
+                    Course Start Date (Optional)
+                  </label>
+                  <input
+                    id="create-course-start-date"
+                    type="datetime-local"
+                    className="form-input-styled"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="form-label-styled" htmlFor="create-course-end-date">
+                    Course End Date / Deadline (Optional)
+                  </label>
+                  <input
+                    id="create-course-end-date"
+                    type="datetime-local"
+                    className={`form-input-styled ${errors.endDate ? 'has-error' : ''}`}
+                    value={endDate}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      if (errors.endDate) {
+                        setErrors(prev => {
+                          const updated = { ...prev };
+                          delete updated.endDate;
+                          return updated;
+                        });
+                      }
+                    }}
+                  />
+                  {errors.endDate && (
+                    <p className="duration-error-text" style={{ marginTop: '4px' }}>⚠️ {errors.endDate}</p>
+                  )}
+                </div>
+              </div>
+              <div className="form-group-spaced">
+                <DurationInput
+                  showDays={true}
+                  days={durationDays}
+                  hours={durationHours}
+                  minutes={durationMinutes}
+                  onChange={(d: number, h: number, m: number) => {
+                    setDurationDays(d);
+                    setDurationHours(h);
+                    setDurationMinutes(m);
+                    if (errors.duration) {
+                      setErrors(prev => {
+                        const updated = { ...prev };
+                        delete updated.duration;
+                        return updated;
+                      });
+                    }
+                  }}
+                  error={errors.duration}
+                  label="Or Completion Duration Window (Optional)"
+                  required={false}
+                  helperNote="Admin only: Set an explicit Start/End Date or relative completion duration. Leave blank for no automatic lock."
+                  idPrefix="create-course-duration"
+                />
+              </div>
+            </>
+          ) : (
+            <div className="form-group-spaced" style={{ padding: '12px 14px', borderRadius: '8px', background: 'rgba(107, 114, 128, 0.08)', border: '1px solid var(--border-color)', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              <strong>Course Dates &amp; Deadline (Admin Only):</strong> Only an Administrator can configure course start dates, end dates, or deadlines.
+            </div>
+          )}
 
           {/* Course Overview / Introduction Video URL (YouTube) */}
           <div className="form-group-spaced">

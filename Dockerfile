@@ -1,15 +1,18 @@
 FROM python:3.11-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /workspace
 
-# Install dependencies first for caching
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -20,11 +23,16 @@ COPY app ./app
 COPY seed_db.py .
 COPY start.sh .
 
-# Ensure entrypoint script is executable
-RUN chmod +x start.sh
+RUN chmod +x start.sh \
+    && mkdir -p /workspace/uploads/courses /workspace/uploads/media /workspace/uploads/exam_submissions \
+    && useradd --create-home --shell /bin/bash appuser \
+    && chown -R appuser:appuser /workspace
 
-# Expose backend port
+USER appuser
+
 EXPOSE 8000
 
-# Set entrypoint
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8000/health || exit 1
+
 ENTRYPOINT ["./start.sh"]

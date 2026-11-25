@@ -1,5 +1,25 @@
 # Changelog
 
+## [2026-11-25] Production Readiness & Security Hardening Sprint
+- Problem: Audit identified production blockers across security, auth/RTR, answer-key exposure, progress enforcement, file uploads, and container deployment:
+  1. `/api/auth/forgot-password` and `/api/users/send-verification-otp` returned raw `dev_otp` codes in HTTP responses; `EmailService` logged OTPs even without dev gating and `OTPService` used `random.choices` instead of `secrets`.
+  2. `app/core/config.py` and `app/main.py` lacked production secret validation, exposed Swagger `/docs` unconditionally, allowed `allow_origin_regex=r"https?://.*"` with `allow_credentials=True` and wildcard `CORS_HEADERS` on errors, lacked security headers, and mounted all `uploads/` publicly.
+  3. `GET /api/exams` / `GET /api/exams/{exam_id}` and `GET /api/quizzes/...` exposed `correct_answer` to learners; `CoursePlayer.tsx` graded quizzes client-side.
+  4. `POST /api/enrollments/{id}/complete` and `PUT /api/enrollments/{id}/progress-percent` allowed employees to self-bypass module/lesson completion; `POST /api/notifications/jobs/*` lacked Admin RBAC; `DELETE /api/admin/users/{id}` performed a hard delete instead of soft delete; `AuthService.login` mutated missing `department_id`; password change/reset did not revoke active refresh tokens; auth endpoints lacked rate limiting.
+  5. `frontend/src/services/api.ts` `attemptTokenRefresh()` lacked a mutex, risking concurrent-401 RTR logout races; `ExamsCenter.tsx` hardcoded port `8000` on pagehide submit.
+  6. `start.sh`, `Dockerfile`, `frontend/Dockerfile`, and `docker-compose.yml` ran `--reload` / Vite dev server with hardcoded DB credentials and per-boot seeding.
+- Changed:
+  - `app/core/config.py`, `app/core/rate_limit.py`, `app/main.py`, `.env.example`: Added `ENVIRONMENT`, `ALLOWED_ORIGINS`, `UPLOAD_DIR`, startup secret validation, strict CORS & exception CORS matching, disabled `/docs` & `/redoc` in production, added security headers, DB-backed `/health`, and rate-limiting.
+  - `app/api/auth.py`, `app/schemas/auth.py`, `app/services/auth_service.py`, `app/services/otp_service.py`, `app/services/email_service.py`, `app/services/token_service.py`, `app/api/user_management.py`: Removed `dev_otp`, used `secrets` + single-active-OTP invalidation, prevented email enumeration, revoked refresh tokens on password change/reset, removed silent dept mutation on login, and added rate limits.
+  - `app/api/notification.py`, `app/api/admin.py`: Added Admin RBAC to notification jobs and aligned `delete_user` to soft-delete + token revocation.
+  - `app/api/exam.py`, `app/api/quiz.py`, `app/services/quiz_service.py`, `app/api/module.py`: Stripped `correct_answer` for ungraded learners, added protected exam submission download endpoint, sanitized uploads with size caps and blocked `.svg`, and unified quiz grading.
+  - `app/api/enrollment.py`, `app/services/enrollment_service.py`: Enforced server-side `UserCourseProgress` recalculation on `progress-percent` and completion checks on `complete`.
+  - `frontend/src/services/api.ts`, `frontend/src/services/liveSync.ts`, `frontend/src/pages/CoursePlayer/CoursePlayer.tsx`, `frontend/src/pages/Exams/ExamsCenter.tsx`, `frontend/src/pages/Creator/ExamReviewer.tsx`: Added RTR refresh mutex, shared `getApiBaseUrl()` and `openProtectedFile()`, and switched `CoursePlayer.tsx` quizzes to server-side `/api/quizzes/{id}/attempt`.
+  - `Dockerfile`, `start.sh`, `frontend/Dockerfile`, `frontend/nginx.conf`, `docker-compose.yml`, `.dockerignore`, `.gitignore`: Multi-stage production Nginx frontend build, non-root backend container without `--reload`, Postgres healthcheck, and secret/artifact ignores.
+- Tests added: `tests/test_production_hardening.py` (config validation, CORS/security headers, OTP/auth/rate-limit/token revocation, RBAC & soft-delete, exam/quiz answer stripping & server grading, enrollment bypass blocking, upload sanitization & protected downloads).
+- Migration: No schema changes required.
+- Known risk/follow-up: Rotate any previously committed `.env` secrets and `privkey.pem` before deploying to production, and configure real SMTP + `ALLOWED_ORIGINS` in `.env`.
+
 ## [2026-10-24] Production Packaging & Course Creation Remediation Bundle (update1.zip)
 - Problem: Deployed environment on remote host failed during course creation, syllabus publishing, and quiz assessments. Root causes identified:
   1. Course publishing blocked by legacy check 'begCount < 2 || intCount < 2 || advCount < 2' in CourseSyllabus.tsx despite Row 1 change making tiers optional.

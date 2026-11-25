@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File
 import os
+import re
 import uuid
-import shutil
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import List, Optional
 
+from app.core.config import settings
 from app.core.dependencies import (
     get_db, get_current_user, RequireRoles,
     can_user_edit_course, is_admin_user
@@ -188,6 +189,64 @@ def create_content(
     check_module_write_permission(db, module_id, current_user)
     return ModuleService.create_content(db, module_id=module_id, request=request)
 
+_ALLOWED_MEDIA_EXTS = {
+    ".mp4": "video", ".webm": "video", ".ogg": "video", ".mov": "video", ".m4v": "video",
+    ".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".webp": "image",
+    ".pdf": "document", ".docx": "document", ".pptx": "document",
+}
+
+
+async def _save_safe_media_upload(file: UploadFile, target_subdir: str, web_prefix: str) -> dict:
+    """Validate extension, sanitize filename, stream-enforce size limit, and write safely."""
+    raw_name = os.path.basename(file.filename or "upload")
+    ext = os.path.splitext(raw_name)[1].lower()
+    if ext not in _ALLOWED_MEDIA_EXTS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file type '{ext}'. Allowed formats: MP4, WebM, MOV, PNG, JPG, JPEG, GIF, WebP, PDF, DOCX, PPTX",
+        )
+
+    media_type = _ALLOWED_MEDIA_EXTS[ext]
+    max_bytes = settings.MAX_MEDIA_UPLOAD_BYTES if media_type == "video" else settings.MAX_DOC_UPLOAD_BYTES
+
+    safe_base = re.sub(r"[^a-zA-Z0-9._-]", "_", raw_name) or f"file{ext}"
+    clean_filename = f"{uuid.uuid4().hex[:12]}_{safe_base}"
+
+    upload_dir = os.path.abspath(os.path.join(settings.UPLOAD_DIR, target_subdir))
+    os.makedirs(upload_dir, exist_ok=True)
+    file_dest = os.path.abspath(os.path.join(upload_dir, clean_filename))
+    if not file_dest.startswith(upload_dir + os.sep):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid upload path.")
+
+    total_written = 0
+    chunk_size = 1024 * 1024  # 1MB
+    try:
+        with open(file_dest, "wb") as buffer:
+            while True:
+                chunk = await file.read(chunk_size)
+                if not chunk:
+                    break
+                total_written += len(chunk)
+                if total_written > max_bytes:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"File exceeds maximum allowed size ({max_bytes // (1024 * 1024)}MB).",
+                    )
+                buffer.write(chunk)
+    except Exception:
+        if os.path.exists(file_dest):
+            os.remove(file_dest)
+        raise
+
+    web_path = f"{web_prefix}/{clean_filename}".replace("\\", "/")
+    return {
+        "file_path": web_path,
+        "filename": safe_base,
+        "content_type": media_type,
+        "media_type": media_type,
+    }
+
+
 @router.post(
     "/api/modules/{module_id}/upload",
     status_code=status.HTTP_201_CREATED,
@@ -201,32 +260,8 @@ async def upload_module_media(
     current_user: User = Depends(get_current_user)
 ):
     check_module_write_permission(db, module_id, current_user)
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    allowed_exts = {
-        ".mp4": "video", ".webm": "video", ".ogg": "video", ".mov": "video", ".m4v": "video",
-        ".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".webp": "image", ".svg": "image",
-        ".pdf": "document", ".docx": "document", ".pptx": "document"
-    }
-    if ext not in allowed_exts:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file type '{ext}'. Allowed formats: MP4, WebM, PNG, JPG, JPEG, GIF, WebP, PDF"
-        )
-    media_type = allowed_exts[ext]
-    upload_dir = os.path.join("uploads", "courses", str(module_id))
-    os.makedirs(upload_dir, exist_ok=True)
-    clean_filename = f"{uuid.uuid4().hex[:12]}_{file.filename}"
-    file_dest = os.path.join(upload_dir, clean_filename)
-    with open(file_dest, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
-    web_path = f"/uploads/courses/{module_id}/{clean_filename}".replace("\\", "/")
-    return {
-        "file_path": web_path,
-        "filename": file.filename,
-        "content_type": media_type,
-        "media_type": media_type
-    }
+    return await _save_safe_media_upload(file, os.path.join("courses", str(module_id)), f"/uploads/courses/{module_id}")
+
 
 @router.post(
     "/api/modules/upload-media",
@@ -239,32 +274,7 @@ async def upload_general_media(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER"))
 ):
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    allowed_exts = {
-        ".mp4": "video", ".webm": "video", ".ogg": "video", ".mov": "video", ".m4v": "video",
-        ".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".webp": "image", ".svg": "image",
-        ".pdf": "document", ".docx": "document", ".pptx": "document"
-    }
-    if ext not in allowed_exts:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file type '{ext}'. Allowed formats: MP4, WebM, PNG, JPG, JPEG, GIF, WebP, PDF"
-        )
-    media_type = allowed_exts[ext]
-    upload_dir = os.path.join("uploads", "media")
-    os.makedirs(upload_dir, exist_ok=True)
-    clean_filename = f"{uuid.uuid4().hex[:12]}_{file.filename}"
-    file_dest = os.path.join(upload_dir, clean_filename)
-    with open(file_dest, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
-    web_path = f"/uploads/media/{clean_filename}".replace("\\", "/")
-    return {
-        "file_path": web_path,
-        "filename": file.filename,
-        "content_type": media_type,
-        "media_type": media_type
-    }
+    return await _save_safe_media_upload(file, "media", "/uploads/media")
 
 @router.get(
     "/api/modules/{module_id}/contents",

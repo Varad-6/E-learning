@@ -10,12 +10,8 @@ import { Modal } from '../../components/Modal/Modal';
 
 import type { Course } from '../../types/schema';
 
-import { getBadgeForCompletions } from '../../services/badge';
-
-import type { Badge } from '../../services/badge';
-
 import { apiCall } from '../../services/api';
-
+import { useLiveSync } from '../../services/liveSync';
 import { useToast } from '../../context/ToastContext';
 import { CourseraRichText } from '../../components/CourseraRichText/CourseraRichText';
 import { formatDuration } from '../../utils/duration';
@@ -1020,21 +1016,7 @@ const SVGBarChart: React.FC<{ data: { label: string; value: number; color?: stri
 
 
 
-const DEFAULT_COURSES: Course[] = [
-
-  { id: 'c1', course_code: 'AI-101', title: 'Artificial Intelligence Foundations', description: 'Core principles of machine learning models, neural networks, and AI ethics.', difficulty_level: 'Beginner', is_published: true },
-
-  { id: 'c2', course_code: 'FICO-202', title: 'SAP FICO Ledger & Asset Accounting', description: 'Learn financial control parameters, ledger structures, and cost calculations.', difficulty_level: 'Intermediate', is_published: true },
-
-  { id: 'c3', course_code: 'ABAP-301', title: 'ABAP Syntax & Database Orchestration', description: 'Advanced programming on SAP NetWeaver, custom database queries, and RFCs.', difficulty_level: 'Advanced', is_published: true },
-
-  { id: 'c4', course_code: 'SD-102', title: 'Sales and Distribution Lifecycle', description: 'Master shipping structures, bill matrices, and customer logistics pipelines.', difficulty_level: 'Beginner', is_published: true }
-
-];
-
-
-
-// Employee Mock Enrollment progress
+// Employee Enrollment progress (loaded from backend API)
 
 interface ProgressItem {
 
@@ -1064,6 +1046,8 @@ interface ProgressItem {
 
   duration?: string;
 
+  completed_at?: string | null;
+
 }
 
 
@@ -1088,92 +1072,15 @@ interface RosterEmployee {
 
   avgScore?: number;
 
+  badgeName?: string | null;
+
   testMarks: { courseCode: string; testName: string; score: number }[];
 
 }
 
 
 
-// Syllabus Modules Mock Database
-const COURSE_MODULES_MAP: { [courseCode: string]: { title: string; duration: string }[] } = {
-  'AI-101': [
-    { title: 'Introduction to AI & Search Algorithms', duration: '1h 30m' },
-    { title: 'Introduction to Machine Learning Models', duration: '2h 15m' },
-    { title: 'Ethical Considerations & AI Governance', duration: '1h 0m' }
-  ],
-  'AI-201': [
-    { title: 'Deep Neural Networks Foundations', duration: '2h 30m' },
-    { title: 'Convolutional & Recurrent Architectures', duration: '3h 15m' },
-    { title: 'Transformers & Modern LLM Architectures', duration: '3h 45m' }
-  ],
-  'FICO-101': [
-    { title: 'General Ledger Accounting Basics', duration: '2h 0m' },
-    { title: 'Accounts Payable & Receivable Workflows', duration: '2h 30m' },
-    { title: 'Trial Balances & Financial Reporting', duration: '2h 15m' }
-  ],
-  'FICO-202': [
-    { title: 'Cost Centers & Internal Orders', duration: '2h 45m' },
-    { title: 'Asset Accounting & Depreciation Controls', duration: '3h 0m' },
-    { title: 'Profitability Analysis (CO-PA) Setup', duration: '3h 30m' }
-  ],
-  'ABAP-101': [
-    { title: 'ABAP Syntax & Data Dictionary', duration: '2h 15m' },
-    { title: 'Internal Tables & Control Structures', duration: '2h 45m' },
-    { title: 'Modularization Techniques & Subroutines', duration: '2h 30m' }
-  ],
-  'ABAP-301': [
-    { title: 'BAPIs & RFC Database Integrations', duration: '3h 0m' },
-    { title: 'Open SQL Optimization & CDS Views', duration: '3h 30m' },
-    { title: 'SAP Enhancement Framework & BAdIs', duration: '3h 15m' }
-  ],
-  'HR-101': [
-    { title: 'Talent Acquisition & Employee Funnels', duration: '2h 0m' },
-    { title: 'Structured Interviewing & Competency Rubrics', duration: '2h 30m' },
-    { title: 'Corporate Onboarding & Culture Integration', duration: '2h 15m' }
-  ],
-  'HR-202': [
-    { title: 'Arbitration & State Legal Compliance', duration: '2h 30m' },
-    { title: 'Workplace Dispute Resolution Rules', duration: '2h 45m' },
-    { title: 'Employment Contracts & Termination Standards', duration: '2h 15m' }
-  ],
-  'TM-101': [
-    { title: 'Eisenhower Matrix & Priority Architecture', duration: '1h 15m' },
-    { title: 'Deep Work & Cognitive Focus Sprints', duration: '1h 30m' },
-    { title: 'Asynchronous Communication & Inbox Zero', duration: '1h 0m' }
-  ],
-  'SD-102': [
-    { title: 'Sales Order Processing Framework', duration: '2h 30m' },
-    { title: 'Shipping Conditions & Route Determination', duration: '3h 0m' },
-    { title: 'Billing & Invoice Generation', duration: '2h 0m' }
-  ]
-};
 
-const getModulesForCourse = (courseCode: string, progressPercent: number) => {
-  const code = (courseCode || '').toUpperCase().trim();
-  const custom = COURSE_MODULES_MAP[code];
-
-  if (custom) {
-    const stepCount = custom.length;
-    const completedStepsCount = Math.floor((progressPercent / 100) * stepCount);
-    return custom.map((m, idx) => ({
-      ...m,
-      isCompleted: idx < completedStepsCount
-    }));
-  }
-
-  // Domain-aware professional fallback modules
-  const fallbackTitles = [
-    'Foundational Principles & System Architecture',
-    'Core Methodology, Protocols & Operational Practices',
-    'Advanced Integration, Quality Standards & Performance Tuning'
-  ];
-
-  return fallbackTitles.map((title, idx) => ({
-    title,
-    duration: '2h 30m',
-    isCompleted: (idx + 1) * 33 <= progressPercent
-  }));
-};
 
 export const Dashboard: React.FC = () => {
 
@@ -1219,7 +1126,7 @@ export const Dashboard: React.FC = () => {
 
   const [activeMainView, setActiveMainView] = useState<'dashboard' | 'profile' | 'my-courses' | 'badges'>('dashboard');
 
-  const [celebratedBadge, setCelebratedBadge] = useState<Badge | null>(null);
+  const [celebratedBadge, setCelebratedBadge] = useState<any | null>(null);
 
   const [showBadgeOverlay, setShowBadgeOverlay] = useState(false);
 
@@ -1282,28 +1189,6 @@ export const Dashboard: React.FC = () => {
 
 
 
-  // Helper for Manager mappings
-
-  const getManagerForDept = (deptName: string): string => {
-
-    const managers: { [key: string]: string } = {
-
-      'AI': 'Dr. Evelyn C.',
-
-      'FICO': 'Warren B.',
-
-      'ABAP': 'Linus Torvalds',
-
-      'HR': 'John Watson',
-
-    };
-
-    return managers[deptName] || 'John Watson';
-
-  };
-
-
-
   // State for Course Modules Modal Detail View
 
   const [selectedCourseForModules, setSelectedCourseForModules] = useState<ProgressItem | null>(null);
@@ -1320,13 +1205,13 @@ export const Dashboard: React.FC = () => {
 
   // Manager Edit & Draft states
 
-  const [hasDraftCourse, setHasDraftCourse] = useState(true);
+  const [hasDraftCourse, setHasDraftCourse] = useState(false);
 
-  const [createCourseTab, setCreateCourseTab] = useState<'resume' | 'new'>('resume');
+  const [createCourseTab, setCreateCourseTab] = useState<'resume' | 'new'>('new');
 
-  const [draftTitle, setDraftTitle] = useState('Advanced Machine Learning Practice');
+  const [draftTitle, setDraftTitle] = useState('');
 
-  const [draftDesc, setDraftDesc] = useState('Applied neural networks and transformers practice draft.');
+  const [draftDesc, setDraftDesc] = useState('');
 
   const [isEditingDraft, setIsEditingDraft] = useState(false);
 
@@ -1358,9 +1243,9 @@ export const Dashboard: React.FC = () => {
 
   
 
-  // Manager Managed Courses state (to allow dynamic edits/creation)
+  // Manager Managed Courses state (loaded dynamically from backend)
 
-  const [managedCourses, setManagedCourses] = useState<Course[]>(DEFAULT_COURSES);
+  const [managedCourses, setManagedCourses] = useState<Course[]>([]);
 
   const [activeCatalogTab, setActiveCatalogTab] = useState<'available'>('available');
   const [activeMyCoursesTab, setActiveMyCoursesTab] = useState<'in_progress' | 'not_started' | 'completed' | 'available'>('in_progress');
@@ -1582,7 +1467,7 @@ export const Dashboard: React.FC = () => {
 
             is_mandatory: e.is_mandatory || false,
 
-            is_locked: false,
+            is_locked: Boolean(e.is_locked),
 
             status: e.status || (e.progress_percent === 100 ? 'completed' : e.progress_percent > 0 ? 'in_progress' : 'not_started'),
 
@@ -1590,17 +1475,15 @@ export const Dashboard: React.FC = () => {
 
             completed_modules: e.completed_modules || 0,
 
-            duration: e.duration || ''
+            duration: e.duration || '',
+
+            completed_at: e.completed_at || null
 
           };
 
         });
 
-        if (mappedProgress.length > 0) {
-
-          setMyProgress(mappedProgress);
-
-        }
+        setMyProgress(mappedProgress);
 
       }
 
@@ -2254,59 +2137,9 @@ export const Dashboard: React.FC = () => {
 
       const savedEmpId = localStorage.getItem('profileEmpId');
 
-      if (savedName) {
+      setProfileName(savedName || emailPrefix || '');
 
-        setProfileName(savedName);
-
-      } else {
-
-        if (emailPrefix === 'learner') {
-
-          setProfileName('Alice Smith');
-
-        } else if (emailPrefix === 'creator') {
-
-          setProfileName('Dr. Evelyn C.');
-
-        } else if (emailPrefix === 'admin') {
-
-          setProfileName('Systems Administrator');
-
-        } else {
-
-          setProfileName(emailPrefix || (activeRole === 'Employee' ? 'Alice Smith' : activeRole === 'Manager' ? 'Dr. Evelyn C.' : 'Systems Administrator'));
-
-        }
-
-      }
-
-      
-
-      if (savedEmpId) {
-
-        setProfileEmpId(savedEmpId);
-
-      } else {
-
-        if (emailPrefix === 'learner') {
-
-          setProfileEmpId('EMP-3041');
-
-        } else if (emailPrefix === 'creator') {
-
-          setProfileEmpId('MGR-1042');
-
-        } else if (emailPrefix === 'admin') {
-
-          setProfileEmpId('ADM-0001');
-
-        } else {
-
-          setProfileEmpId(emailPrefix || (activeRole === 'Employee' ? 'EMP-3041' : activeRole === 'Manager' ? 'MGR-1042' : 'ADM-0001'));
-
-        }
-
-      }
+      setProfileEmpId(savedEmpId || emailPrefix || '');
 
 
 
@@ -2366,9 +2199,26 @@ export const Dashboard: React.FC = () => {
 
       fetchDBCourses();
 
+      fetchBadgesData();
+
     }
 
   }, [navigate]);
+
+  useLiveSync(['courses', 'enrollments', 'exams', 'badges', 'users', 'departments'], () => {
+    const activeRole = localStorage.getItem('isLoggedInRole') || role || 'Employee';
+    fetchDBCourses();
+    fetchBadgesData();
+    if (activeRole === 'Employee') {
+      fetchEmpDashboard();
+    } else if (activeRole === 'Manager') {
+      fetchDBRoster();
+      fetchDashboardAnalytics();
+    } else if (['Admin', 'HR Admin', 'HR Manager'].includes(activeRole)) {
+      fetchDashboardAnalytics();
+      fetchDBAuditLogs();
+    }
+  });
 
 
 
@@ -2415,19 +2265,7 @@ export const Dashboard: React.FC = () => {
         
 
         if (justCompleted) {
-
-          const newCompletedCount = updatedProgress.filter(p => p.progressPercent === 100).length;
-
-          const newBadge = getBadgeForCompletions(newCompletedCount);
-
-          if (newBadge) {
-
-            setCelebratedBadge(newBadge);
-
-            setShowBadgeOverlay(true);
-
-          }
-
+          fetchBadgesData();
         }
 
         return updatedProgress;
@@ -2463,51 +2301,28 @@ export const Dashboard: React.FC = () => {
 
 
       if (response.ok) {
+        const willComplete = item.progressPercent < 100 && newPercent === 100;
+        setMyProgress(prev =>
+          prev.map(p => (p.id === itemId ? { ...p, progressPercent: newPercent } : p))
+        );
 
-        setMyProgress(prev => {
-
-          const updatedProgress = prev.map(p => {
-
-            if (p.id === itemId) {
-
-              if (p.progressPercent < 100 && newPercent === 100) {
-
-                justCompleted = true;
-
+        if (willComplete) {
+          try {
+            const prevIds = new Set(userBadges.map((ub: any) => ub.badge_tier_id));
+            const badgesRes = await apiCall('/api/badges/my-badges');
+            if (badgesRes.ok) {
+              const latestBadges = await badgesRes.json();
+              setUserBadges(latestBadges);
+              const newlyEarned = latestBadges.find((ub: any) => !prevIds.has(ub.badge_tier_id)) || latestBadges[latestBadges.length - 1];
+              if (newlyEarned && newlyEarned.badge_tier) {
+                setCelebratedBadge(newlyEarned.badge_tier);
+                setShowBadgeOverlay(true);
               }
-
-              return { ...p, progressPercent: newPercent };
-
             }
-
-            return p;
-
-          });
-
-
-
-          if (justCompleted) {
-
-            const newCompletedCount = updatedProgress.filter(p => p.progressPercent === 100).length;
-
-            const newBadge = getBadgeForCompletions(newCompletedCount);
-
-            if (newBadge) {
-
-              setCelebratedBadge(newBadge);
-
-              setShowBadgeOverlay(true);
-
-            }
-
+          } catch (e) {
+            console.error('Failed to sync newly earned badge:', e);
           }
-
-
-
-          return updatedProgress;
-
-        });
-
+        }
       } else {
 
         const err = await response.json();
@@ -3113,9 +2928,9 @@ export const Dashboard: React.FC = () => {
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
 
-                        <span style={{ color: 'var(--text-secondary)' }}>Department Head</span>
+                        <span style={{ color: 'var(--text-secondary)' }}>Department Scope</span>
 
-                        <span style={{ fontWeight: '600', color: 'var(--accent-color)' }}>{getManagerForDept(dept)}</span>
+                        <span style={{ fontWeight: '600', color: 'var(--accent-color)' }}>{dept || 'Assigned'}</span>
 
                       </div>
 
@@ -3138,51 +2953,33 @@ export const Dashboard: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 
                           {(() => {
-
-                            const badge = getBadgeForCompletions(myProgress.filter(p => p.progressPercent === 100).length);
-
-                            if (!badge) return <span style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>No badges earned yet. Complete a course to earn one!</span>;
+                            const latestBadge = userBadges.length > 0 ? userBadges[userBadges.length - 1] : null;
+                            const tier = latestBadge?.badge_tier;
+                            if (!tier) return <span style={{ fontStyle: 'italic', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>No badges earned yet. Complete 1 course to unlock your first badge!</span>;
 
                             return (
-
                               <div style={{
-
                                 display: 'flex',
-
                                 alignItems: 'center',
-
                                 gap: '10px',
-
                                 padding: '8px 12px',
-
                                 borderRadius: '8px',
-
-                                background: badge.color,
-
-                                color: '#fff',
-
-                                width: '100%',
-
-                                boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
-
-                                animation: 'pulseGlow 3s infinite'
-
+                                background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.16) 0%, rgba(217, 119, 6, 0.04) 100%)',
+                                border: '1px solid rgba(217, 119, 6, 0.35)',
+                                color: 'var(--text-primary)',
+                                width: '100%'
                               }}>
-
-                                <span style={{ fontSize: '1.5rem' }}>{badge.icon}</span>
-
+                                <img
+                                  src={`/badges/${tier.icon_asset_ref}.png`}
+                                  alt={tier.name}
+                                  style={{ width: '34px', height: '34px', objectFit: 'contain' }}
+                                />
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-
-                                  <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>{badge.name}</span>
-
-                                  <span style={{ fontSize: '0.68rem', opacity: 0.9 }}>Level {badge.step} of 10</span>
-
+                                  <span style={{ fontWeight: '800', fontSize: '0.88rem' }}>{tier.name}</span>
+                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Tier {tier.tier_order} of {badgeTiers.length || 20}</span>
                                 </div>
-
                               </div>
-
                             );
-
                           })()}
 
                         </div>
@@ -4465,16 +4262,45 @@ export const Dashboard: React.FC = () => {
                     empDashboardData.overall_progress.completed,
                     empDashboardData.overall_progress.total
                   )}
+                  {userBadges.length > 0 && (
+                    <div style={{ width: '100%', marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      {userBadges.slice(-4).map((ub: any) => (
+                        <div
+                          key={ub.id}
+                          title={`${ub.badge_tier?.name} (Tier ${ub.badge_tier?.tier_order})`}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '4px 10px',
+                            borderRadius: '20px',
+                            background: 'rgba(217, 119, 6, 0.1)',
+                            border: '1px solid rgba(217, 119, 6, 0.3)',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            color: 'var(--text-primary)'
+                          }}
+                        >
+                          <img
+                            src={`/badges/${ub.badge_tier?.icon_asset_ref}.png`}
+                            alt={ub.badge_tier?.name}
+                            style={{ width: '18px', height: '18px', objectFit: 'contain' }}
+                          />
+                          <span>{ub.badge_tier?.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {empDashboardData.next_badge_milestone.tier_name ? (
                     <div style={{ width: '100%', marginTop: '12px', background: 'var(--accent-glow)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: 'var(--border-radius-md)', textAlign: 'center' }}>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '700' }}>
-                        <Target size={14} style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }} /> Next Badge: <strong>{empDashboardData.next_badge_milestone.tier_name}</strong> ({empDashboardData.next_badge_milestone.courses_remaining} course left!)
+                        <Target size={14} style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }} /> Next Badge: <strong>{empDashboardData.next_badge_milestone.tier_name}</strong> ({empDashboardData.next_badge_milestone.courses_remaining} {empDashboardData.next_badge_milestone.courses_remaining === 1 ? 'course' : 'courses'} left!)
                       </span>
                     </div>
                   ) : (
                     <div style={{ width: '100%', marginTop: '12px', background: 'var(--accent-glow)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: 'var(--border-radius-md)', textAlign: 'center' }}>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '700' }}>
-                        <Award size={14} style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }} /> You've unlocked the highest badge tier!
+                        <Award size={14} style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }} /> You've unlocked all badge tiers!
                       </span>
                     </div>
                   )}
@@ -4690,7 +4516,7 @@ export const Dashboard: React.FC = () => {
                 {(() => {
                   if (activeMyCoursesTab === 'available') {
                     const filtered = managedCourses.filter((c: any) => {
-                      const isPublished = c.status === 'published' || c.status === 'approved' || c.is_published;
+                      const isPublished = Boolean(c.is_published) && (c.status === 'published' || c.status === 'approved');
                       return isPublished;
                     });
                     const sortedFiltered = [...filtered].sort((a: any, b: any) => {
@@ -4978,6 +4804,71 @@ export const Dashboard: React.FC = () => {
               </Button>
             </div>
           </div>
+
+          {/* Earned Course Certificates Section */}
+          {(() => {
+            const completedCerts = myProgress.filter(p => p.status === 'completed' || p.progressPercent >= 100);
+            return (
+              <div style={{
+                background: 'var(--bg-card)',
+                borderRadius: 'var(--border-radius-lg)',
+                border: '1px solid var(--border-color)',
+                padding: '22px 26px',
+                marginBottom: '24px',
+                boxShadow: 'var(--shadow-sm)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle size={20} style={{ color: '#10b981' }} />
+                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                      Earned Course Certificates ({completedCerts.length})
+                    </h3>
+                  </div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Each completed course awards a verified completion certificate &amp; unlocks badge progression
+                  </span>
+                </div>
+                {completedCerts.length === 0 ? (
+                  <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    No course certificates earned yet. Complete your first course to earn a certificate and unlock your first badge!
+                  </p>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+                    {completedCerts.map((cert) => (
+                      <div
+                        key={cert.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          padding: '14px 16px',
+                          borderRadius: 'var(--border-radius-md)',
+                          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)',
+                          border: '1px solid rgba(16, 185, 129, 0.3)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                          <Award size={22} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
+                          <div>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase' }}>
+                              {cert.courseCode} • Certified
+                            </span>
+                            <div style={{ fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>
+                              {cert.title}
+                            </div>
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                              {cert.completed_at ? `Completed on ${new Date(cert.completed_at).toLocaleDateString()}` : '100% Curriculum Completed'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Badges Grid Showcase */}
           {badgesLoading ? (
@@ -5515,28 +5406,24 @@ export const Dashboard: React.FC = () => {
                     {selectedAuditEmp && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '8px 0 16px 0' }}>
                         {/* Show current achievement badge in Audit Drawer */}
-                        {(() => {
-                          const badgeObj = getBadgeForCompletions(selectedAuditEmp.coursesTaken);
-                          if (!badgeObj) return null;
-                          return (
-                            <div style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '10px',
-                              padding: '10px 14px',
-                              borderRadius: '8px',
-                              background: badgeObj.color,
-                              color: '#fff',
-                              boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-                            }}>
-                              <span style={{ fontSize: '1.4rem' }}>{badgeObj.icon}</span>
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontWeight: '700', fontSize: '0.82rem' }}>{badgeObj.name}</span>
-                                <span style={{ fontSize: '0.65rem', opacity: 0.9 }}>Level {badgeObj.step} Achiever ({selectedAuditEmp.coursesTaken} Completed Courses)</span>
-                              </div>
+                        {selectedAuditEmp.badgeName && (
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.16) 0%, rgba(217, 119, 6, 0.04) 100%)',
+                            border: '1px solid rgba(217, 119, 6, 0.35)',
+                            color: 'var(--text-primary)'
+                          }}>
+                            <Award size={20} style={{ color: '#d97706' }} />
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ fontWeight: '700', fontSize: '0.84rem' }}>{selectedAuditEmp.badgeName}</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{selectedAuditEmp.coursesTaken} Completed Courses</span>
                             </div>
-                          );
-                        })()}
+                          </div>
+                        )}
                         
                         <div className="scores-table-section" style={{ marginTop: '4px' }}>
                           <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--accent-color)', letterSpacing: '0.03em', marginBottom: '12px', fontWeight: '700' }}>Test Scores & Marks Report</h4>
@@ -5857,7 +5744,7 @@ export const Dashboard: React.FC = () => {
                                   style={{ width: '14px', height: '14px', objectFit: 'contain' }} 
                                 />
                               )}
-                              <span>{user.badge_name || 'Bronze III'}</span>
+                              <span>{user.badge_name || 'No Badge Yet'}</span>
                             </div>
                           </div>
                         </div>
@@ -5940,33 +5827,11 @@ export const Dashboard: React.FC = () => {
 
         <div className="modules-list" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
-          {selectedCourseForModules && getModulesForCourse(selectedCourseForModules.courseCode, selectedCourseForModules.progressPercent).map((mod, index) => (
-
-            <div key={index} className="module-step-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)' }}>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-
-                <span className="step-number" style={{ fontStyle: 'normal', fontWeight: '800', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>0{index + 1}</span>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-
-                  <span style={{ fontSize: '0.88rem', fontWeight: '600', color: 'var(--text-primary)' }}>{mod.title}</span>
-
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Duration: {formatDuration(mod.duration)}</span>
-
-                </div>
-
-              </div>
-
-              <span className={`status-badge ${mod.isCompleted ? 'completed' : 'pending'}`} style={{ fontSize: '0.72rem', fontWeight: '700', padding: '3px 8px', borderRadius: '4px', textTransform: 'uppercase', color: mod.isCompleted ? 'var(--neon-teal)' : 'var(--text-secondary)', backgroundColor: mod.isCompleted ? 'var(--neon-teal-glow)' : 'var(--border-color)' }}>
-
-                {mod.isCompleted ? 'Completed' : 'Pending'}
-
-              </span>
-
+          {selectedCourseForModules && (
+            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+              Open the Course Player to view the live modules for <strong>{selectedCourseForModules.title}</strong>.
             </div>
-
-          ))}
+          )}
 
         </div>
 
@@ -6056,28 +5921,34 @@ export const Dashboard: React.FC = () => {
 
             >
 
-              {celebratedBadge.icon}
+              {celebratedBadge.icon_asset_ref ? (
+                <img
+                  src={`/badges/${celebratedBadge.icon_asset_ref}.png`}
+                  alt={celebratedBadge.name}
+                  style={{ width: '110px', height: '110px', objectFit: 'contain' }}
+                />
+              ) : (
+                <Award size={72} style={{ color: '#d97706' }} />
+              )}
 
             </div>
 
 
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-
               <span style={{ fontSize: '0.72rem', color: 'var(--accent-color)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em' }}>New Achievement Badge Gained!</span>
-
-              <h2 style={{ fontSize: '1.8rem', color: '#fff', fontWeight: '800', margin: 0 }}>{celebratedBadge.name}</h2>
-
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>Step {celebratedBadge.step} of 10 completed</span>
-
+              <h2 style={{ fontSize: '1.8rem', color: 'var(--text-primary)', fontWeight: '800', margin: 0 }}>{celebratedBadge.name}</h2>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                {celebratedBadge.tier_order ? `Tier ${celebratedBadge.tier_order} of ${badgeTiers.length || 20} unlocked` : 'Achievement unlocked'}
+              </span>
             </div>
 
 
 
             <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: '0 10px' }}>
-
-              {celebratedBadge.description}
-
+              {celebratedBadge.courses_required_cumulative
+                ? `Awarded for completing ${celebratedBadge.courses_required_cumulative} course${celebratedBadge.courses_required_cumulative === 1 ? '' : 's'}.`
+                : 'Congratulations on advancing your corporate learning milestone!'}
             </p>
 
 

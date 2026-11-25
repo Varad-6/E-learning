@@ -4,6 +4,7 @@ Restricted to Admin/HR roles only (403 for all other callers).
 """
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from uuid import UUID
 from typing import Optional, List
@@ -62,7 +63,7 @@ def send_verification_otp(
 ):
     email = request.email.strip().lower()
     # Check if a user with this email already exists
-    existing_user = db.query(User).filter(User.email == email, User.is_deleted == False).first()
+    existing_user = db.query(User).filter(func.lower(User.email) == email, User.is_deleted == False).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -75,7 +76,7 @@ def send_verification_otp(
     # Send verification email
     EmailService.send_verification_otp_email(email, otp_code)
     
-    return {"message": "Verification code has been sent to the email address.", "dev_otp": otp_code}
+    return {"message": "Verification code has been sent to the email address."}
 
 @router.post(
     "/verify-otp",
@@ -172,7 +173,7 @@ def get_assignable_courses(
     # Published courses from ALL departments
     query = db.query(Course).filter(
         Course.is_published == True,
-        Course.status == "approved",
+        Course.status.in_(["approved", "published"]),
     )
 
     courses = query.all()

@@ -7,6 +7,7 @@ import {
   ExternalLink, Save
 } from 'lucide-react';
 import { apiCall } from '../../services/api';
+import { useLiveSync } from '../../services/liveSync';
 import { Button } from '../../components/Button/Button';
 import { CourseraRichText } from '../../components/CourseraRichText/CourseraRichText';
 import { YouTubePlayer } from '../../components/YouTubePlayer/YouTubePlayer';
@@ -64,8 +65,11 @@ export const CoursePlayer: React.FC = () => {
   const [quizAnswers, setQuizAnswers] = useState<{ [key: number]: string }>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
+  const [quizPassed, setQuizPassed] = useState(false);
+  const [quizPassingScore, setQuizPassingScore] = useState(66);
   const [currentQuizQuestionIndex, setCurrentQuizQuestionIndex] = useState(0);
   const [dbQuizzes, setDbQuizzes] = useState<{ [moduleId: string]: any[] }>({});
+  const [dbQuizMeta, setDbQuizMeta] = useState<{ [moduleId: string]: { quizId: string; passingScore: number } }>({});
 
   // Timed course states
   const [countdownText, setCountdownText] = useState<string>('00d : 00h : 00m : 00s');
@@ -74,58 +78,6 @@ export const CoursePlayer: React.FC = () => {
   const [playerTab, setPlayerTab] = useState<'overview' | 'notes' | 'resources'>('overview');
   const [notesSavedFeedback, setNotesSavedFeedback] = useState<boolean>(false);
   const [autoAdvanceToast, setAutoAdvanceToast] = useState<string | null>(null);
-
-  // Default modules structure if none exist in the database for the course
-  const defaultModules: Module[] = [
-    {
-      id: 'm1',
-      title: 'Module 1: Continuous Improvement Philosophy',
-      tier: 'beginner',
-      contents: [
-        { 
-          id: 'c1_doc', 
-          title: '1.1 Industry Standards & Philosophy Overview', 
-          type: 'document', 
-          duration: '10 min read',
-          subtitle: 'Underpinnings of Continuous Improvement',
-          description: 'Explore the core principles of continuous improvement systems, Kaizen methodology, and feedback loop optimizations in large-scale modern engineering.'
-        },
-        { 
-          id: 'c1_vid', 
-          title: '1.2 Continuous Integration Philosophy', 
-          type: 'video', 
-          duration: '12:40',
-          subtitle: 'CI/CD Architecture Pipeline Lecture',
-          description: 'A deep dive presentation outlining build triggers, test pipelines, and deployment orchestration workflows.',
-          videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
-        }
-      ]
-    },
-    {
-      id: 'm2',
-      title: 'Module 2: Database Persistence Pipelines',
-      tier: 'intermediate',
-      contents: [
-        { 
-          id: 'c2_doc', 
-          title: '2.1 Alembic Database Migrations & Version Control', 
-          type: 'document', 
-          duration: '15 min read',
-          subtitle: 'Relational Schema Migration Architecture',
-          description: 'Learn the architectural patterns behind schema versions, declarative sqlalchemy models, non-destructive seed scripts, and rollback parameters.'
-        },
-        { 
-          id: 'c2_vid', 
-          title: '2.2 Advanced Query Performance & Joins', 
-          type: 'video', 
-          duration: '15:20',
-          subtitle: 'Optimizing SQL Queries Lecture',
-          description: 'Master indexed scans, database connection pooling configurations, and lazy loading relationships without overhead.',
-          videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
-        }
-      ]
-    }
-  ];
 
   // Helper to parse YouTube ID
   const getYouTubeId = (url: string) => {
@@ -225,16 +177,21 @@ export const CoursePlayer: React.FC = () => {
           fetchedModules = await modulesRes.json();
         }
         
-        const finalModules = fetchedModules.length > 0 ? fetchedModules : defaultModules;
+        const finalModules = fetchedModules;
 
-        // 4. Fetch quizzes from backend in parallel
+        // 4. Fetch quizzes from backend
         const quizzesMap: { [moduleId: string]: any[] } = {};
+        const quizMetaMap: { [moduleId: string]: { quizId: string; passingScore: number } } = {};
         for (const mod of finalModules) {
           try {
             const quizRes = await apiCall(`/api/quizzes/module/${mod.id}`);
             if (quizRes.ok) {
               const quizData = await quizRes.json();
               if (quizData && quizData.questions) {
+                quizMetaMap[mod.id] = {
+                  quizId: quizData.id,
+                  passingScore: typeof quizData.passing_score === 'number' ? quizData.passing_score : 66,
+                };
                 quizzesMap[mod.id] = quizData.questions.map((q: any) => ({
                   id: q.id,
                   question: q.question_text,
@@ -249,6 +206,7 @@ export const CoursePlayer: React.FC = () => {
           }
         }
         setDbQuizzes(quizzesMap);
+        setDbQuizMeta(quizMetaMap);
 
         // 5. Map modules to player structure, loading content blocks from backend
         const mappedModules: Module[] = finalModules.map((mod: any, index: number) => {
@@ -319,29 +277,6 @@ export const CoursePlayer: React.FC = () => {
             });
           }
 
-          // If no content blocks were found, default to standard templates
-          if (contents.length === 0) {
-            contents = [
-              { 
-                id: `c_${mod.id}_doc`, 
-                title: `${index + 1}.1 Core Theory Lesson`, 
-                type: 'document', 
-                duration: '10 min read',
-                subtitle: `Underpinnings of ${mod.title}`,
-                description: mod.description || "Review the core philosophy and learning objectives for this module."
-              },
-              { 
-                id: `c_${mod.id}_video`, 
-                title: `${index + 1}.2 Interactive Video Lecture`, 
-                type: 'video', 
-                duration: '12:40',
-                subtitle: `Demonstration: ${mod.title}`,
-                description: "Watch the video presentation explaining the continuous improvement workflow.",
-                videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-              }
-            ];
-          }
-
           // Append Quiz slide (MCQ Assessment) ONLY if the creator added quiz questions for this module
           const moduleQuizzes = quizzesMap[mod.id] || [];
           if (moduleQuizzes.length > 0) {
@@ -403,6 +338,29 @@ export const CoursePlayer: React.FC = () => {
       loadEnrollmentData();
     }
   }, [enrollmentId]);
+
+  useLiveSync(['courses', 'enrollments', 'modules'], async () => {
+    try {
+      const enrId = enrollment?.id;
+      if (enrId && !String(enrId).startsWith('preview_')) {
+        const enrRes = await apiCall(`/api/enrollments/${enrId}`);
+        if (enrRes.ok) {
+          const enrData = await enrRes.json();
+          setEnrollment(enrData);
+          setCourseLocked(Boolean(enrData.is_locked));
+        }
+      }
+      const cid = course?.id || enrollment?.course_id;
+      if (cid) {
+        const courseRes = await apiCall(`/api/courses/${cid}`);
+        if (courseRes.ok) {
+          setCourse(await courseRes.json());
+        }
+      }
+    } catch {
+      // silent background sync
+    }
+  });
 
   // Timed Course Countdown Clock
   useEffect(() => {
@@ -716,75 +674,61 @@ export const CoursePlayer: React.FC = () => {
     const moduleQuizzes = (currentActiveModule?.id ? dbQuizzes[currentActiveModule.id] : null) || [];
     
     if (moduleQuizzes.length > 0) {
-      return moduleQuizzes.map((q: any) => {
-        let letter = q.correctAnswer;
-        if (q.questionType !== 'msq' && q.correctAnswer && q.correctAnswer.length > 1) {
-          const idx = q.options.indexOf(q.correctAnswer);
-          if (idx >= 0) {
-            letter = String.fromCharCode(65 + idx);
-          }
-        }
-        return {
-          question: q.question,
-          options: q.options,
-          correctAnswer: letter,
-          questionType: q.questionType || 'mcq'
-        };
-      });
+      return moduleQuizzes.map((q: any) => ({
+        id: q.id,
+        question: q.question,
+        options: q.options,
+        questionType: q.questionType || 'mcq'
+      }));
     }
     
     // No questions configured by creator - return empty array
     return [];
   };
 
-  const handleSubmitQuiz = () => {
+  const handleSubmitQuiz = async () => {
     const questionsList = getActiveQuizQuestions();
     if (questionsList.length === 0) return;
-    let correctCount = 0;
-    
+
+    const currentActiveModule = modules.find(mod => mod.contents.some(c => c.id === activeContent?.id));
+    const quizMeta = currentActiveModule?.id ? dbQuizMeta[currentActiveModule.id] : null;
+    if (!quizMeta?.quizId) {
+      alert('Quiz metadata not available. Please reload the page.');
+      return;
+    }
+
+    const answersPayload: Record<string, string> = {};
     questionsList.forEach((q: any, idx: number) => {
-      const type = q.questionType || 'mcq';
-      const ans = quizAnswers[idx] || '';
-
-      if (type === 'notes') {
-        correctCount++;
-      } else if (type === 'msq') {
-        let correctLetters: string[] = [];
-        try {
-          const correctTexts = JSON.parse(q.correctAnswer);
-          correctLetters = correctTexts.map((t: string) => {
-            const oIdx = q.options.indexOf(t);
-            return oIdx >= 0 ? String.fromCharCode(65 + oIdx) : '';
-          }).filter(Boolean).sort();
-        } catch {
-          correctLetters = [];
-        }
-
-        let userLetters: string[] = [];
-        try {
-          userLetters = JSON.parse(ans).sort();
-        } catch {
-          userLetters = [];
-        }
-
-        const matches = correctLetters.length === userLetters.length && 
-          correctLetters.every((val, i) => val === userLetters[i]);
-        if (matches) {
-          correctCount++;
-        }
-      } else {
-        if (ans === q.correctAnswer) {
-          correctCount++;
-        }
-      }
+      answersPayload[String(q.id)] = quizAnswers[idx] || '';
     });
-    
-    const score = Math.round((correctCount / questionsList.length) * 100);
-    setQuizScore(score);
-    setQuizSubmitted(true);
 
-    if (score >= 66) {
-      handleMarkContentComplete(activeContent.id);
+    try {
+      const res = await apiCall(`/api/quizzes/${quizMeta.quizId}/attempt`, {
+        method: 'POST',
+        body: JSON.stringify({
+          quiz_id: quizMeta.quizId,
+          answers: answersPayload,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || 'Failed to submit quiz attempt.');
+        return;
+      }
+      const attempt = await res.json();
+      const score = Math.round(Number(attempt.score || 0));
+      const passed = Boolean(attempt.passed);
+      setQuizPassingScore(quizMeta.passingScore);
+      setQuizScore(score);
+      setQuizPassed(passed);
+      setQuizSubmitted(true);
+
+      if (passed) {
+        await handleMarkContentComplete(activeContent.id);
+      }
+    } catch (e) {
+      console.error('Quiz submission failed:', e);
+      alert('Unable to submit quiz right now. Please try again.');
     }
   };
 
@@ -1694,12 +1638,12 @@ export const CoursePlayer: React.FC = () => {
                           <Award size={40} />
                         </div>
                         <h3 style={{ fontSize: '1.4rem', color: '#fff', margin: '0 0 10px 0' }}>
-                          {quizScore >= 66 ? 'Passed! Module Completed' : 'Failed. Try Again'}
+                          {quizPassed ? 'Passed! Module Completed' : 'Failed. Try Again'}
                         </h3>
                         <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
-                          Your Score: {quizScore}% (Passing requirement: 66%)
+                          Your Score: {quizScore}% (Passing requirement: {quizPassingScore}%)
                         </p>
-                        {quizScore >= 66 ? (
+                        {quizPassed ? (
                           <>
                             <div className="form-info-banner" style={{ backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid #10b981', width: '100%', marginBottom: '16px' }}>
                               <span>Status: Completed. Next module is unlocked!</span>

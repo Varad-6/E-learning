@@ -1,6 +1,4 @@
 #!/bin/sh
-
-# Exit immediately if a command exits with a non-zero status
 set -e
 
 echo "Waiting for postgres..."
@@ -10,8 +8,12 @@ import time
 import psycopg2
 from app.core.config import settings
 
+# psycopg2.connect() needs plain postgresql:// not postgresql+psycopg2://
 url = settings.DATABASE_URL
-print(f'Checking connection to: {url}')
+# Strip SQLAlchemy dialect prefix so psycopg2 can parse the DSN directly
+if '+' in url.split('://')[0]:
+    url = 'postgresql://' + url.split('://', 1)[1]
+
 for i in range(30):
     try:
         conn = psycopg2.connect(url)
@@ -29,8 +31,11 @@ else:
 echo "Running database migrations..."
 alembic upgrade head
 
-echo "Seeding database..."
-python seed_db.py
+if [ "${RUN_SEED_ON_START:-false}" = "true" ]; then
+    echo "Seeding database..."
+    python seed_db.py
+fi
 
-echo "Starting backend server..."
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+WORKERS="${UVICORN_WORKERS:-2}"
+echo "Starting backend server with ${WORKERS} worker(s)..."
+exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers "${WORKERS}" --proxy-headers

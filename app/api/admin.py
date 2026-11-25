@@ -207,41 +207,38 @@ def delete_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id, User.is_deleted == False).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User with ID {user_id} not found."
         )
-    
-    # Store fields before deletion to avoid DetachedInstanceError
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot delete your own active administrator account."
+        )
+
     user_email = user.email
     user_code = user.employee_code
     user_name = f"{user.first_name} {user.last_name}"
 
-    # Eager load relationships before deleting
-    for rel_name in ["roles", "enrollments", "quiz_attempts", "badges", "notifications", "department"]:
-        if hasattr(user, rel_name):
-            rel_val = getattr(user, rel_name)
-            if rel_name == "enrollments" and rel_val:
-                for enroll in rel_val:
-                    _ = enroll.progress_records
-
-    # Write deletion event to Backup DB
-    AuditService.log_model_event(user, event_type="DELETE", performed_by=current_user.id)
-
-    # Hard delete from Live DB
-    db.delete(user)
+    from app.services.token_service import TokenService
+    user.is_deleted = True
+    user.is_active = False
+    TokenService.revoke_all_user_tokens(db, user.id, commit=False)
     db.commit()
+    db.refresh(user)
 
+    AuditService.log_model_event(user, event_type="DELETE", performed_by=current_user.id)
     AuditService.create_entry(
         db=db,
         actor=current_user.email,
         action="USER_DELETE",
         target=user_code,
-        details=f"Hard-deleted user {user_name} ({user_email})"
+        details=f"Soft-deleted user {user_name} ({user_email})"
     )
-    return {"message": f"User {user_email} successfully deleted.", "user_id": str(user_id)}
+    return {"message": f"User {user_email} successfully deactivated and soft-deleted.", "user_id": str(user_id)}
 
 @router.post(
     "/generate-employee-emails",

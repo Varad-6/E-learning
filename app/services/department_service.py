@@ -24,6 +24,16 @@ class DepartmentService:
         db.add(dept)
         db.commit()
         db.refresh(dept)
+
+        # Keep company-wide ("All Departments") courses associated with newly created departments
+        from app.models.course import Course
+        from app.models.course_department import CourseDepartment
+        global_courses = db.query(Course).filter(Course.department_id.is_(None)).all()
+        if global_courses:
+            for c in global_courses:
+                db.add(CourseDepartment(course_id=c.id, department_id=dept.id))
+            db.commit()
+
         return dept
 
     @staticmethod

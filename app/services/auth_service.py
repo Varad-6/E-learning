@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 import jwt
@@ -24,9 +25,10 @@ class AuthService:
     @staticmethod
     def login(db: Session, request: LoginRequest) -> LoginResponse:
         """Authenticate user, verify status/password, and return JWT tokens with user data."""
-        # Find active user
+        # Find active user (case-insensitive email match)
+        normalized_email = request.email.strip().lower()
         user = db.query(User).filter(
-            User.email == request.email, 
+            func.lower(User.email) == normalized_email,
             User.is_deleted == False
         ).first()
 
@@ -75,11 +77,6 @@ class AuthService:
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Access denied: You do not belong to the {dept.name} department."
                     )
-                
-                # If user doesn't have a department, assign them
-                if not user.department_id:
-                    user.department_id = dept_uuid
-                    db.commit()
 
         # JWT claims
         claims = {
@@ -131,31 +128,23 @@ class AuthService:
                 )
             )
 
-        # Hash new password
+        # Hash new password and revoke active refresh tokens
         user.password_hash = get_password_hash(request.new_password)
         user.must_change_password = False
+        TokenService.revoke_all_user_tokens(db, user.id, commit=False)
         db.commit()
 
     @staticmethod
-    def forgot_password(db: Session, request: ForgotPasswordRequest) -> str:
-        """Trigger OTP generation and dispatch email for password resets."""
+    def forgot_password(db: Session, request: ForgotPasswordRequest) -> None:
+        """Trigger OTP generation and dispatch email for active users without leaking account existence."""
+        normalized_email = request.email.strip().lower()
         user = db.query(User).filter(
-            User.email == request.email,
+            func.lower(User.email) == normalized_email,
             User.is_deleted == False
         ).first()
 
-        # For security, do not leak user existence (though LMS typically ok, let's keep it robust)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Email address not found"
-            )
-
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Your account has been deactivated. Please contact an administrator."
-            )
+        if not user or not user.is_active:
+            return
 
         # Rate limit: allow 1 OTP request per 60 seconds
         recent_otp = db.query(PasswordResetOTP).filter(
@@ -168,24 +157,18 @@ class AuthService:
                 detail="Please wait 60 seconds before requesting another OTP."
             )
 
-        # Generate and save OTP
         otp_code = OTPService.generate_otp(db, user.id)
-
-        # Send SMTP Email
         EmailService.send_otp_email(user.email, otp_code)
-        return otp_code
 
     @staticmethod
     def verify_otp(db: Session, request: VerifyOTPRequest) -> None:
         """Verify OTP validity without resetting password yet."""
-        # Simply verifying will check existence, expiration, and use state
-        OTPService.verify_otp(db, request.email, request.otp)
+        OTPService.verify_otp(db, request.email.strip().lower(), request.otp)
 
     @staticmethod
     def reset_password(db: Session, request: ResetPasswordRequest) -> None:
-        """Verify OTP and update user password with new hash."""
-        # Verify OTP
-        db_otp = OTPService.verify_otp(db, request.email, request.otp)
+        """Verify OTP, update user password, and revoke active refresh tokens."""
+        db_otp = OTPService.verify_otp(db, request.email.strip().lower(), request.otp)
 
         # Validate password strength
         if not validate_password_strength(request.new_password):
@@ -198,20 +181,17 @@ class AuthService:
                 )
             )
 
-        user = db.query(User).filter(User.id == db_otp.user_id).first()
+        user = db.query(User).filter(User.id == db_otp.user_id, User.is_deleted == False).first()
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
 
-        # Hash and update
         user.password_hash = get_password_hash(request.new_password)
         user.must_change_password = False
-        
-        # Mark OTP as used
         OTPService.mark_otp_as_used(db, db_otp.id)
-        
+        TokenService.revoke_all_user_tokens(db, user.id, commit=False)
         db.commit()
 
     @staticmethod

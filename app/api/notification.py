@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from uuid import UUID
 
-from app.core.dependencies import get_db, get_current_user
+from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
 from app.schemas.notification import NotificationResponse
 from app.services.notification_service import NotificationService
@@ -121,7 +121,7 @@ def delete_notification(
 )
 def trigger_lock_check_job(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
     res = NotificationService.check_course_locks_and_warn(db)
     return {"message": "Lock check job completed successfully", "results": res}
@@ -133,7 +133,7 @@ def trigger_lock_check_job(
 )
 def trigger_weekly_digest_job(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN"))
 ):
     res = NotificationService.generate_weekly_admin_digest(db)
     return {"message": "Weekly digest generated successfully", "count": res}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText, Download, Award, User, Check, X, ShieldAlert } from 'lucide-react';
 import { Button } from '../../components/Button/Button';
-import { apiCall } from '../../services/api';
+import { apiCall, openProtectedFile } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 
 interface Submission {
@@ -268,22 +268,25 @@ export const ExamReviewer: React.FC = () => {
             <FileText size={20} style={{ color: 'var(--accent-color)' }} />
             <div>
               <span style={{ fontSize: '0.88rem', fontWeight: 600, display: 'block', color: 'var(--text-primary)' }}>{fileObj.name}</span>
-              <a 
-                href={fileObj.url} 
-                target="_blank" 
-                rel="noreferrer" 
-                style={{ fontSize: '0.78rem', color: 'var(--accent-color)', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}
+              <button
+                type="button"
+                onClick={() => openProtectedFile(fileObj.url, fileObj.name).catch(() => triggerToast('Failed to download attachment.', 'error'))}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.78rem', color: 'var(--accent-color)', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}
               >
                 <Download size={12} /> Download Attachment File
-              </a>
+              </button>
             </div>
           </div>
         );
       } catch {
         return (
-          <a href={rawAnswer} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-color)', textDecoration: 'underline' }}>
+          <button
+            type="button"
+            onClick={() => openProtectedFile(rawAnswer).catch(() => triggerToast('Failed to download attachment.', 'error'))}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-color)', textDecoration: 'underline' }}
+          >
             Download Uploaded Attachment
-          </a>
+          </button>
         );
       }
     }
