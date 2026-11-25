@@ -19,6 +19,7 @@ import { apiCall } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import { CourseraRichText } from '../../components/CourseraRichText/CourseraRichText';
 import { formatDuration } from '../../utils/duration';
+import { formatDifficultyLevel } from '../Courses/CoursesPage';
 
 import './Dashboard.css';
 
@@ -5323,7 +5324,7 @@ export const Dashboard: React.FC = () => {
                               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4', marginBottom: '8px' }}>
                                 <CourseraRichText content={course.description} />
                               </div>
-                              <span className="course-row-difficulty">{course.difficulty_level}</span>
+                              <span className="course-row-difficulty">{formatDifficultyLevel(course.difficulty_level)}</span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
                               <Button

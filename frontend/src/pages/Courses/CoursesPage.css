@@ -468,8 +468,8 @@
    -------------------------------------------------------------------------- */
 .enterprise-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 24px;
   width: 100%;
 }
 
@@ -480,6 +480,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 290px;
   transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   position: relative;
@@ -491,104 +492,118 @@
   border-color: rgba(16, 185, 129, 0.4);
 }
 
-/* Clean Formal Bright Fresh White Header Band */
+/* Clean Formal Executive Header Band */
 .enterprise-card-banner {
-  height: 96px;
+  min-height: 84px;
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 13px 15px;
+  padding: 13px 16px;
   box-sizing: border-box;
   cursor: pointer;
-  background: #ffffff;
-  border-bottom: 1px solid #f1f5f9;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  border-bottom: 1px solid #e2e8f0;
+  transition: background 0.15s ease;
+  gap: 10px;
+}
+
+.enterprise-course-card:hover .enterprise-card-banner {
+  background: linear-gradient(180deg, #f1f5f9 0%, #ffffff 100%);
 }
 
 .banner-pattern-overlay {
   display: none;
 }
 
+/* Row 1: Department Tag on left, Status & Delete on right (Strictly 1 Line, No Wrapping) */
 .banner-top-row {
   position: relative;
   z-index: 2;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .banner-dept-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #1e293b;
-  background: #f8fafc;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #334155;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 6px;
   letter-spacing: 0.01em;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .banner-dept-pill svg {
   color: #475569;
 }
 
-.banner-badges-right {
-  display: flex;
+.banner-top-actions {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-/* Sleek Badges */
+/* Formal Badges - Clean Title Case, No Harsh Shouting Uppercase */
 .badge-pill {
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 3px 7px;
-  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 3px 8px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  line-height: 1;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .badge-mandatory {
   background: #fef2f2;
   border: 1px solid #fecaca;
-  color: #b91c1c;
+  color: #991b1b;
 }
 
 .badge-status-completed {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #15803d;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
 }
 
 .badge-status-progress {
   background: #eff6ff;
   border: 1px solid #bfdbfe;
-  color: #1d4ed8;
+  color: #1e40af;
 }
 
 .badge-status-assigned {
   background: #f8fafc;
   border: 1px solid #cbd5e1;
-  color: #475569;
+  color: #334155;
 }
 
 .badge-status-open {
   background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  color: #334155;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
 }
 
 /* Subtle Admin Quick-Delete Icon in Banner */
 .banner-admin-delete-btn {
-  background: #f8fafc;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
   color: #64748b;
   width: 24px;
@@ -600,6 +615,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .banner-admin-delete-btn:hover {
@@ -608,32 +624,101 @@
   color: #dc2626;
 }
 
+/* Row 2: Code & Required on left, Level Badge on right (Strictly 1 Line, No Wrapping) */
 .banner-bottom-row {
   position: relative;
   z-index: 2;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  flex-wrap: nowrap;
+}
+
+.banner-code-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .banner-code-tag {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: inherit;
   font-size: 0.72rem;
   font-weight: 700;
-  color: #334155;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 2px 7px;
-  border-radius: 4px;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 3px 8px;
+  border-radius: 6px;
   letter-spacing: 0.04em;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.banner-level-tag {
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+/* Elegant Difficulty Level Badges with Indicator Dot */
+.banner-level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 6px;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.level-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.level-badge-beginner {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+}
+
+.level-badge-beginner .level-indicator-dot {
+  background: #10b981;
+}
+
+.level-badge-intermediate {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+}
+
+.level-badge-intermediate .level-indicator-dot {
+  background: #3b82f6;
+}
+
+.level-badge-advanced {
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  color: #7e22ce;
+}
+
+.level-badge-advanced .level-indicator-dot {
+  background: #a855f7;
+}
+
+.level-badge-all {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.level-badge-all .level-indicator-dot {
+  background: #94a3b8;
 }
 
 /* Card Body */
@@ -936,18 +1021,23 @@
 .modal-code-badge {
   font-size: 0.75rem;
   font-weight: 700;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #1e293b;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-family: ui-monospace, monospace;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  padding: 3px 9px;
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .modal-dept-badge {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #64748b;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 3px 9px;
+  border-radius: 6px;
 }
 
 .modal-course-title {

@@ -5,18 +5,17 @@ import hashlib
 
 EXCLUDE_PATTERNS = [
     "__pycache__", ".pyc", ".git", ".env", "node_modules", "scratch",
-    ".png", ".jpg", ".jpeg", ".mp4", "uploads", "venv", ".vite",
-    "test_", "audit_", "verify_", "patch_", "demo.txt", "logfile"
+    "uploads", "venv", ".vite"
 ]
 
 def should_exclude(rel_path):
     rel_normalized = rel_path.replace("\\", "/").lower()
     for pat in EXCLUDE_PATTERNS:
         if pat in rel_normalized:
-            # Special exceptions for legitimate source files if any
-            if "courserarichtext" in rel_normalized or "learnersmodal" in rel_normalized or "youtube" in rel_normalized:
-                continue
             return True
+    filename = os.path.basename(rel_normalized)
+    if filename.startswith(("test_", "verify_", "patch_")) and not rel_normalized.startswith(("app/", "alembic/", "frontend/src/")):
+        return True
     return False
 
 def get_file_hash(path):

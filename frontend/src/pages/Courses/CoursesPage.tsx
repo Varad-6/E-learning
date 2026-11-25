@@ -100,6 +100,31 @@ interface CourseDetail {
   modules: CourseDetailModule[];
 }
 
+export const formatDifficultyLevel = (level?: string | null): string => {
+  if (!level) return 'All Levels';
+  const cleaned = level.replace(/_/g, ' ').trim().toLowerCase();
+  if (cleaned === 'beginner') return 'Beginner';
+  if (cleaned === 'intermediate') return 'Intermediate';
+  if (cleaned === 'advanced') return 'Advanced';
+  if (cleaned === 'expert') return 'Expert';
+  if (cleaned.includes('all')) return 'All Levels';
+  return level.charAt(0).toUpperCase() + level.slice(1);
+};
+
+export const getDifficultyBadgeInfo = (level?: string | null) => {
+  const norm = (level || '').toLowerCase().trim();
+  if (norm.includes('begin')) {
+    return { label: 'Beginner', className: 'level-badge-beginner' };
+  }
+  if (norm.includes('inter')) {
+    return { label: 'Intermediate', className: 'level-badge-intermediate' };
+  }
+  if (norm.includes('adv') || norm.includes('expert')) {
+    return { label: 'Advanced', className: 'level-badge-advanced' };
+  }
+  return { label: 'All Levels', className: 'level-badge-all' };
+};
+
 export const CoursesPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -752,34 +777,27 @@ export const CoursesPage: React.FC = () => {
                     onClick={() => handleOpenDetailModal(course.id)}
                   >
 
-                    {/* Top Row: Department Tag & Status Badges / Admin Action */}
+                    {/* Top Row: Department Tag on left, Status & Delete Action on right (1 Line) */}
                     <div className="banner-top-row">
                       <div className="banner-dept-pill">
                         {theme.icon}
                         <span>{course.department_name || 'Corporate'}</span>
                       </div>
 
-                      <div className="banner-badges-right">
-                        {course.is_mandatory && (
-                          <span className="badge-pill badge-mandatory" title="Mandatory training curriculum">
-                            <ShieldCheck size={11} />
-                            <span>Required</span>
-                          </span>
-                        )}
-
+                      <div className="banner-top-actions">
                         {course.status === 'completed' ? (
                           <span className="badge-pill badge-status-completed">
-                            <CheckCircle2 size={11} />
+                            <CheckCircle2 size={12} />
                             <span>Completed</span>
                           </span>
                         ) : course.status === 'in_progress' ? (
                           <span className="badge-pill badge-status-progress">
-                            <Clock size={11} />
+                            <Clock size={12} />
                             <span>In Progress</span>
                           </span>
                         ) : (
                           <span className="badge-pill badge-status-assigned">
-                            <UserCheck size={11} />
+                            <UserCheck size={12} />
                             <span>Assigned</span>
                           </span>
                         )}
@@ -801,10 +819,26 @@ export const CoursesPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Bottom Row of Banner: Monospace Course Code & Level */}
+                    {/* Bottom Row of Banner: Course Code & Required on left, Refined Level on right */}
                     <div className="banner-bottom-row">
-                      <span className="banner-code-tag">{course.course_code}</span>
-                      <span className="banner-level-tag">{course.difficulty_level || 'All Levels'}</span>
+                      <div className="banner-code-group">
+                        <span className="banner-code-tag">{course.course_code}</span>
+                        {course.is_mandatory && (
+                          <span className="badge-pill badge-mandatory" title="Mandatory training curriculum">
+                            <ShieldCheck size={12} />
+                            <span>Required</span>
+                          </span>
+                        )}
+                      </div>
+                      {(() => {
+                        const diff = getDifficultyBadgeInfo(course.difficulty_level);
+                        return (
+                          <span className={`banner-level-badge ${diff.className}`}>
+                            <span className="level-indicator-dot" />
+                            <span>{diff.label}</span>
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -954,34 +988,27 @@ export const CoursesPage: React.FC = () => {
                     onClick={() => handleOpenDetailModal(course.id)}
                   >
 
-                    {/* Top Row: Department Tag & Status Badges */}
+                    {/* Top Row: Department Tag on left, Status & Delete Action on right (1 Line) */}
                     <div className="banner-top-row">
                       <div className="banner-dept-pill">
                         {theme.icon}
                         <span>{course.department_name || 'All Departments'}</span>
                       </div>
 
-                      <div className="banner-badges-right">
-                        {course.is_mandatory && (
-                          <span className="badge-pill badge-mandatory" title="Mandatory training curriculum">
-                            <ShieldCheck size={11} />
-                            <span>Required</span>
-                          </span>
-                        )}
-
+                      <div className="banner-top-actions">
                         {course.user_status === 'completed' ? (
                           <span className="badge-pill badge-status-completed">
-                            <CheckCircle2 size={11} />
+                            <CheckCircle2 size={12} />
                             <span>Completed</span>
                           </span>
                         ) : course.user_status === 'in_progress' ? (
                           <span className="badge-pill badge-status-progress">
-                            <Clock size={11} />
+                            <Clock size={12} />
                             <span>In Progress</span>
                           </span>
                         ) : course.user_status === 'assigned' ? (
                           <span className="badge-pill badge-status-assigned">
-                            <UserCheck size={11} />
+                            <UserCheck size={12} />
                             <span>Assigned</span>
                           </span>
                         ) : (
@@ -1007,10 +1034,26 @@ export const CoursesPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Bottom Row of Banner: Monospace Course Code & Level */}
+                    {/* Bottom Row of Banner: Course Code & Required on left, Refined Level on right */}
                     <div className="banner-bottom-row">
-                      <span className="banner-code-tag">{course.course_code}</span>
-                      <span className="banner-level-tag">{course.difficulty_level || 'All Levels'}</span>
+                      <div className="banner-code-group">
+                        <span className="banner-code-tag">{course.course_code}</span>
+                        {course.is_mandatory && (
+                          <span className="badge-pill badge-mandatory" title="Mandatory training curriculum">
+                            <ShieldCheck size={12} />
+                            <span>Required</span>
+                          </span>
+                        )}
+                      </div>
+                      {(() => {
+                        const diff = getDifficultyBadgeInfo(course.difficulty_level);
+                        return (
+                          <span className={`banner-level-badge ${diff.className}`}>
+                            <span className="level-indicator-dot" />
+                            <span>{diff.label}</span>
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -1157,11 +1200,20 @@ export const CoursesPage: React.FC = () => {
                 <span className="modal-code-badge">{activeDetailCourse.course_code}</span>
                 <span className="modal-dept-badge">{activeDetailCourse.department_name || 'All Departments'}</span>
                 {activeDetailCourse.is_mandatory && (
-                  <span className="badge-pill badge-mandatory">
+                  <span className="badge-pill badge-mandatory" title="Mandatory training curriculum">
                     <ShieldCheck size={11} />
                     <span>Required</span>
                   </span>
                 )}
+                {(() => {
+                  const diff = getDifficultyBadgeInfo(activeDetailCourse.difficulty_level);
+                  return (
+                    <span className={`banner-level-badge ${diff.className}`}>
+                      <span className="level-indicator-dot" />
+                      <span>{diff.label}</span>
+                    </span>
+                  );
+                })()}
               </div>
 
               <h2 className="modal-course-title">
@@ -1179,7 +1231,7 @@ export const CoursesPage: React.FC = () => {
                   <Layers size={14} /> {activeDetailCourse.total_modules} Modules
                 </span>
                 <span className="modal-meta-item">
-                  <Brain size={14} /> {activeDetailCourse.difficulty_level || 'All Levels'}
+                  <Brain size={14} /> Difficulty: {formatDifficultyLevel(activeDetailCourse.difficulty_level)}
                 </span>
               </div>
             </div>

@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from uuid import UUID
 from typing import List, Optional, Dict, Any
 import datetime
+import logging
 
 from app.core.dependencies import get_db, get_current_user, RequireRoles
 from app.models.user import User
@@ -14,6 +15,7 @@ from app.models.course_enrollment import CourseEnrollment
 from app.models.course import Course
 from app.models.exam import Exam, ExamSubmission, ExamGrade
 
+logger = logging.getLogger("app.api.reporting")
 router = APIRouter(prefix="/api/reporting", tags=["Reporting"])
 
 
@@ -25,81 +27,109 @@ def get_departments_summary(
     current_user: User = Depends(RequireRoles("SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER")),
     db: Session = Depends(get_db)
 ):
-    user_roles = [r.name for r in current_user.roles]
-    is_global_admin = any(r in user_roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN"]) or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
+    try:
+        user_roles = [r.name for r in current_user.roles]
+        is_global_admin = any(r in user_roles for r in ["ADMIN", "SYSTEM_ADMIN", "HR_ADMIN"]) or (current_user.department and current_user.department.code in ["HR", "HR_ADMIN"])
 
-    # Scoping: Admin/HR sees all departments; Manager/Employee sees their own assigned department
-    query = db.query(Department)
-    if not is_global_admin:
-        if not current_user.department_id:
-            return []
-        query = query.filter(Department.id == current_user.department_id)
+        # Scoping: Admin/HR sees all departments; Manager/Employee sees their own assigned department
+        query = db.query(Department)
+        if not is_global_admin:
+            if not current_user.department_id:
+                return []
+            query = query.filter(Department.id == current_user.department_id)
 
-    departments = query.all()
-    results = []
+        departments = query.all()
+        results = []
 
-    for dept in departments:
-        # 1. Employee count in department
-        emp_count = db.query(User).filter(
-            User.department_id == dept.id,
-            User.is_active == True,
-            User.is_deleted == False
-        ).count()
+        for dept in departments:
+            # 1. Employee count in department
+            emp_count = 0
+            try:
+                emp_count = db.query(User).filter(
+                    User.department_id == dept.id,
+                    User.is_active == True,
+                    User.is_deleted == False
+                ).count()
+            except Exception as e:
+                logger.warning(f"Error querying employee count for dept {dept.id}: {e}")
+                db.rollback()
 
-        # 2. Average exam score for employees in this department (out of 10)
-        avg_score_query = db.query(func.avg(ExamGrade.overall_score)).join(
-            ExamSubmission, ExamGrade.submission_id == ExamSubmission.id
-        ).join(
-            User, ExamSubmission.user_id == User.id
-        ).filter(
-            User.department_id == dept.id,
-            ExamSubmission.status == "graded"
-        ).scalar()
+            # 2. Average exam score for employees in this department (out of 10)
+            avg_score = None
+            try:
+                avg_score_query = db.query(func.avg(ExamGrade.overall_score)).join(
+                    ExamSubmission, ExamGrade.submission_id == ExamSubmission.id
+                ).join(
+                    User, ExamSubmission.user_id == User.id
+                ).filter(
+                    User.department_id == dept.id,
+                    ExamSubmission.status == "graded"
+                ).scalar()
 
-        avg_score = round(float(avg_score_query), 1) if avg_score_query is not None else None
+                avg_score = round(float(avg_score_query), 1) if avg_score_query is not None else None
+            except Exception as e:
+                logger.warning(f"Error querying avg exam score for dept {dept.id}: {e}")
+                db.rollback()
 
-        # 3. Courses in-progress vs completed count in this department (published only)
-        in_progress_count = db.query(CourseEnrollment).join(
-            User, CourseEnrollment.user_id == User.id
-        ).join(
-            Course, CourseEnrollment.course_id == Course.id
-        ).filter(
-            User.department_id == dept.id,
-            CourseEnrollment.status == "in_progress",
-            Course.status == "published"
-        ).count()
+            # 3. Courses in-progress vs completed count in this department (published or approved)
+            in_progress_count = 0
+            completed_count = 0
+            try:
+                in_progress_count = db.query(CourseEnrollment).join(
+                    User, CourseEnrollment.user_id == User.id
+                ).join(
+                    Course, CourseEnrollment.course_id == Course.id
+                ).filter(
+                    User.department_id == dept.id,
+                    CourseEnrollment.status == "in_progress",
+                    or_(Course.status == "published", Course.status == "approved", Course.is_published == True)
+                ).count()
 
-        completed_count = db.query(CourseEnrollment).join(
-            User, CourseEnrollment.user_id == User.id
-        ).join(
-            Course, CourseEnrollment.course_id == Course.id
-        ).filter(
-            User.department_id == dept.id,
-            CourseEnrollment.status == "completed",
-            Course.status == "published"
-        ).count()
+                completed_count = db.query(CourseEnrollment).join(
+                    User, CourseEnrollment.user_id == User.id
+                ).join(
+                    Course, CourseEnrollment.course_id == Course.id
+                ).filter(
+                    User.department_id == dept.id,
+                    CourseEnrollment.status == "completed",
+                    or_(Course.status == "published", Course.status == "approved", Course.is_published == True)
+                ).count()
+            except Exception as e:
+                logger.warning(f"Error querying course counts for dept {dept.id}: {e}")
+                db.rollback()
 
-        # 4. Pending exam reviews count for this department
-        pending_reviews_count = db.query(ExamSubmission).join(
-            User, ExamSubmission.user_id == User.id
-        ).filter(
-            User.department_id == dept.id,
-            ExamSubmission.status == "submitted"
-        ).count()
+            # 4. Pending exam reviews count for this department
+            pending_reviews_count = 0
+            try:
+                pending_reviews_count = db.query(ExamSubmission).join(
+                    User, ExamSubmission.user_id == User.id
+                ).filter(
+                    User.department_id == dept.id,
+                    ExamSubmission.status == "submitted"
+                ).count()
+            except Exception as e:
+                logger.warning(f"Error querying pending reviews for dept {dept.id}: {e}")
+                db.rollback()
 
-        results.append({
-            "id": dept.id,
-            "name": dept.name,
-            "code": dept.code,
-            "description": dept.description,
-            "employee_count": emp_count,
-            "avg_exam_score": avg_score,
-            "courses_in_progress_count": in_progress_count,
-            "courses_completed_count": completed_count,
-            "pending_reviews_count": pending_reviews_count
-        })
+            results.append({
+                "id": str(dept.id),
+                "name": dept.name,
+                "code": dept.code,
+                "description": dept.description,
+                "employee_count": emp_count,
+                "avg_exam_score": avg_score,
+                "courses_in_progress_count": in_progress_count,
+                "courses_completed_count": completed_count,
+                "pending_reviews_count": pending_reviews_count
+            })
 
-    return results
+        return results
+    except Exception as e:
+        logger.error(f"Unhandled error in get_departments_summary: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load reporting departments: {str(e)}"
+        )
 
 
 @router.get(
@@ -138,64 +168,80 @@ def get_department_employees(
         emp_roles = [r.name for r in emp.roles]
         role_display = emp_roles[0] if emp_roles else "EMPLOYEE"
 
-        enrolled_count = db.query(CourseEnrollment).join(
-            Course, CourseEnrollment.course_id == Course.id
-        ).filter(
-            CourseEnrollment.user_id == emp.id,
-            Course.status == "published"
-        ).count()
-        completed_count = db.query(CourseEnrollment).join(
-            Course, CourseEnrollment.course_id == Course.id
-        ).filter(
-            CourseEnrollment.user_id == emp.id,
-            CourseEnrollment.status == "completed",
-            Course.status == "published"
-        ).count()
+        enrolled_count = 0
+        completed_count = 0
+        try:
+            enrolled_count = db.query(CourseEnrollment).join(
+                Course, CourseEnrollment.course_id == Course.id
+            ).filter(
+                CourseEnrollment.user_id == emp.id,
+                or_(Course.status == "published", Course.status == "approved", Course.is_published == True)
+            ).count()
+            completed_count = db.query(CourseEnrollment).join(
+                Course, CourseEnrollment.course_id == Course.id
+            ).filter(
+                CourseEnrollment.user_id == emp.id,
+                CourseEnrollment.status == "completed",
+                or_(Course.status == "published", Course.status == "approved", Course.is_published == True)
+            ).count()
+        except Exception as e:
+            logger.warning(f"Error querying employee course counts: {e}")
+            db.rollback()
 
         # Exam stats
         # Note: Standalone exams are allowed, but if linked to a course, the course must be published.
         # So we filter submissions accordingly.
-        from sqlalchemy import or_
-        graded_subs = db.query(ExamSubmission).join(
-            Exam, ExamSubmission.exam_id == Exam.id
-        ).outerjoin(
-            Course, Exam.course_id == Course.id
-        ).filter(
-            ExamSubmission.user_id == emp.id,
-            ExamSubmission.status == "graded",
-            or_(
-                Exam.course_id.is_(None),
-                Course.status == "published"
-            )
-        ).all()
+        exams_taken_count = 0
+        avg_score = None
+        try:
+            graded_subs = db.query(ExamSubmission).join(
+                Exam, ExamSubmission.exam_id == Exam.id
+            ).outerjoin(
+                Course, Exam.course_id == Course.id
+            ).filter(
+                ExamSubmission.user_id == emp.id,
+                ExamSubmission.status == "graded",
+                or_(
+                    Exam.course_id.is_(None),
+                    Course.status == "published",
+                    Course.status == "approved",
+                    Course.is_published == True
+                )
+            ).all()
 
-        exams_taken_count = len(graded_subs)
-        if graded_subs:
-            scores = [s.grade.overall_score for s in graded_subs if s.grade and s.grade.overall_score is not None]
-            avg_score = round(sum(scores) / len(scores), 1) if scores else None
-        else:
-            avg_score = None
+            exams_taken_count = len(graded_subs)
+            if graded_subs:
+                scores = [s.grade.overall_score for s in graded_subs if s.grade and s.grade.overall_score is not None]
+                avg_score = round(sum(scores) / len(scores), 1) if scores else None
+        except Exception as e:
+            logger.warning(f"Error querying graded subs: {e}")
+            db.rollback()
 
         # Last activity date
-        last_submission = db.query(ExamSubmission).filter(
-            ExamSubmission.user_id == emp.id
-        ).order_by(ExamSubmission.started_at.desc()).first()
-
-        last_enrollment = db.query(CourseEnrollment).join(
-            Course, CourseEnrollment.course_id == Course.id
-        ).filter(
-            CourseEnrollment.user_id == emp.id,
-            Course.status == "published"
-        ).order_by(CourseEnrollment.enrolled_at.desc()).first()
-
         dates = []
-        if last_submission and last_submission.submitted_at:
-            dates.append(last_submission.submitted_at)
-        if last_enrollment:
-            if last_enrollment.enrolled_at:
-                dates.append(last_enrollment.enrolled_at)
-            if last_enrollment.completed_at:
-                dates.append(last_enrollment.completed_at)
+        try:
+            last_submission = db.query(ExamSubmission).filter(
+                ExamSubmission.user_id == emp.id
+            ).order_by(ExamSubmission.started_at.desc()).first()
+            if last_submission and last_submission.submitted_at:
+                dates.append(last_submission.submitted_at)
+        except Exception:
+            db.rollback()
+
+        try:
+            last_enrollment = db.query(CourseEnrollment).join(
+                Course, CourseEnrollment.course_id == Course.id
+            ).filter(
+                CourseEnrollment.user_id == emp.id,
+                or_(Course.status == "published", Course.status == "approved", Course.is_published == True)
+            ).order_by(CourseEnrollment.enrolled_at.desc()).first()
+            if last_enrollment:
+                if last_enrollment.enrolled_at:
+                    dates.append(last_enrollment.enrolled_at)
+                if last_enrollment.completed_at:
+                    dates.append(last_enrollment.completed_at)
+        except Exception:
+            db.rollback()
         if emp.created_at:
             dates.append(emp.created_at)
 
@@ -262,15 +308,18 @@ def get_employee_detail_profile(
         # Find score for this specific course from its exam submissions
         course_exam_score = None
         if enr.course:
-            exam_sub = db.query(ExamSubmission).join(
-                Exam, ExamSubmission.exam_id == Exam.id
-            ).filter(
-                ExamSubmission.user_id == emp.id,
-                Exam.course_id == enr.course_id,
-                ExamSubmission.status == "graded"
-            ).first()
-            if exam_sub and exam_sub.grade:
-                course_exam_score = exam_sub.grade.overall_score
+            try:
+                exam_sub = db.query(ExamSubmission).join(
+                    Exam, ExamSubmission.exam_id == Exam.id
+                ).filter(
+                    ExamSubmission.user_id == emp.id,
+                    Exam.course_id == enr.course_id,
+                    ExamSubmission.status == "graded"
+                ).first()
+                if exam_sub and exam_sub.grade:
+                    course_exam_score = exam_sub.grade.overall_score
+            except Exception:
+                db.rollback()
 
         courses_data.append({
             "enrollment_id": enr.id,
@@ -286,19 +335,26 @@ def get_employee_detail_profile(
             "completed_at": enr.completed_at.isoformat() if enr.completed_at else None
         })
 
-    # 2. Taken Exams (standalone or published-course-linked only)
-    from sqlalchemy import or_
-    submissions = db.query(ExamSubmission).join(
-        Exam, ExamSubmission.exam_id == Exam.id
-    ).outerjoin(
-        Course, Exam.course_id == Course.id
-    ).filter(
-        ExamSubmission.user_id == emp.id,
-        or_(
-            Exam.course_id.is_(None),
-            Course.status == "published"
-        )
-    ).all()
+    # 2. Taken Exams (standalone or published/approved-course-linked only)
+    submissions = []
+    try:
+        submissions = db.query(ExamSubmission).join(
+            Exam, ExamSubmission.exam_id == Exam.id
+        ).outerjoin(
+            Course, Exam.course_id == Course.id
+        ).filter(
+            ExamSubmission.user_id == emp.id,
+            or_(
+                Exam.course_id.is_(None),
+                Course.status == "published",
+                Course.status == "approved",
+                Course.is_published == True
+            )
+        ).all()
+    except Exception as e:
+        logger.warning(f"Error querying employee exam submissions: {e}")
+        db.rollback()
+
     exams_data = []
     score_trend = []
 

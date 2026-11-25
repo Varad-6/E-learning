@@ -25,17 +25,23 @@ export const Card: React.FC<CardProps> = ({
   onActionClick,
   actionLabel = 'Enroll Now',
 }) => {
-  const getLevelClass = (level: string) => {
-    switch (level) {
-      case 'Beginner':
-        return 'tag-beginner';
-      case 'Intermediate':
-        return 'tag-intermediate';
-      case 'Advanced':
-        return 'tag-advanced';
-      default:
-        return '';
-    }
+  const formatDifficulty = (level?: string | null): string => {
+    if (!level) return 'All Levels';
+    const cleaned = level.replace(/_/g, ' ').trim().toLowerCase();
+    if (cleaned === 'beginner') return 'Beginner';
+    if (cleaned === 'intermediate') return 'Intermediate';
+    if (cleaned === 'advanced') return 'Advanced';
+    if (cleaned === 'expert') return 'Expert';
+    if (cleaned.includes('all')) return 'All Levels';
+    return level.charAt(0).toUpperCase() + level.slice(1);
+  };
+
+  const getLevelClass = (level?: string | null) => {
+    const norm = (level || '').toLowerCase().trim();
+    if (norm.includes('begin')) return 'tag-beginner';
+    if (norm.includes('inter')) return 'tag-intermediate';
+    if (norm.includes('adv') || norm.includes('expert')) return 'tag-advanced';
+    return 'tag-all';
   };
 
   const stars = Array.from({ length: 5 }, (_, i) => {
@@ -55,7 +61,7 @@ export const Card: React.FC<CardProps> = ({
       <div className="card-header">
         <span className="course-code">{course.course_code}</span>
         <span className={`difficulty-tag ${getLevelClass(course.difficulty_level)}`}>
-          {course.difficulty_level}
+          {formatDifficulty(course.difficulty_level)}
         </span>
       </div>
 

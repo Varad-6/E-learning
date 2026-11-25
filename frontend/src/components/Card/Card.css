@@ -57,6 +57,11 @@
   color: var(--danger-color);
 }
 
+.tag-all {
+  background-color: rgba(100, 116, 139, 0.1);
+  color: var(--text-secondary);
+}
+
 .course-title {
   font-size: 1.15rem;
   font-weight: 700;
