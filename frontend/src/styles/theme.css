@@ -10,32 +10,37 @@
   --space-xl: 32px;
   --space-xxl: 48px;
 
-  /* Colors - Light Mode (Soft Layered Neutrals) */
-  --bg-main: #f7f8fa; /* Soft neutral page background */
-  --bg-card: #ffffff; /* Clean white card panels */
-  --bg-input: #f1f3f5; /* Distinct input field background */
-  --bg-card-hover: #eef1f4;
-  
-  --accent-color: #10b981; /* Brand Emerald */
-  --accent-hover: #059669; /* Darker Emerald */
-  --accent-glow: rgba(16, 185, 129, 0.08);
-  --primary-brand: #10b981;
-  --primary-brand-hover: #059669;
-  
-  --success-color: #10b981; /* Brand Emerald */
-  --warning-color: #f97316; /* Brand Orange */
-  --danger-color: #ef4444; /* Brand Red */
-  
+  /* Colors - Light Mode (Coastal Sky & Warm Cream Palette) */
+  --palette-cream: #FFF9D2;
+  --palette-peach: #FFEBCC;
+  --palette-sky-light: #BFDDF0;
+  --palette-sky: #8CC0EB;
+
+  --bg-main: #FAF8F2; /* Warm paper neutral derived from #FFF9D2 */
+  --bg-card: #FFFFFF; /* Clean white card panels */
+  --bg-input: #F5F2E9; /* Warm sand input field background */
+  --bg-card-hover: #EEF6FC; /* Subtle sky hover tint */
+
+  --accent-color: #1D5F96; /* Deep Cerulean (6.71:1 AA contrast with white) */
+  --accent-hover: #164B78; /* Darker Cerulean (9.08:1 AA contrast) */
+  --accent-glow: rgba(140, 192, 235, 0.28); /* Focus ring tint from #8CC0EB */
+  --primary-brand: #1D5F96;
+  --primary-brand-hover: #164B78;
+
+  --success-color: #15803D; /* Accessible status green */
+  --warning-color: #B45309; /* Warm amber aligned with #FFEBCC */
+  --danger-color: #B91C1C; /* Accessible alert red */
+
   --neon-teal: var(--success-color);
   --neon-coral: var(--danger-color);
-  --neon-teal-glow: rgba(16, 185, 129, 0.15);
-  --neon-coral-glow: rgba(239, 68, 68, 0.15);
-  
-  --text-primary: #1e293b; /* Slate-800 for high accessibility contrast */
-  --text-secondary: #475569; /* Slate-600 */
-  --text-muted: #64748b; /* Slate-500 */
-  
-  --border-color: #cbd5e1; /* Soft neutral border gray */
+  --neon-teal-glow: rgba(21, 128, 61, 0.12);
+  --neon-coral-glow: rgba(185, 28, 28, 0.12);
+
+  --text-primary: #0F172A; /* High-contrast slate-900 */
+  --text-secondary: #334155; /* Slate-700 */
+  --text-muted: #475569; /* Slate-600 (AA compliant on light surfaces) */
+
+  --border-color: #BFDDF0; /* Palette Light Sky Blue border */
   
   /* Sizing & Border Radii (FitHabit standard) */
   --border-radius-sm: 8px;   /* rounded-lg */
@@ -102,22 +107,46 @@ textarea.form-input-styled {
   letter-spacing: 0.02em;
 }
 
-/* Clean Cards modeled from FitHabit / Premium Glass */
+/* Clean solid cards with crisp elevation (no glass blur or glow) */
 .glass-panel {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-card, var(--border-radius-lg));
-  backdrop-filter: var(--blur-glass);
-  -webkit-backdrop-filter: var(--blur-glass);
-  box-shadow: var(--shadow-premium);
-  transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease;
+  box-shadow: var(--shadow-sm);
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
 }
 
 [data-theme="dark"] .glass-panel:hover,
 [data-theme="dark"] .card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45) !important;
-  border-color: var(--accent-glow) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md) !important;
+  border-color: var(--text-muted) !important;
+}
+
+a[href],
+button:not(:disabled),
+summary,
+select:not(:disabled),
+label[for],
+[role="button"]:not([aria-disabled="true"]),
+[role="tab"],
+[role="switch"] {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+input:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Animations */
@@ -149,9 +178,7 @@ select option {
 .modal-overlay {
   position: fixed !important;
   top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
-  background: rgba(11, 12, 16, 0.75) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+  background: rgba(15, 23, 42, 0.55) !important;
   display: flex !important;
   align-items: flex-start !important;
   justify-content: center !important;
@@ -174,7 +201,7 @@ select option {
   box-sizing: border-box !important;
 }
 
-/* 🟢 Typography & Readability Enhancements (Kaizen Standards) */
+/* Typography & Readability Enhancements (Kaizen Standards) */
 .course-reading-content {
   font-family: var(--font-body);
   font-size: 1.05rem;

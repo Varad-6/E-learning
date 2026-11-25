@@ -157,7 +157,7 @@ export const UserAdminStudio: React.FC = () => {
         const deptsData = await deptsRes.json();
         setDepartments(deptsData);
       }
-      const usersRes = await apiCall('/api/admin/users');
+      const usersRes = await apiCall('/api/admin/users?limit=500');
       if (usersRes.ok) {
         const usersData = await usersRes.json();
         setUsers(usersData.users);
@@ -473,8 +473,42 @@ export const UserAdminStudio: React.FC = () => {
     }
   };
 
-  // Filter users for the selected department
-  const deptUsers = users.filter(u => selectedDept && u.department_id === selectedDept.id);
+  const [deptToDelete, setDeptToDelete] = useState<Department | null>(null);
+  const [isDeletingDept, setIsDeletingDept] = useState(false);
+
+  const handleDeleteDepartment = async () => {
+    if (!deptToDelete) return;
+    setIsDeletingDept(true);
+    try {
+      const res = await apiCall(`/api/departments/${deptToDelete.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        triggerToast(`Department ${deptToDelete.name} (${deptToDelete.code}) deleted successfully.`, 'success');
+        if (selectedDept?.id === deptToDelete.id) {
+          setSelectedDept(null);
+        }
+        setDeptToDelete(null);
+        window.dispatchEvent(new CustomEvent('kaizen_departments_changed'));
+        await loadData();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        triggerToast(err.detail || 'Could not delete the department. Please try again.', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      triggerToast('Could not delete the department. Please check your internet and try again.', 'error');
+    } finally {
+      setIsDeletingDept(false);
+    }
+  };
+
+  // Filter users for the selected department (supports 'UNASSIGNED' for users without a department)
+  const deptUsers = users.filter(u =>
+    selectedDept
+      ? selectedDept.id === 'UNASSIGNED'
+        ? !u.department_id
+        : u.department_id === selectedDept.id
+      : false
+  );
   const deptEmployees = deptUsers.filter(u => u.roles.some(r => r.name === 'EMPLOYEE'));
   const deptManagers = deptUsers.filter(u => u.roles.some(r => r.name === 'COURSE_MANAGER' || r.name === 'HR_ADMIN'));
 
@@ -527,20 +561,54 @@ export const UserAdminStudio: React.FC = () => {
               const headcount = users.filter(u => u.department_id === dept.id).length;
               return (
                 <div key={dept.id} className="dept-card glass-panel" onClick={() => setSelectedDept(dept)}>
-                  <div className="dept-card-header">
-                    <div className="dept-icon"><Building2 size={24} /></div>
-                    <div>
-                      <h3 className="dept-name">{dept.name}</h3>
-                      <span className="dept-code">{dept.code}</span>
+                  <div className="dept-card-header" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <div className="dept-icon"><Building2 size={24} /></div>
+                      <div>
+                        <h3 className="dept-name">{dept.name}</h3>
+                        <span className="dept-code">{dept.code}</span>
+                      </div>
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      title={`Delete ${dept.name}`}
+                      style={{ color: 'var(--danger-color)', borderColor: 'rgba(239, 68, 68, 0.3)', padding: '6px 8px' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeptToDelete(dept);
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
                   </div>
                   <div className="dept-card-footer">
                     <span className="headcount"><Users size={16}/> {headcount} Members</span>
-                    <span className="view-link">View Employees &rarr;</span>
+                    <span className="view-link">View Employees</span>
                   </div>
                 </div>
               );
             })}
+            {users.some(u => !u.department_id) && (
+              <div
+                className="dept-card glass-panel"
+                onClick={() => setSelectedDept({ id: 'UNASSIGNED', name: 'Unassigned / No Department', code: 'UNSCOPED' })}
+              >
+                <div className="dept-card-header" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <div className="dept-icon"><Users size={24} /></div>
+                    <div>
+                      <h3 className="dept-name">Unassigned / No Department</h3>
+                      <span className="dept-code">UNSCOPED</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="dept-card-footer">
+                  <span className="headcount"><Users size={16}/> {users.filter(u => !u.department_id).length} Members</span>
+                  <span className="view-link">View Employees</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -548,9 +616,21 @@ export const UserAdminStudio: React.FC = () => {
       {/* Department Detail View */}
       {activeTab === 'departments' && selectedDept && (
         <div className="dept-detail-view animate-fade-in">
-          <Button variant="outline" onClick={() => setSelectedDept(null)} style={{ marginBottom: '24px' }}>
-            <ArrowLeft size={16} style={{ marginRight: '8px' }}/> Back to Departments
-          </Button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <Button variant="outline" onClick={() => setSelectedDept(null)}>
+              <ArrowLeft size={16} style={{ marginRight: '8px' }}/> Back to Departments
+            </Button>
+            {selectedDept.id !== 'UNASSIGNED' && (
+              <Button
+                variant="outline"
+                leftIcon={<Trash2 size={15} />}
+                style={{ color: 'var(--danger-color)', borderColor: 'rgba(239, 68, 68, 0.35)' }}
+                onClick={() => setDeptToDelete(selectedDept)}
+              >
+                Delete Department
+              </Button>
+            )}
+          </div>
           
           <div className="dept-detail-header glass-panel">
             <h2>{selectedDept.name} ({selectedDept.code})</h2>
@@ -911,6 +991,34 @@ export const UserAdminStudio: React.FC = () => {
       >
         <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: '1.5', margin: 0 }}>
           Are you sure you want to deactivate and soft-delete user <strong>{selectedUser?.first_name} {selectedUser?.last_name}</strong> (<code>{selectedUser?.email}</code>)? Their historical activity and certificates will be preserved for auditing.
+        </p>
+      </Modal>
+
+      {/* Delete Department Confirmation Modal */}
+      <Modal
+        isOpen={!!deptToDelete}
+        onClose={() => setDeptToDelete(null)}
+        title="Confirm Department Deletion"
+        icon={<AlertCircle style={{ color: 'var(--danger-color)' }} size={24} />}
+        maxWidth="440px"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setDeptToDelete(null)} disabled={isDeletingDept}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              style={{ background: 'var(--danger-color)', borderColor: 'var(--danger-color)', color: '#fff' }}
+              onClick={handleDeleteDepartment}
+              disabled={isDeletingDept}
+            >
+              {isDeletingDept ? 'Deleting...' : 'Yes, Delete Department'}
+            </Button>
+          </>
+        }
+      >
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: '1.5', margin: 0 }}>
+          Are you sure you want to permanently delete department <strong>{deptToDelete?.name}</strong> (<code>{deptToDelete?.code}</code>)? Users and courses in this department will become unscoped.
         </p>
       </Modal>
 

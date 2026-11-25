@@ -1380,7 +1380,8 @@ export const CreatorDashboard: React.FC = () => {
                         <div className="creator-card-actions">
                           {/* Primary/Status Action Button (Full Width when present) */}
                           {(() => {
-                            if (course.is_published || course.status === 'Published') {
+                            const isActuallyPublished = Boolean(course.is_published && course.status === 'Published');
+                            if (isActuallyPublished) {
                               return (
                                 <Button
                                   variant="outline"
@@ -1408,12 +1409,13 @@ export const CreatorDashboard: React.FC = () => {
                                   Revert to Draft
                                 </Button>
                               );
-                            } else if (course.status === 'Draft' && course.published_at) {
+                            } else if (course.status === 'Draft' || course.status === 'Approved' || course.status === 'Rejected' || !isActuallyPublished) {
+                              const isRepublish = course.status === 'Draft' && Boolean(course.published_at);
                               return (
                                 <Button
                                   variant="primary"
                                   size="sm"
-                                  className="creator-btn-primary-action btn-republish-action"
+                                  className={`creator-btn-primary-action ${isRepublish ? 'btn-republish-action' : 'btn-publish-action'}`}
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
@@ -1422,34 +1424,7 @@ export const CreatorDashboard: React.FC = () => {
                                       });
                                       if (res.ok) {
                                         fetchDBCourses();
-                                        triggerToast('Course republished successfully!', 'success');
-                                      } else {
-                                        const err = await res.json();
-                                        triggerToast(err.detail || 'Failed to republish course', 'error');
-                                      }
-                                    } catch (err) {
-                                      console.error(err);
-                                    }
-                                  }}
-                                >
-                                  Republish Course
-                                </Button>
-                              );
-                            } else if (course.status === 'Approved') {
-                              return (
-                                <Button
-                                  variant="primary"
-                                  size="sm"
-                                  className="creator-btn-primary-action btn-publish-action"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      const res = await apiCall(`/api/courses/${course.id}/publish`, {
-                                        method: 'POST'
-                                      });
-                                      if (res.ok) {
-                                        fetchDBCourses();
-                                        triggerToast('Course published successfully!', 'success');
+                                        triggerToast(isRepublish ? 'Course republished successfully!' : 'Course published successfully!', 'success');
                                       } else {
                                         const err = await res.json();
                                         triggerToast(err.detail || 'Failed to publish course', 'error');
@@ -1459,7 +1434,7 @@ export const CreatorDashboard: React.FC = () => {
                                     }
                                   }}
                                 >
-                                  Publish Course
+                                  {isRepublish ? 'Republish Course' : 'Publish Course'}
                                 </Button>
                               );
                             }
@@ -1692,7 +1667,7 @@ export const CreatorDashboard: React.FC = () => {
                   return (
                     <div 
                       key={deptNode.id} 
-                      className={`dept-selector-card glass-panel glow-hover ${pendingCount > 0 ? 'has-pending' : ''}`}
+                      className={`dept-selector-card glass-panel ${pendingCount > 0 ? 'has-pending' : ''}`}
                       onClick={() => setSelectedDept(deptNode.code)}
                     >
                       <div className="dept-card-header-row">

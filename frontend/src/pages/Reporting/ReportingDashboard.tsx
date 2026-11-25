@@ -911,7 +911,7 @@ export const ReportingDashboard: React.FC = () => {
                   {departments.map((dept) => (
                     <div 
                       key={dept.id} 
-                      className="glass-panel glow-hover animate-float" 
+                      className="glass-panel" 
                       onClick={() => handleSelectDepartment(dept)}
                       style={{ 
                         padding: '24px', 
@@ -1006,7 +1006,7 @@ export const ReportingDashboard: React.FC = () => {
                   {sortedEmployees.map((emp) => (
                     <div 
                       key={emp.id} 
-                      className="glass-panel glow-hover animate-float" 
+                      className="glass-panel" 
                       onClick={() => navigate(`/reporting/employees/${emp.id}`)}
                       style={{ 
                         padding: '20px', 

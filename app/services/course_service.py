@@ -387,12 +387,11 @@ class CourseService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Course with ID {course_id} not found."
             )
-        if db_course.status not in ["approved", "published"]:
-            if not db_course.published_at:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Course must be approved before it can be published."
-                )
+        if db_course.status not in ["draft", "approved", "published"] and not db_course.published_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Course must be approved before it can be published."
+            )
         
         db_course.is_published = True
         db_course.status = "published"

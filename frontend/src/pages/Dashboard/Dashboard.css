@@ -33,7 +33,7 @@
   justify-content: center;
   font-weight: 800;
   font-size: 1.2rem;
-  box-shadow: 0 4px 12px var(--accent-glow);
+  box-shadow: var(--shadow-sm);
 }
 
 .profile-details h2 {
@@ -732,7 +732,7 @@
 .drawer-item.active {
   color: #ffffff !important;
   background-color: var(--accent-color) !important;
-  box-shadow: 0 4px 12px var(--accent-glow);
+  box-shadow: var(--shadow-sm);
   font-weight: 800;
 }
 
@@ -804,7 +804,7 @@
 .tab-btn.active {
   background-color: var(--accent-color) !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 12px var(--accent-glow);
+  box-shadow: var(--shadow-sm);
 }
 
 /* KEYFRAMES FOR TRANSITIONS & ANIMATIONS */

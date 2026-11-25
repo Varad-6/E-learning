@@ -110,12 +110,12 @@
 
 .coursera-callout.tip {
   background: rgba(16, 185, 129, 0.08);
-  border-left-color: #10b981;
+  border-left-color: var(--accent-color);
 }
 
 .coursera-callout.tip .coursera-callout-icon,
 .coursera-callout.tip .coursera-callout-title {
-  color: #10b981;
+  color: var(--accent-color);
 }
 
 .coursera-callout.warning {

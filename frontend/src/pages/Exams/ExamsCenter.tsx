@@ -499,7 +499,7 @@ export const ExamsCenter: React.FC = () => {
         {/* Questions list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '30px' }}>
           {examDetails.questions.map((q, idx) => (
-            <div key={q.id} className="glass-panel glow-hover" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <div key={q.id} className="glass-panel" style={{ padding: '24px', borderRadius: 'var(--border-radius-lg)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '14px' }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: 'var(--accent-glow)', color: 'var(--accent-color)', textTransform: 'uppercase' }}>
                   {q.question_type.replace('_', ' ')}
@@ -1147,7 +1147,7 @@ export const ExamsCenter: React.FC = () => {
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
                   {toAttempt.map(sub => (
-                    <div key={sub.id} className="glass-panel glow-hover" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: 'var(--bg-card)' }}>
+                    <div key={sub.id} className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: 'var(--bg-card)' }}>
                       <div>
                         <span style={{ fontSize: '0.7rem', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', background: 'var(--accent-glow)', color: 'var(--accent-color)', display: 'inline-block', marginBottom: '10px', textTransform: 'uppercase' }}>
                           {sub.course_code || 'EXAM'}
@@ -1227,7 +1227,7 @@ export const ExamsCenter: React.FC = () => {
                   {evaluated.map(sub => {
                     const isPass = sub.overall_score !== undefined && sub.overall_score !== null && sub.overall_score >= 8.0;
                     return (
-                      <div key={sub.id} className="glass-panel glow-hover" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: 'var(--bg-card)' }}>
+                      <div key={sub.id} className="glass-panel" style={{ padding: '20px', borderRadius: 'var(--border-radius-md)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: 'var(--bg-card)' }}>
                         <div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                             <span style={{ fontSize: '0.7rem', fontWeight: '800', padding: '3px 8px', borderRadius: '4px', background: 'var(--accent-glow)', color: 'var(--accent-color)', display: 'inline-block', textTransform: 'uppercase' }}>

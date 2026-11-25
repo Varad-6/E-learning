@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from app.models.department import Department
+from app.models.user import User
+from app.models.course import Course
 from app.schemas.department import DepartmentCreate, DepartmentUpdate
 
 class DepartmentService:
@@ -85,6 +87,13 @@ class DepartmentService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Department with ID {department_id} not found."
             )
+        # Keep all users and courses intact; only clear their reference to this department
+        db.query(User).filter(User.department_id == department_id).update(
+            {"department_id": None}, synchronize_session=False
+        )
+        db.query(Course).filter(Course.department_id == department_id).update(
+            {"department_id": None}, synchronize_session=False
+        )
         db.delete(dept)
         db.commit()
 

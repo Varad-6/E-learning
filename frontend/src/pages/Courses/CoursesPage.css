@@ -219,7 +219,7 @@
 
 .kpi-emerald {
   background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+  color: var(--accent-color);
 }
 
 .kpi-amber {
@@ -259,7 +259,7 @@
 
 .kpi-tag-active {
   background: rgba(16, 185, 129, 0.12);
-  color: #10b981;
+  color: var(--accent-color);
 }
 
 .kpi-tag-success {
@@ -870,7 +870,7 @@
 .btn-action-primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-action-primary:disabled {

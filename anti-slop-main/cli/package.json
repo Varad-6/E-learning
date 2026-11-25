@@ -1,0 +1,58 @@
+{
+  "name": "antislop-ai",
+  "version": "3.2.32",
+  "description": "Interactive installer for the antislop skills. Anti Slop: Rules for AI Coding Agents.",
+  "type": "module",
+  "bin": {
+    "antislop-ai": "index.mjs"
+  },
+  "exports": {
+    "./dsh": "./dsh/index.js",
+    "./dsh/locale/*.json": "./dsh/locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./dsh/cordis.patch.yml"
+    }
+  },
+  "license": "MIT",
+  "author": "antislop",
+  "funding": [
+    "https://github.com/sponsors/miqdadbadjuber",
+    "https://saweria.co/antislop"
+  ],
+  "homepage": "https://antislop.ai.id",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/miqdadbadjuber/anti-slop.git"
+  },
+  "bugs": "https://github.com/miqdadbadjuber/anti-slop/issues",
+  "keywords": [
+    "ai-slop",
+    "design-rules",
+    "copy-rules",
+    "agent-skills",
+    "ui",
+    "accessibility"
+  ],
+  "engines": {
+    "node": ">=20.12.0",
+    "dsh": ">=0.2.0-rc.1 <0.3.0"
+  },
+  "files": [
+    "index.mjs",
+    "lib/",
+    "skills/",
+    "dsh/"
+  ],
+  "scripts": {
+    "test": "node scripts/smoke-test.mjs",
+    "sync-skills": "node scripts/sync-skills.mjs",
+    "prepublishOnly": "npm run sync-skills"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.9.0",
+    "picocolors": "^1.1.1"
+  }
+}

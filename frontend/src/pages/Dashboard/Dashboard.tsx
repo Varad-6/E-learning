@@ -3618,7 +3618,7 @@ export const Dashboard: React.FC = () => {
 
                             key={course.id} 
 
-                            className="course-lobby-card glass-panel glow-hover" 
+                            className="course-lobby-card glass-panel" 
 
                             style={{ 
 
@@ -3940,7 +3940,7 @@ export const Dashboard: React.FC = () => {
 
                     <h3 style={{ fontSize: '1.6rem', fontWeight: 850, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
 
-                      Welcome back, {profileName || 'Learner'}! 👋
+                      Welcome back, {profileName || 'Learner'}
 
                     </h3>
 
@@ -3951,7 +3951,7 @@ export const Dashboard: React.FC = () => {
                     </p>
 
                   </div>
-                  <Button variant="primary" onClick={() => navigate('/dashboard?tab=my-courses&sub=available')}>Browse All Courses →</Button>
+                  <Button variant="primary" onClick={() => navigate('/dashboard?tab=my-courses&sub=available')}>Browse All Courses</Button>
                 </div>
 
 
@@ -4540,7 +4540,7 @@ export const Dashboard: React.FC = () => {
                           return (
                             <div 
                               key={course.id} 
-                              className="course-lobby-card glass-panel glow-hover" 
+                              className="course-lobby-card glass-panel" 
                               style={{ 
                                 display: 'flex', 
                                 flexDirection: 'column', 
@@ -4658,7 +4658,7 @@ export const Dashboard: React.FC = () => {
                           return (
                             <div 
                               key={item.id} 
-                              className="course-lobby-card glass-panel glow-hover" 
+                              className="course-lobby-card glass-panel" 
                               style={{ 
                                 display: 'flex', 
                                 flexDirection: 'column', 

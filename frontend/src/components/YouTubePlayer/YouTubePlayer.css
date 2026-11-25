@@ -75,8 +75,8 @@
 
 .youtube-center-play-button:hover {
   transform: scale(1.12);
-  background: #10b981;
-  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.4);
+  background: var(--accent-color);
+  box-shadow: var(--shadow-md);
 }
 
 .youtube-center-play-button:active {

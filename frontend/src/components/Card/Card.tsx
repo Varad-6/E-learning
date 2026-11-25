@@ -57,7 +57,7 @@ export const Card: React.FC<CardProps> = ({
   });
 
   return (
-    <div className="course-card glass-panel glow-hover animate-fade-in">
+    <div className="course-card glass-panel animate-fade-in">
       <div className="card-header">
         <span className="course-code">{course.course_code}</span>
         <span className={`difficulty-tag ${getLevelClass(course.difficulty_level)}`}>

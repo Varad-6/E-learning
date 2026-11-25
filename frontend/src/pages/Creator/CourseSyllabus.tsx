@@ -27,6 +27,8 @@ interface CourseData {
   priority: 'High' | 'Medium' | 'Low';
   duration: string;
   is_published: boolean;
+  status?: string;
+  published_at?: string | null;
   created_by?: string | null;
   department_id?: string | null;
   department_ids?: string[];
@@ -271,28 +273,37 @@ export const CourseSyllabus: React.FC = () => {
     }
   };
 
-  const handleTogglePublish = async () => {
+  const handleSetPublishState = async (nextPublished: boolean) => {
     if (!course || !courseId) return;
-    
-    // Check if we are trying to publish: require at least one module in the course
-    if (!course.is_published && modules.length === 0) {
+
+    // Require at least one module before publishing
+    if (nextPublished && modules.length === 0) {
       alert('Cannot publish course: Please create at least one syllabus module before publishing.');
       return;
     }
 
     try {
-      const res = await apiCall(`/api/courses/${courseId}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          is_published: !course.is_published,
-          status: !course.is_published ? 'published' : 'draft'
-        })
-      });
+      const res = nextPublished
+        ? await apiCall(`/api/courses/${courseId}/publish`, { method: 'POST' })
+        : await apiCall(`/api/courses/${courseId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              is_published: false,
+              status: 'draft'
+            })
+          });
       if (res.ok) {
-        setCourse({ ...course, is_published: !course.is_published });
+        const updated = await res.json().catch(() => null);
+        setCourse({
+          ...course,
+          is_published: nextPublished,
+          status: nextPublished ? 'published' : 'draft',
+          published_at: updated?.published_at ?? course.published_at
+        });
         fetchSyllabus();
       } else {
-        alert('Failed to update publication status.');
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || 'Failed to update publication status.');
       }
     } catch (err) {
       console.error(err);
@@ -680,17 +691,29 @@ export const CourseSyllabus: React.FC = () => {
               <strong>Course Schedule / Deadline:</strong> {formatCourseDeadline(course.start_date, course.end_date, course.duration)}
             </div>
             <div>
-              <strong>Status:</strong> {course.is_published ? 'Published' : 'Draft Mode'}
+              <strong>Status:</strong> {(course.is_published && (course.status || 'published').toLowerCase() === 'published') ? 'Published (Live)' : 'Draft Mode'}
             </div>
           </div>
 
-          <Button 
-            variant={course.is_published ? 'outline' : 'primary'} 
-            onClick={handleTogglePublish}
-            style={{ width: '100%', marginTop: '20px' }}
-          >
-            {course.is_published ? 'Revert to Draft' : 'Publish Course'}
-          </Button>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
+            <Button 
+              variant="primary"
+              onClick={() => handleSetPublishState(true)}
+              disabled={(course.is_published && (course.status || 'published').toLowerCase() === 'published') || modules.length === 0}
+              title={modules.length === 0 ? 'Create at least one module before publishing' : 'Publish course now'}
+              style={{ flex: 1 }}
+            >
+              {course.published_at && !(course.is_published && (course.status || 'published').toLowerCase() === 'published') ? 'Republish' : 'Publish Course'}
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => handleSetPublishState(false)}
+              disabled={!(course.is_published && (course.status || 'published').toLowerCase() === 'published')}
+              style={{ flex: 1 }}
+            >
+              Revert to Draft
+            </Button>
+          </div>
 
           <Button 
             variant="outline" 
@@ -724,7 +747,7 @@ export const CourseSyllabus: React.FC = () => {
 
         {/* Right Canvas - Course Syllabus / Modules management */}
         <div className="syllabus-main-canvas glass-panel">
-          {!course.is_published ? (
+          {!(course.is_published && (course.status || 'published').toLowerCase() === 'published') ? (
             <div style={{
               background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0.04) 100%)',
               border: '1px solid rgba(59, 130, 246, 0.3)',
@@ -748,25 +771,35 @@ export const CourseSyllabus: React.FC = () => {
                     borderRadius: '12px',
                     textTransform: 'uppercase'
                   }}>
-                    Step 2: Add Content
+                    Draft Mode
                   </span>
                   <strong style={{ fontSize: '0.98rem', color: 'var(--text-primary)' }}>
                     Add Modules, Lessons, Notes & Quiz
                   </strong>
                 </div>
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                  Create your syllabus modules below and click them to add interactive lectures, notes, and quiz questions. When you're ready, click <strong>"Publish Course"</strong> to make it live for learners.
+                  This course is currently in <strong>Draft</strong> and not visible to learners. When you're ready, click <strong>"{course.published_at ? 'Republish Course' : 'Publish Course'}"</strong> to make it live.
                 </div>
               </div>
-              <Button
-                variant="primary"
-                onClick={handleTogglePublish}
-                disabled={modules.length === 0}
-                title={modules.length === 0 ? 'Create at least one module before publishing' : 'Publish course now'}
-                style={{ whiteSpace: 'nowrap', fontWeight: 700 }}
-              >
-                🚀 Publish Course
-              </Button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <Button
+                  variant="primary"
+                  onClick={() => handleSetPublishState(true)}
+                  disabled={modules.length === 0}
+                  title={modules.length === 0 ? 'Create at least one module before publishing' : 'Publish course now'}
+                  style={{ whiteSpace: 'nowrap', fontWeight: 700 }}
+                >
+                  {course.published_at ? 'Republish Course' : 'Publish Course'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  style={{ fontSize: '0.78rem' }}
+                >
+                  Revert to Draft
+                </Button>
+              </div>
             </div>
           ) : (
             <div style={{
@@ -782,19 +815,29 @@ export const CourseSyllabus: React.FC = () => {
               flexWrap: 'wrap'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '1.2rem' }}>🟢</span>
+                <CheckCircle2 size={18} style={{ color: 'var(--success-color)', flexShrink: 0 }} aria-hidden="true" />
                 <span style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>
                   <strong>Course is Live & Published:</strong> You can continue to edit modules, notes, and quizzes directly. All changes update live.
                 </span>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleTogglePublish}
-                style={{ fontSize: '0.78rem' }}
-              >
-                Revert to Draft
-              </Button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled
+                  style={{ fontSize: '0.78rem' }}
+                >
+                  Publish Course
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSetPublishState(false)}
+                  style={{ fontSize: '0.78rem' }}
+                >
+                  Revert to Draft
+                </Button>
+              </div>
             </div>
           )}
 

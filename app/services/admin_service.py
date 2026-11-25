@@ -182,7 +182,7 @@ class AdminService:
         return user
 
     @staticmethod
-    def list_users(db: Session, skip: int = 0, limit: int = 100) -> List[User]:
+    def list_users(db: Session, skip: int = 0, limit: int = 500) -> List[User]:
         return db.query(User).filter(User.is_deleted == False).offset(skip).limit(limit).all()
 
     @staticmethod

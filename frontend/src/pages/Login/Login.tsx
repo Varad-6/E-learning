@@ -186,7 +186,7 @@ export const Login: React.FC = () => {
 
         {/* Right Column - Inputs Form (50%) */}
         <div className="login-right-pane animate-fade-in">
-          <div className="login-form-card glass-panel glow-hover">
+          <div className="login-form-card glass-panel">
             <div className="form-heading">
               <h2>Sign In</h2>
               <p>Enter your credentials to access the Kaizen platform.</p>

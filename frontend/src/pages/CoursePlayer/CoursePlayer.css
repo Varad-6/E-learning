@@ -109,7 +109,7 @@
 
 .player-progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #10b981, #059669);
+  background: var(--accent-color);
   border-radius: 4px;
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -473,8 +473,8 @@
 }
 
 .outline-lesson-check.completed {
-  background: #10b981;
-  border-color: #10b981;
+  background: var(--accent-color);
+  border-color: var(--accent-color);
   color: #fff;
 }
 
@@ -739,8 +739,8 @@
 }
 
 .content-item-checkbox.checked {
-  background: #10b981;
-  border-color: #10b981;
+  background: var(--accent-color);
+  border-color: var(--accent-color);
   color: #fff;
 }
 

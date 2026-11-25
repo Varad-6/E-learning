@@ -420,7 +420,7 @@ export const ExamReviewer: React.FC = () => {
                           cursor: 'pointer',
                           transition: 'all 0.2s ease'
                         }}
-                        className="glow-hover"
+                        className=""
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                           <span style={{ fontSize: '0.72rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: sub.status === 'graded' ? 'var(--accent-glow)' : 'rgba(255, 255, 255, 0.05)', color: sub.status === 'graded' ? 'var(--color-success)' : 'var(--color-warning)', textTransform: 'uppercase' }}>
@@ -604,7 +604,7 @@ export const ExamReviewer: React.FC = () => {
                                           justifyContent: 'center',
                                           boxShadow: isSelected ? '0 0 8px var(--accent-glow)' : 'none'
                                         }}
-                                        className="score-pill-btn glow-hover"
+                                        className="score-pill-btn"
                                       >
                                         {scoreVal}
                                       </button>
@@ -710,7 +710,7 @@ export const ExamReviewer: React.FC = () => {
                           cursor: 'pointer',
                           transition: 'all 0.2s ease'
                         }}
-                        className="glow-hover"
+                        className=""
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                           <span style={{ fontSize: '0.72rem', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', background: 'rgba(249, 115, 22, 0.1)', color: 'var(--warning-color)', textTransform: 'uppercase' }}>
