@@ -116,6 +116,16 @@ class QuizService:
         # Check enrollment and sequential locks
         QuizService.verify_quiz_access(db, user=user, quiz=quiz)
 
+        existing_attempt = db.query(QuizAttempt).filter(
+            QuizAttempt.quiz_id == request.quiz_id,
+            QuizAttempt.user_id == user_id
+        ).first()
+        if existing_attempt:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You have already submitted this quiz."
+            )
+
         questions = quiz.questions
         if not questions:
             raise HTTPException(

@@ -8,7 +8,13 @@ export const Footer: React.FC = () => {
         <nav className="footer-support-nav">
           <a href="#docs" className="footer-link">Documentation</a>
           <a href="#help" className="footer-link">Help Center</a>
-          <a href="#contact" className="footer-link">Contact Us</a>
+          <a
+            href="mailto:Akanksha.K@abhiyantatech.com"
+            title="Akanksha.K@abhiyantatech.com"
+            className="footer-link"
+          >
+            Contact Us
+          </a>
         </nav>
         <div className="footer-bottom">
           <p className="copyright-text">

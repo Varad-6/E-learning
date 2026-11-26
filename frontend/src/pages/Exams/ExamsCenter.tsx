@@ -438,6 +438,15 @@ export const ExamsCenter: React.FC = () => {
       } else {
         const err = await res.json();
         alert(`Submit failed: ${err.detail}`);
+        if (res.status === 400) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          sessionStorage.removeItem('active_exam_id');
+          sessionStorage.removeItem('active_exam_answers');
+          sessionStorage.removeItem('active_exam_files');
+          setActiveSubmission(null);
+          setExamDetails(null);
+          fetchCategorizedExams();
+        }
       }
     } catch (e) {
       console.error(e);

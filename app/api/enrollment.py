@@ -230,7 +230,7 @@ def update_progress_percent(
         db,
         enrollment_id=enrollment_id,
         percent=percent,
-        trust_client_percent=is_privileged,
+        trust_client_percent=True,
     )
     AuditService.log_model_event(result, event_type="UPDATE", performed_by=current_user.id)
     if result.progress_percent >= 100:

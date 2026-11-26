@@ -68,8 +68,9 @@ export const CoursePlayer: React.FC = () => {
   const [quizPassed, setQuizPassed] = useState(false);
   const [quizPassingScore, setQuizPassingScore] = useState(66);
   const [currentQuizQuestionIndex, setCurrentQuizQuestionIndex] = useState(0);
+  const alertedQuizIdsRef = useRef<Set<string>>(new Set());
   const [dbQuizzes, setDbQuizzes] = useState<{ [moduleId: string]: any[] }>({});
-  const [dbQuizMeta, setDbQuizMeta] = useState<{ [moduleId: string]: { quizId: string; passingScore: number } }>({});
+  const [dbQuizMeta, setDbQuizMeta] = useState<{ [moduleId: string]: { quizId: string; passingScore: number; alreadySubmitted?: boolean; userScore?: number | null; userPassed?: boolean | null } }>({});
 
   // Timed course states
   const [countdownText, setCountdownText] = useState<string>('00d : 00h : 00m : 00s');
@@ -181,7 +182,7 @@ export const CoursePlayer: React.FC = () => {
 
         // 4. Fetch quizzes from backend
         const quizzesMap: { [moduleId: string]: any[] } = {};
-        const quizMetaMap: { [moduleId: string]: { quizId: string; passingScore: number } } = {};
+        const quizMetaMap: { [moduleId: string]: { quizId: string; passingScore: number; alreadySubmitted?: boolean; userScore?: number | null; userPassed?: boolean | null } } = {};
         for (const mod of finalModules) {
           try {
             const quizRes = await apiCall(`/api/quizzes/module/${mod.id}`);
@@ -191,6 +192,9 @@ export const CoursePlayer: React.FC = () => {
                 quizMetaMap[mod.id] = {
                   quizId: quizData.id,
                   passingScore: typeof quizData.passing_score === 'number' ? quizData.passing_score : 66,
+                  alreadySubmitted: Boolean(quizData.already_submitted),
+                  userScore: quizData.user_score ?? null,
+                  userPassed: quizData.user_passed ?? null,
                 };
                 quizzesMap[mod.id] = quizData.questions.map((q: any) => ({
                   id: q.id,
@@ -307,24 +311,68 @@ export const CoursePlayer: React.FC = () => {
         });
         setExpandedModules(initialExpanded);
 
-        // Reconstruct completed content items from progress percentage
-        const progressVal = enrollData.progress_percent || 0;
+        // Reconstruct completed content items from real progress records and quizzes
+        const isCourseCompleted = enrollData.status === 'completed' || (enrollData.progress_percent || 0) >= 100;
         const flatList = mappedModules.reduce<ContentItem[]>((acc, mod) => [...acc, ...mod.contents], []);
-        const completedCount = Math.round((progressVal / 100) * flatList.length);
-        
         const initialCompleted = new Set<string>();
-        for (let i = 0; i < completedCount; i++) {
-          if (flatList[i]) {
-            initialCompleted.add(flatList[i].id);
+
+        if (isCourseCompleted) {
+          flatList.forEach(item => initialCompleted.add(item.id));
+        } else {
+          // 1. Add all completed content IDs from user progress records
+          if (Array.isArray(enrollData.progress_records)) {
+            enrollData.progress_records.forEach((rec: any) => {
+              if (rec.completed && rec.content_id) {
+                initialCompleted.add(String(rec.content_id));
+              }
+            });
+          }
+
+          // 2. Add all submitted module assessment quizzes
+          mappedModules.forEach(mod => {
+            if (quizMetaMap[mod.id]?.alreadySubmitted) {
+              initialCompleted.add(`quiz_${mod.id}`);
+            }
+          });
+
+          // 3. Fallback: If no progress records exist but progress_percent > 0, restore proportionally
+          if (initialCompleted.size === 0 && (enrollData.progress_percent || 0) > 0) {
+            const proportionalCount = Math.round(((enrollData.progress_percent || 0) / 100) * flatList.length);
+            for (let i = 0; i < proportionalCount; i++) {
+              if (flatList[i]) initialCompleted.add(flatList[i].id);
+            }
           }
         }
         setCompletedContentIds(initialCompleted);
-        
-        // Set active content index based on completion
-        if (completedCount < flatList.length) {
-          setActiveContentIndex(completedCount);
-        } else {
-          setActiveContentIndex(flatList.length - 1);
+
+        // Calculate accurate real-time progress percentage
+        const actualPercent = flatList.length > 0 
+          ? Math.round((initialCompleted.size / flatList.length) * 100) 
+          : 0;
+
+        // If the server-recorded progress is outdated, update it immediately
+        if (!isCourseCompleted && actualPercent > (enrollData.progress_percent || 0)) {
+          setEnrollment((prev: any) => prev ? { ...prev, progress_percent: actualPercent } : null);
+          apiCall(`/api/enrollments/${enrollmentId}/progress-percent?percent=${actualPercent}`, {
+            method: 'PUT'
+          }).catch(() => {});
+        }
+
+        // Set active content index to the first unfinished lesson
+        const firstUnfinishedIdx = flatList.findIndex(item => !initialCompleted.has(item.id));
+        const activeIdx = firstUnfinishedIdx >= 0 ? firstUnfinishedIdx : Math.max(0, flatList.length - 1);
+        setActiveContentIndex(activeIdx);
+
+        // Auto-expand the module containing the active content item
+        const activeItem = flatList[activeIdx];
+        if (activeItem) {
+          const parentMod = mappedModules.find(m => m.contents.some(c => c.id === activeItem.id));
+          if (parentMod) {
+            setExpandedModules(prev => ({
+              ...prev,
+              [parentMod.id]: true
+            }));
+          }
         }
 
       } catch (err) {
@@ -436,10 +484,26 @@ export const CoursePlayer: React.FC = () => {
     setVideoTime(0);
     setCurrentVideoPercent(0);
     maxWatchedTimeRef.current = 0;
-    setQuizAnswers({});
-    setQuizSubmitted(false);
-    setCurrentQuizQuestionIndex(0);
-  }, [course, activeContentIndex, modules]);
+    const activeMod = modules.find(mod => mod.contents.some(c => c.id === activeContent?.id));
+    const meta = activeMod?.id ? dbQuizMeta[activeMod.id] : null;
+    if (activeContent?.type === 'quiz') {
+      if (meta?.alreadySubmitted) {
+        setQuizSubmitted(true);
+        setQuizScore(Math.round(Number(meta.userScore || 0)));
+        setQuizPassed(Boolean(meta.userPassed));
+        setQuizPassingScore(meta.passingScore);
+      } else if (!quizSubmitted && activeContent.id && !alertedQuizIdsRef.current.has(activeContent.id)) {
+        alertedQuizIdsRef.current.add(activeContent.id);
+        setTimeout(() => {
+          window.alert('Please complete this assessment carefully. You have only one attempt, and once submitted, your answers cannot be changed.');
+        }, 50);
+      }
+    } else {
+      setQuizAnswers({});
+      setQuizSubmitted(false);
+      setCurrentQuizQuestionIndex(0);
+    }
+  }, [activeContentIndex, modules, dbQuizMeta]);
 
   const handleSaveNotes = async () => {
     const activeModule = modules.find(mod => mod.contents.some(c => c.id === activeContent?.id));
@@ -607,22 +671,33 @@ export const CoursePlayer: React.FC = () => {
     const progressPercent = Math.round((updated.size / flatContents.length) * 100);
     try {
       const currentParentMod = modules.find(m => m.contents.some(c => c.id === contentId));
-      if (currentParentMod) {
+      const isUuidContent = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contentId);
+      if (currentParentMod && isUuidContent) {
         await apiCall(`/api/enrollments/${enrollmentId}/progress`, {
           method: 'PUT',
           body: JSON.stringify({
             module_id: currentParentMod.id,
             content_id: contentId,
             completed: true,
-            time_spent_seconds: 15
+            time_spent_seconds: 60,
+            duration_seconds: 60,
+            current_time_seconds: 60,
           })
         });
       }
-      await apiCall(`/api/enrollments/${enrollmentId}/progress-percent?percent=${progressPercent}`, {
+      const pctRes = await apiCall(`/api/enrollments/${enrollmentId}/progress-percent?percent=${progressPercent}`, {
         method: 'PUT'
       });
-      // Update enrollment local state
-      setEnrollment((prev: any) => prev ? { ...prev, progress_percent: progressPercent } : null);
+      if (pctRes.ok) {
+        const updatedEnr = await pctRes.json();
+        setEnrollment((prev: any) => prev ? {
+          ...prev,
+          status: updatedEnr.status ?? prev.status,
+          progress_percent: updatedEnr.status === 'completed' ? 100 : (updatedEnr.progress_percent ?? progressPercent),
+        } : null);
+      } else {
+        setEnrollment((prev: any) => prev ? { ...prev, progress_percent: prev.status === 'completed' ? 100 : progressPercent } : null);
+      }
     } catch (e) {
       console.error('Failed to save progress in DB:', e);
     }
@@ -712,6 +787,33 @@ export const CoursePlayer: React.FC = () => {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (res.status === 400) {
+          const resultRes = await apiCall(`/api/quizzes/${quizMeta.quizId}/results`);
+          if (resultRes.ok) {
+            const resultData = await resultRes.json();
+            const existingScore = Math.round(Number(resultData.score || 0));
+            const existingPassed = Boolean(resultData.passed);
+            setQuizPassingScore(quizMeta.passingScore);
+            setQuizScore(existingScore);
+            setQuizPassed(existingPassed);
+            setQuizSubmitted(true);
+            if (currentActiveModule?.id) {
+              setDbQuizMeta(prev => ({
+                ...prev,
+                [currentActiveModule.id]: {
+                  ...prev[currentActiveModule.id],
+                  alreadySubmitted: true,
+                  userScore: existingScore,
+                  userPassed: existingPassed,
+                },
+              }));
+            }
+            if (activeContent?.id) {
+              await handleMarkContentComplete(activeContent.id);
+            }
+            return;
+          }
+        }
         alert(err.detail || 'Failed to submit quiz attempt.');
         return;
       }
@@ -722,8 +824,21 @@ export const CoursePlayer: React.FC = () => {
       setQuizScore(score);
       setQuizPassed(passed);
       setQuizSubmitted(true);
+      if (currentActiveModule?.id) {
+        setDbQuizMeta(prev => ({
+          ...prev,
+          [currentActiveModule.id]: {
+            ...prev[currentActiveModule.id],
+            alreadySubmitted: true,
+            userScore: score,
+            userPassed: passed,
+          },
+        }));
+      }
 
       if (passed) {
+        await handleMarkContentComplete(activeContent.id);
+      } else {
         await handleMarkContentComplete(activeContent.id);
       }
     } catch (e) {
@@ -1114,10 +1229,10 @@ export const CoursePlayer: React.FC = () => {
           )}
           <div className="player-header-progress">
             <span style={{ fontSize: '0.78rem', fontWeight: 'bold' }}>
-              Progress: {enrollment?.progress_percent || 0}%
+              Progress: {enrollment?.status === 'completed' ? 100 : (enrollment?.progress_percent || 0)}%
             </span>
             <div className="player-progress-bar-container">
-              <div className="player-progress-bar-fill" style={{ width: `${enrollment?.progress_percent || 0}%` }}></div>
+              <div className="player-progress-bar-fill" style={{ width: `${enrollment?.status === 'completed' ? 100 : (enrollment?.progress_percent || 0)}%` }}></div>
             </div>
           </div>
         </div>
@@ -1497,12 +1612,19 @@ export const CoursePlayer: React.FC = () => {
                 </div>
               )}
 
-              {activeContent?.type === 'quiz' && (
+              {activeContent?.type === 'quiz' && (() => {
+                const currentModForQuiz = modules.find(mod => mod.contents.some(c => c.id === activeContent?.id));
+                const currentQuizMeta = currentModForQuiz?.id ? dbQuizMeta[currentModForQuiz.id] : null;
+                const isQuizSubmitted = quizSubmitted || Boolean(currentQuizMeta?.alreadySubmitted);
+                const displayQuizScore = quizSubmitted ? quizScore : Math.round(Number(currentQuizMeta?.userScore || 0));
+                const displayQuizPassed = quizSubmitted ? quizPassed : Boolean(currentQuizMeta?.userPassed);
+                const displayPassingScore = quizSubmitted ? quizPassingScore : (currentQuizMeta?.passingScore ?? quizPassingScore);
+                return (
                 <div className="quiz-player-panel">
                   <div className="quiz-content-card">
                     <span className="quiz-badge">Module Assessment</span>
                     
-                    {!quizSubmitted ? (
+                    {!isQuizSubmitted ? (
                       (() => {
                         const questionsList = getActiveQuizQuestions();
                         const currentQ = questionsList[currentQuizQuestionIndex];
@@ -1511,6 +1633,19 @@ export const CoursePlayer: React.FC = () => {
 
                         return (
                           <>
+                            <div
+                              className="form-info-banner"
+                              style={{
+                                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                                color: '#f59e0b',
+                                border: '1px solid rgba(245, 158, 11, 0.45)',
+                                marginBottom: '16px',
+                                fontSize: '0.84rem',
+                                fontWeight: 600,
+                              }}
+                            >
+                              <span>Disclaimer: You have only one attempt for this assessment. Once submitted, your answers cannot be changed.</span>
+                            </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
                               <span>Question {currentQuizQuestionIndex + 1} of {questionsList.length}</span>
                               <span style={{ textTransform: 'uppercase', color: 'var(--accent-color)', fontWeight: '800' }}>{currentQ.questionType || 'mcq'}</span>
@@ -1638,12 +1773,12 @@ export const CoursePlayer: React.FC = () => {
                           <Award size={40} />
                         </div>
                         <h3 style={{ fontSize: '1.4rem', color: '#fff', margin: '0 0 10px 0' }}>
-                          {quizPassed ? 'Passed! Module Completed' : 'Failed. Try Again'}
+                          {displayQuizPassed ? 'Assessment Completed Successfully! (Passed)' : 'Assessment Completed Successfully'}
                         </h3>
                         <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
-                          Your Score: {quizScore}% (Passing requirement: {quizPassingScore}%)
+                          Your Score: {displayQuizScore}% (Passing requirement: {displayPassingScore}%)
                         </p>
-                        {quizPassed ? (
+                        {displayQuizPassed ? (
                           <>
                             <div className="form-info-banner" style={{ backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid #10b981', width: '100%', marginBottom: '16px' }}>
                               <span>Status: Completed. Next module is unlocked!</span>
@@ -1665,15 +1800,33 @@ export const CoursePlayer: React.FC = () => {
                             )}
                           </>
                         ) : (
-                          <Button variant="outline" onClick={() => { setQuizSubmitted(false); setCurrentQuizQuestionIndex(0); setQuizAnswers({}); }} style={{ width: '100%', padding: '14px' }}>
-                            Retry Assessment
-                          </Button>
+                          <>
+                            <div className="form-info-banner" style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid #3b82f6', width: '100%', marginBottom: '16px' }}>
+                              <span>Status: Submitted. You have already completed this assessment.</span>
+                            </div>
+                            {activeContentIndex < flatContents.length - 1 ? (
+                              <Button variant="primary" onClick={handleNextSection} style={{ width: '100%', padding: '14px' }}>
+                                Proceed to Next Module
+                              </Button>
+                            ) : (
+                              courseLocked ? (
+                                <div style={{ color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.88rem', marginTop: '16px', fontWeight: 700 }}>
+                                  Course is locked. You are viewing it in Review Mode and cannot complete it.
+                                </div>
+                              ) : (
+                                <Button variant="primary" onClick={handleFinalCompleteCourse} style={{ width: '100%', padding: '14px' }}>
+                                  Complete Course & Claim Certificate
+                                </Button>
+                              )
+                            )}
+                          </>
                         )}
                       </div>
                     )}
                   </div>
                 </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Under-Video Navigation Controls Bar */}
@@ -1938,13 +2091,13 @@ export const CoursePlayer: React.FC = () => {
                       title={!isUnlocked ? 'Complete previous module to unlock' : undefined}
                     >
                       <div className="outline-module-title-wrap">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                           {!isUnlocked ? (
-                            <Lock size={14} style={{ color: 'var(--text-secondary)' }} />
+                            <Lock size={14} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
                           ) : allInModCompleted ? (
-                            <CheckCircle size={14} style={{ color: '#10b981' }} />
+                            <CheckCircle size={14} style={{ color: '#10b981', flexShrink: 0 }} />
                           ) : (
-                            <Unlock size={14} style={{ color: 'var(--accent-color)' }} />
+                            <Unlock size={14} style={{ color: 'var(--accent-color)', flexShrink: 0 }} />
                           )}
                           <span className="outline-module-title">
                             Module {modIdx + 1}: {mod.title.replace(/^module\s*\d+\s*:\s*/i, '')}

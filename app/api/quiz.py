@@ -20,9 +20,13 @@ def _is_privileged_quiz_viewer(user: User) -> bool:
     return any(r in roles for r in ["SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER", "ADMIN"])
 
 
-def _serialize_quiz_for_user(quiz, user: User) -> QuizResponse:
-    """Strip correct_answer and explanation for non-privileged learners."""
+def _serialize_quiz_for_user(db: Session, quiz, user: User) -> QuizResponse:
+    """Strip correct_answer and explanation for non-privileged learners, and include user's submission status."""
     include_answers = _is_privileged_quiz_viewer(user)
+    attempt = db.query(QuizAttempt).filter(
+        QuizAttempt.quiz_id == quiz.id,
+        QuizAttempt.user_id == user.id
+    ).order_by(QuizAttempt.started_at.desc()).first()
     questions = [
         QuizQuestionResponse(
             id=q.id,
@@ -46,6 +50,9 @@ def _serialize_quiz_for_user(quiz, user: User) -> QuizResponse:
         is_published=quiz.is_published,
         is_optional=bool(getattr(quiz, "is_optional", True)),
         questions=questions,
+        already_submitted=attempt is not None,
+        user_score=attempt.score if attempt else None,
+        user_passed=attempt.passed if attempt else None,
     )
 
 
@@ -79,7 +86,7 @@ def get_quiz(
 ):
     quiz = QuizService.get_quiz(db, quiz_id=quiz_id)
     QuizService.verify_quiz_access(db, user=current_user, quiz=quiz)
-    return _serialize_quiz_for_user(quiz, current_user)
+    return _serialize_quiz_for_user(db, quiz, current_user)
 
 
 @router.post(
@@ -161,7 +168,7 @@ def get_quiz_by_module(
 ):
     quiz = QuizService.get_quiz_by_module(db, module_id=module_id)
     QuizService.verify_quiz_access(db, user=current_user, quiz=quiz)
-    return _serialize_quiz_for_user(quiz, current_user)
+    return _serialize_quiz_for_user(db, quiz, current_user)
 
 
 @router.delete(

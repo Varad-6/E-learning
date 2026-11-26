@@ -6,7 +6,10 @@ from app.core.dependencies import get_db, get_current_user
 from app.models.user import User
 from app.models.course import Course
 from app.models.course_enrollment import CourseEnrollment
-from app.models.exam import Exam, ExamSubmission
+from app.models.course_module import CourseModule
+from app.models.quiz import Quiz
+from app.models.quiz_attempt import QuizAttempt
+from app.models.exam import Exam, ExamSubmission, ExamGrade
 from app.models.notification import Notification
 from app.models.department import Department as DBDept
 from app.schemas.dashboard import (
@@ -59,7 +62,7 @@ def get_employee_dashboard(
     completed_count = 0
 
     for e in enrollments:
-        if e.status == "completed" or e.progress_percent == 100:
+        if e.status == "completed" or (e.progress_percent or 0) >= 100:
             completed_count += 1
 
         due_date = e.expires_at
@@ -76,15 +79,43 @@ def get_employee_dashboard(
             elif remaining.days < 7:
                 urgency_level = "amber"
 
+        # Calculate module counts & average assessment score for this course
+        mods = db.query(CourseModule).filter(CourseModule.course_id == e.course_id).all()
+        mod_ids = [m.id for m in mods]
+        total_mods_count = len(mods)
+
+        quizzes = db.query(Quiz).filter(Quiz.module_id.in_(mod_ids)).all() if mod_ids else []
+        quiz_ids = [q.id for q in quizzes]
+        course_scores = []
+        if quiz_ids:
+            user_attempts = db.query(QuizAttempt).filter(
+                QuizAttempt.user_id == current_user.id,
+                QuizAttempt.quiz_id.in_(quiz_ids),
+                QuizAttempt.score.isnot(None)
+            ).all()
+            seen_q = set()
+            for a in sorted(user_attempts, key=lambda x: x.completed_at or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc), reverse=True):
+                if a.quiz_id not in seen_q:
+                    seen_q.add(a.quiz_id)
+                    course_scores.append(round(float(a.score) / 10.0, 1))
+
+        course_avg = round(sum(course_scores) / len(course_scores), 1) if course_scores else None
+        c_status = "completed" if (e.status == "completed" or (e.progress_percent or 0) >= 100) else ("in_progress" if (e.progress_percent or 0) > 0 else "enrolled")
+
         item = DashboardCourseItem(
             id=e.course_id,
             enrollment_id=e.id,
             course_code=e.course.course_code,
             title=e.course.title,
             department_tag=e.course.department.code if e.course.department else "GEN",
-            progress_percent=e.progress_percent,
+            progress_percent=100 if c_status == "completed" else (e.progress_percent or 0),
             due_date=due_date,
-            urgency_level=urgency_level
+            urgency_level=urgency_level,
+            status=c_status,
+            is_mandatory=bool(e.course.is_mandatory),
+            avg_score=course_avg,
+            total_modules=total_mods_count,
+            completed_modules=int(((e.progress_percent or 0) / 100.0) * total_mods_count) if total_mods_count > 0 else 0
         )
 
         if e.course.is_mandatory:
@@ -179,6 +210,9 @@ def get_employee_dashboard(
         sub = db.query(ExamSubmission).filter(
             ExamSubmission.exam_id == exam.id,
             ExamSubmission.user_id == current_user.id
+        ).order_by(
+            ExamSubmission.submitted_at.desc().nullslast(),
+            ExamSubmission.started_at.desc().nullslast()
         ).first()
 
         if not sub:
@@ -226,7 +260,6 @@ def get_employee_dashboard(
         department = current_user.department.name if current_user.department else "General"
         
     from sqlalchemy import func
-    from app.models.exam import ExamGrade
     from app.models.role import Role
     from app.models.user_role import UserRole
     
@@ -370,29 +403,104 @@ def get_employee_dashboard(
             )
         )
 
-    # Calculate employee's exam score trend
-    from app.models.exam import ExamGrade
-    graded_exams = db.query(
-        Exam.title,
-        ExamGrade.overall_score
-    ).join(
-        ExamSubmission, ExamSubmission.exam_id == Exam.id
-    ).join(
+    # Calculate employee's exam and assessment score trend
+    trend_items = []
+
+    # 1. Graded Standalone Exam Submissions (0-10 scale), distinct latest per exam
+    user_exam_subs = db.query(ExamSubmission).join(
         ExamGrade, ExamGrade.submission_id == ExamSubmission.id
     ).filter(
         ExamSubmission.user_id == current_user.id,
         ExamSubmission.status == "graded",
         ExamGrade.overall_score.isnot(None)
-    ).order_by(
-        ExamSubmission.submitted_at.asc()
-    ).all()
-    
-    exam_score_trend = [{"label": row[0], "value": round(float(row[1]), 1)} for row in graded_exams]
-    if not exam_score_trend:
-        # Fallback baseline when no exams taken yet
-        exam_score_trend = [
-            {"label": "Baseline", "value": 0}
-        ]
+    ).order_by(ExamSubmission.submitted_at.desc().nullslast()).all()
+
+    seen_exams = set()
+    latest_exam_subs = []
+    for sub in user_exam_subs:
+        if sub.exam_id not in seen_exams:
+            seen_exams.add(sub.exam_id)
+            latest_exam_subs.append(sub)
+
+    for sub in latest_exam_subs:
+        exam_title = sub.exam.title if sub.exam else "Exam"
+        course_title = sub.exam.course.title if (sub.exam and sub.exam.course) else "Standalone Exam"
+        course_id = str(sub.exam.course_id) if (sub.exam and sub.exam.course_id) else "standalone"
+        course_code = sub.exam.course.course_code if (sub.exam and sub.exam.course) else ""
+        score = sub.grade.overall_score if sub.grade else 0.0
+        t_val = sub.submitted_at
+        if t_val and t_val.tzinfo is None:
+            t_val = t_val.replace(tzinfo=datetime.timezone.utc)
+        trend_items.append({
+            "label": exam_title,
+            "value": round(float(score), 1),
+            "score_percent": round(float(score) * 10, 1),
+            "passing_score": 6.0,
+            "passed": score >= 6.0,
+            "course_id": course_id,
+            "course_title": course_title,
+            "course_code": course_code,
+            "module_title": "Comprehensive Final Exam",
+            "date": t_val.strftime("%b %d, %Y") if t_val else "",
+            "time": t_val or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+        })
+
+    # 2. Module Assessment Quizzes (scaled from 0-100% to 0-10 score), distinct latest per quiz
+    user_quiz_attempts = db.query(QuizAttempt).filter(
+        QuizAttempt.user_id == current_user.id,
+        QuizAttempt.score.isnot(None)
+    ).order_by(QuizAttempt.completed_at.desc().nullslast()).all()
+
+    seen_quizzes = set()
+    latest_quiz_attempts = []
+    for att in user_quiz_attempts:
+        if att.quiz_id not in seen_quizzes:
+            seen_quizzes.add(att.quiz_id)
+            latest_quiz_attempts.append(att)
+
+    for att in latest_quiz_attempts:
+        quiz_title = att.quiz.title if att.quiz else "Module Assessment"
+        mod = db.query(CourseModule).filter(CourseModule.id == att.quiz.module_id).first() if att.quiz else None
+        course = db.query(Course).filter(Course.id == mod.course_id).first() if mod else None
+        scaled_score = round(float(att.score) / 10.0, 1) # convert 100% -> 10.0 scale
+        passing_10 = round(float(att.quiz.passing_score or 66) / 10.0, 1) if att.quiz else 6.6
+        t_val = att.completed_at
+        if t_val and t_val.tzinfo is None:
+            t_val = t_val.replace(tzinfo=datetime.timezone.utc)
+        trend_items.append({
+            "label": quiz_title,
+            "value": scaled_score,
+            "score_percent": round(float(att.score), 1),
+            "passing_score": passing_10,
+            "passed": bool(att.passed),
+            "course_id": str(course.id) if course else "general",
+            "course_title": course.title if course else "General Course",
+            "course_code": course.course_code if course else "",
+            "module_title": mod.title if mod else "Module Assessment",
+            "date": t_val.strftime("%b %d, %Y") if t_val else "",
+            "time": t_val or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+        })
+
+    # Sort all assessments chronologically (oldest to newest)
+    trend_items.sort(key=lambda x: x["time"])
+
+    # Keep all assessments (up to recent 60) so course-wise filtering has complete history
+    recent_trend = trend_items[-60:] if len(trend_items) > 60 else trend_items
+
+    exam_score_trend = recent_trend if recent_trend else [
+        {
+            "label": "Baseline",
+            "value": 0,
+            "score_percent": 0,
+            "passing_score": 6.0,
+            "passed": False,
+            "course_id": "all",
+            "course_title": "No exams taken yet",
+            "course_code": "",
+            "module_title": "Baseline",
+            "date": ""
+        }
+    ]
 
     # Calculate employee's course enrollment status breakdown
     completed_enr = db.query(CourseEnrollment).filter(

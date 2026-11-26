@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -141,6 +141,11 @@ const SVGLineChart: React.FC<SVGLineChartProps> = ({
 
   if (!data || data.length === 0) return <p style={{ fontStyle: 'italic', color: 'var(--text-secondary)', padding: '16px 0' }}>No trend data available.</p>;
 
+  // If there is a single real exam score, prepend a Start (0) point so a trend line is visible
+  const chartData = (data.length === 1 && data[0].label !== 'Baseline')
+    ? [{ label: 'Start', value: 0 }, ...data]
+    : data;
+
 
 
   // Dimensions & Padding
@@ -167,7 +172,7 @@ const SVGLineChart: React.FC<SVGLineChartProps> = ({
 
   // Max value calculation with snapping thresholds (10, 20, 50, 100)
 
-  const rawMax = Math.max(...data.map(d => d.value));
+  const rawMax = Math.max(...chartData.map(d => d.value));
 
   let maxVal = 10;
 
@@ -219,9 +224,9 @@ const SVGLineChart: React.FC<SVGLineChartProps> = ({
 
   // Coordinates Mapping
 
-  const pts = data.map((d, i) => {
+  const pts = chartData.map((d, i) => {
 
-    const x = paddingLeft + (data.length > 1 ? (i / (data.length - 1)) * chartWidth : chartWidth / 2);
+    const x = paddingLeft + (chartData.length > 1 ? (i / (chartData.length - 1)) * chartWidth : chartWidth / 2);
 
     const y = paddingTop + chartHeight - (d.value / maxVal) * chartHeight;
 
@@ -453,11 +458,13 @@ const SVGLineChart: React.FC<SVGLineChartProps> = ({
 
 
 
-        {/* Data Point Dots & Pulsing Highlights */}
+        {/* Data Point Dots & Score Labels */}
 
         {pts.map((pt, i) => (
 
           <g key={i}>
+
+            <title>{`${chartData[i].label}: ${chartData[i].value}`}</title>
 
             <circle 
 
@@ -489,40 +496,58 @@ const SVGLineChart: React.FC<SVGLineChartProps> = ({
 
             />
 
+            <text
+
+              x={pt.x}
+
+              y={pt.y - 10}
+
+              textAnchor="middle"
+
+              fill="var(--text-primary)"
+
+              style={{ fontSize: '10px', fontWeight: '700' }}
+
+            >
+
+              {chartData[i].value}
+
+            </text>
+
           </g>
 
         ))}
 
 
 
-        {/* X-Axis Labels */}
+        {/* X-Axis Scale Ticks & Scale Numbers (No module names, pure numerical scale) */}
 
-        {data.map((d, i) => {
+        {chartData.map((d, i) => {
 
-          const x = paddingLeft + (data.length > 1 ? (i / (data.length - 1)) * chartWidth : chartWidth / 2);
+          const x = paddingLeft + (chartData.length > 1 ? (i / (chartData.length - 1)) * chartWidth : chartWidth / 2);
+          const scaleNum = d.label === 'Start' ? 0 : (chartData[0]?.label === 'Start' ? i : i + 1);
 
           return (
-
-            <text 
-
-              key={i}
-
-              x={x} 
-
-              y={height - 24} 
-
-              textAnchor="middle" 
-
-              fill="var(--text-secondary)" 
-
-              style={{ fontSize: '10px', fontWeight: '700' }}
-
-            >
-
-              {d.label}
-
-            </text>
-
+            <g key={i}>
+              <line 
+                x1={x} 
+                y1={yBottom} 
+                x2={x} 
+                y2={yBottom + 5} 
+                stroke="var(--border-color)" 
+                strokeWidth="1.5" 
+              />
+              <text 
+                x={x} 
+                y={yBottom + 17} 
+                textAnchor="middle" 
+                fill="var(--text-secondary)" 
+                style={{ fontSize: '11px', fontWeight: '700' }}
+              >
+                <title>{`${d.label}: ${d.value} / 10`}</title>
+                {scaleNum}
+              </text>
+            </g>
           );
 
         })}
@@ -1253,12 +1278,73 @@ export const Dashboard: React.FC = () => {
 
 
   // Redesigned Employee Dashboard states
-
   const [empDashboardData, setEmpDashboardData] = useState<any | null>(null);
-
   const [empDashboardLoading, setEmpDashboardLoading] = useState(true);
-
   const [showCatalogOnly, setShowCatalogOnly] = useState(false);
+  const [trendCourseFilter, setTrendCourseFilter] = useState<string>('all');
+  const [enrolledCourseTab, setEnrolledCourseTab] = useState<'all' | 'in_progress' | 'completed'>('all');
+
+  // Course-wise Memoized Calculations for Employee Dashboard
+  const allEnrolledCourses = useMemo(() => {
+    if (!empDashboardData) return [];
+    const mand = empDashboardData.mandatory_courses || [];
+    const assn = empDashboardData.assigned_courses || [];
+    const map = new Map<string, any>();
+    [...mand, ...assn].forEach((c: any) => {
+      if (c && c.id) map.set(String(c.id), c);
+    });
+    return Array.from(map.values());
+  }, [empDashboardData]);
+
+  const filteredEnrolledCourses = useMemo(() => {
+    if (enrolledCourseTab === 'all') return allEnrolledCourses;
+    if (enrolledCourseTab === 'completed') {
+      return allEnrolledCourses.filter((c: any) => c.status === 'completed' || (c.progress_percent || 0) >= 100);
+    }
+    return allEnrolledCourses.filter((c: any) => c.status !== 'completed' && (c.progress_percent || 0) < 100);
+  }, [allEnrolledCourses, enrolledCourseTab]);
+
+  const availableTrendCourses = useMemo(() => {
+    if (!empDashboardData?.exam_score_trend) return [];
+    const list: { id: string; title: string; code: string }[] = [];
+    const seen = new Set<string>();
+    empDashboardData.exam_score_trend.forEach((item: any) => {
+      const cId = String(item.course_id || 'standalone');
+      if (cId && !seen.has(cId) && item.course_title && item.label !== 'Baseline') {
+        seen.add(cId);
+        list.push({
+          id: cId,
+          title: item.course_title,
+          code: item.course_code || ''
+        });
+      }
+    });
+    return list;
+  }, [empDashboardData?.exam_score_trend]);
+
+  const filteredTrendItems = useMemo(() => {
+    if (!empDashboardData?.exam_score_trend || empDashboardData.exam_score_trend.length === 0) return [];
+    if (trendCourseFilter === 'all') {
+      const filtered = empDashboardData.exam_score_trend.filter((item: any) => item.label !== 'Baseline');
+      return filtered.length > 0 ? filtered : empDashboardData.exam_score_trend;
+    }
+    return empDashboardData.exam_score_trend.filter((item: any) => String(item.course_id) === String(trendCourseFilter));
+  }, [empDashboardData?.exam_score_trend, trendCourseFilter]);
+
+  const courseTrendStats = useMemo(() => {
+    if (!filteredTrendItems || filteredTrendItems.length === 0) {
+      return { avg: 0, count: 0, passRate: 0, latest: 0 };
+    }
+    const validScores = filteredTrendItems.filter((i: any) => typeof i.value === 'number' && i.label !== 'Baseline');
+    const count = validScores.length;
+    if (count === 0) return { avg: 0, count: 0, passRate: 0, latest: 0 };
+    const sum = validScores.reduce((acc: number, curr: any) => acc + curr.value, 0);
+    const avg = Number((sum / count).toFixed(1));
+    const passedCount = validScores.filter((i: any) => i.passed || i.value >= 6.0).length;
+    const passRate = Math.round((passedCount / count) * 100);
+    const latest = validScores[validScores.length - 1].value;
+    return { avg, count, passRate, latest };
+  }, [filteredTrendItems]);
 
 
 
@@ -1688,345 +1774,178 @@ export const Dashboard: React.FC = () => {
 
 
     return (
-
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '10px 0' }}>
-
         <div style={{ position: 'relative', width: '130px', height: '130px' }}>
-
           <svg height="130" width="130" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
-
             <circle
-
-              stroke="var(--border-color)"
-
+              stroke="#e2e8f0"
               fill="transparent"
-
               strokeWidth={stroke}
-
               r={normalizedRadius}
-
               cx="65"
-
               cy="65"
-
             />
-
             <circle
-
-              stroke="var(--accent-color)"
-
+              stroke="#2563eb"
               fill="transparent"
-
               strokeWidth={stroke}
-
               strokeDasharray={circumference + ' ' + circumference}
-
               style={{ strokeDashoffset, transition: 'stroke-dashoffset 0.5s ease-in-out' }}
-
               strokeLinecap="round"
-
               r={normalizedRadius}
-
               cx="65"
-
               cy="65"
-
             />
-
           </svg>
-
           <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-
-            <span style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-primary)' }}>{percent}%</span>
-
+            <span style={{ fontSize: '1.6rem', fontWeight: '900', color: '#0f172a' }}>{percent}%</span>
           </div>
-
         </div>
-
-        <p style={{ marginTop: '16px', fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-primary)', textAlign: 'center' }}>
-
+        <p style={{ marginTop: '16px', fontSize: '0.92rem', fontWeight: '800', color: '#0f172a', textAlign: 'center' }}>
           {completed} of {total} Courses Completed
-
         </p>
-
       </div>
-
     );
-
   };
 
-
-
   const renderRankCircle = (rankPos: number | null, badgeTier: string | null, deptName: string = 'General') => {
-
     const isFirst = rankPos === 1;
-
-    const isTopThree = rankPos && rankPos <= 3;
-
-    const rankColor = isFirst ? '#fbbf24' : isTopThree ? '#cbd5e1' : 'var(--accent-color)';
-
-    const glowColor = isFirst ? 'rgba(251, 191, 36, 0.15)' : isTopThree ? 'rgba(203, 213, 225, 0.1)' : 'rgba(20, 168, 0, 0.08)';
-
-
+    const isSilver = rankPos === 2;
+    const isBronze = rankPos === 3;
+    const glowColor = isFirst ? 'rgba(245, 158, 11, 0.2)' : isSilver ? 'rgba(37, 99, 235, 0.15)' : isBronze ? 'rgba(234, 88, 12, 0.15)' : 'rgba(37, 99, 235, 0.1)';
 
     return (
-
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0', width: '100%' }}>
-
-        {/* Glowing circular container */}
-
+        {/* Crisp circular container */}
         <div style={{
-
           position: 'relative',
-
           width: '140px',
-
           height: '140px',
-
           display: 'flex',
-
           alignItems: 'center',
-
           justifyContent: 'center',
-
           borderRadius: '50%',
-
-          boxShadow: `0 0 25px ${glowColor}`,
-
-          background: 'radial-gradient(circle, var(--accent-glow) 0%, transparent 75%)',
-
+          boxShadow: `0 4px 16px ${glowColor}`,
+          background: '#ffffff',
           transition: 'all 0.3s ease'
-
         }}>
-
           {/* SVG Medal Ring */}
-
           <svg height="140" width="140" style={{ position: 'absolute', transform: 'rotate(-90deg)' }}>
-
             <defs>
-
               <linearGradient id="rankGold" x1="0%" y1="0%" x2="100%" y2="100%">
-
                 <stop offset="0%" stopColor="#fbbf24" />
-
                 <stop offset="50%" stopColor="#f59e0b" />
-
                 <stop offset="100%" stopColor="#d97706" />
-
               </linearGradient>
-
               <linearGradient id="rankSilver" x1="0%" y1="0%" x2="100%" y2="100%">
-
-                <stop offset="0%" stopColor="#f1f5f9" />
-
-                <stop offset="100%" stopColor="#cbd5e1" />
-
+                <stop offset="0%" stopColor="#60a5fa" />
+                <stop offset="100%" stopColor="#2563eb" />
               </linearGradient>
-
+              <linearGradient id="rankBronze" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#fb923c" />
+                <stop offset="100%" stopColor="#ea580c" />
+              </linearGradient>
             </defs>
 
             {/* Background ring */}
-
             <circle
-
-              stroke="var(--border-color)"
-
+              stroke="#e2e8f0"
               fill="transparent"
-
-              strokeWidth="4"
-
+              strokeWidth="5"
               r="52"
-
               cx="70"
-
               cy="70"
-
             />
 
             {/* Active standing dial */}
-
             <circle
-
-              stroke={isFirst ? "url(#rankGold)" : isTopThree ? "url(#rankSilver)" : "var(--accent-color)"}
-
+              stroke={isFirst ? "url(#rankGold)" : isSilver ? "url(#rankSilver)" : isBronze ? "url(#rankBronze)" : "#2563eb"}
               fill="transparent"
-
               strokeWidth="6"
-
               strokeDasharray="326.7"
-
               strokeDashoffset={rankPos ? "80" : "326.7"}
-
               strokeLinecap="round"
-
               r="52"
-
               cx="70"
-
               cy="70"
-
-              style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.15))' }}
-
             />
-
           </svg>
 
-
-
           {/* Central Rank Placement Badge */}
-
           <div style={{
-
             position: 'absolute',
-
             textAlign: 'center',
-
             display: 'flex',
-
             flexDirection: 'column',
-
             alignItems: 'center',
-
             justifyContent: 'center'
-
           }}>
-
             {rankPos ? (
-
               <>
-
                 <span style={{
-
-                  fontSize: '2.8rem',
-
+                  fontSize: '2.7rem',
                   fontWeight: '900',
-
-                  color: isFirst ? '#fbbf24' : isTopThree ? '#cbd5e1' : 'var(--text-primary)',
-
+                  color: '#0f172a',
                   lineHeight: '1',
-
                   fontFamily: 'var(--font-title), sans-serif',
-
-                  textShadow: '0 2px 4px rgba(0,0,0,0.2)',
-
-                  letterSpacing: '-2px'
-
+                  letterSpacing: '-1px'
                 }}>
-
-                  {rankPos}
-
+                  #{rankPos}
                 </span>
-
                 {isFirst && (
-
                   <div style={{ display: 'flex', gap: '2px', marginTop: '2px', color: '#fbbf24', fontSize: '0.7rem' }}>
-
                     ★ ★ ★
-
                   </div>
-
                 )}
-
               </>
-
             ) : (
-
-              <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-
+              <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>
                 Unranked
-
               </span>
-
             )}
-
           </div>
-
-
 
           {/* Floating Gold/Silver Crest Crown Icon at the top center */}
-
           <div style={{
-
             position: 'absolute',
-
             top: '-10px',
-
-            background: isFirst ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'linear-gradient(135deg, #cbd5e1, #94a3b8)',
-
-            border: '1.5px solid var(--bg-card)',
-
+            background: isFirst ? 'linear-gradient(135deg, #fbbf24, #d97706)' : isSilver ? 'linear-gradient(135deg, #38bdf8, #2563eb)' : isBronze ? 'linear-gradient(135deg, #fb923c, #ea580c)' : '#2563eb',
+            border: '2px solid #ffffff',
             borderRadius: '50%',
-
             width: '32px',
-
             height: '32px',
-
             display: 'flex',
-
             alignItems: 'center',
-
             justifyContent: 'center',
-
-            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.25)',
-
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
             zIndex: 2
-
           }}>
-
-            <Trophy size={16} color="#fff" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))' }} />
-
+            <Trophy size={16} color="#ffffff" />
           </div>
-
         </div>
-
-
 
         {/* Styled department standing description */}
-
-        <div style={{ marginTop: '20px', textAlign: 'center', width: '100%' }}>
-
-          <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-
+        <div style={{ marginTop: '16px', textAlign: 'center', width: '100%' }}>
+          <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             {deptName} Standing
-
           </p>
-
           <div style={{
-
             display: 'inline-flex',
-
             alignItems: 'center',
-
             gap: '6px',
-
-            marginTop: '8px',
-
-            background: 'var(--bg-main)',
-
-            border: '1px solid var(--border-color)',
-
+            marginTop: '6px',
+            background: '#eff6ff',
+            border: '1px solid #bfdbfe',
             padding: '4px 12px',
-
-            borderRadius: '20px',
-
-            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
-
+            borderRadius: '20px'
           }}>
-
-            <span style={{ fontSize: '0.82rem', fontWeight: '800', color: isFirst ? '#fbbf24' : 'var(--text-primary)' }}>
-
+            <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#1e40af' }}>
               {badgeTier || 'No Badges Earned'}
-
             </span>
-
           </div>
-
         </div>
-
       </div>
-
     );
-
   };
 
 
@@ -2093,7 +2012,7 @@ export const Dashboard: React.FC = () => {
 
 
 
-      if (activeRole === 'Employee') {
+      if (activeRole.toLowerCase() === 'employee' || !activeRole) {
 
         fetchEmpDashboard();
 
@@ -2206,15 +2125,14 @@ export const Dashboard: React.FC = () => {
   }, [navigate]);
 
   useLiveSync(['courses', 'enrollments', 'exams', 'badges', 'users', 'departments'], () => {
-    const activeRole = localStorage.getItem('isLoggedInRole') || role || 'Employee';
+    const activeRole = (localStorage.getItem('isLoggedInRole') || role || 'Employee').toLowerCase();
     fetchDBCourses();
     fetchBadgesData();
-    if (activeRole === 'Employee') {
-      fetchEmpDashboard();
-    } else if (activeRole === 'Manager') {
+    fetchEmpDashboard();
+    if (activeRole === 'manager') {
       fetchDBRoster();
       fetchDashboardAnalytics();
-    } else if (['Admin', 'HR Admin', 'HR Manager'].includes(activeRole)) {
+    } else if (['admin', 'hr admin', 'hr manager', 'system_admin', 'hr_admin'].includes(activeRole)) {
       fetchDashboardAnalytics();
       fetchDBAuditLogs();
     }
@@ -3449,21 +3367,23 @@ export const Dashboard: React.FC = () => {
         <div className="hero-banner-meta">
 
           {role === 'Employee' ? (
-
-            <div className="banner-meta-box" onClick={() => navigate('/courses')} style={{ cursor: 'pointer' }} title="Click to view your courses">
-
-              <Bookmark size={18} className="meta-icon icon-blue" />
-
-              <div>
-
-                <p className="meta-label">Total Courses</p>
-
-                <p className="meta-val">{myProgress.length} Enrolled</p>
-
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div className="banner-meta-box" onClick={() => navigate('/courses')} style={{ cursor: 'pointer' }} title="Click to view your courses">
+                <Bookmark size={18} className="meta-icon icon-blue" />
+                <div>
+                  <p className="meta-label">Total Courses</p>
+                  <p className="meta-val">{allEnrolledCourses.length || myProgress.length} Enrolled</p>
+                </div>
               </div>
-
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => navigate('/dashboard?tab=my-courses&sub=available')}
+                style={{ height: '40px', padding: '0 18px', fontSize: '0.82rem', fontWeight: 800, background: '#2563eb', borderColor: '#2563eb', color: '#ffffff' }}
+              >
+                Browse All Courses
+              </Button>
             </div>
-
           ) : role === 'Manager' ? (
 
             <>
@@ -3908,55 +3828,7 @@ export const Dashboard: React.FC = () => {
 
               <div className="employee-dashboard-grid-root">
 
-                 <div style={{
-
-                  gridColumn: '1 / -1',
-
-                  background: 'var(--bg-card)',
-
-                  borderRadius: 'var(--border-radius-lg)',
-
-                  border: '1px solid var(--border-color)',
-
-                  padding: '24px 30px',
-
-                  display: 'flex',
-
-                  justifyContent: 'space-between',
-
-                  alignItems: 'center',
-
-                  flexWrap: 'wrap',
-
-                  gap: '16px',
-
-                  boxShadow: 'var(--shadow-sm)',
-
-                  marginBottom: '8px'
-
-                }}>
-
-                  <div>
-
-                    <h3 style={{ fontSize: '1.6rem', fontWeight: 850, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-
-                      Welcome back, {profileName || 'Learner'}
-
-                    </h3>
-
-                    <p style={{ margin: '6px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-
-                      Check your progress, complete upcoming exams, and browse new courses to keep leveling up.
-
-                    </p>
-
-                  </div>
-                  <Button variant="primary" onClick={() => navigate('/dashboard?tab=my-courses&sub=available')}>Browse All Courses</Button>
-                </div>
-
-
-
-                {/* EMPLOYEE LEARNING KPI CARDS (Assigned, In Progress, Completed, Exam Score) */}
+                {/* EMPLOYEE LEARNING KPI CARDS (Assigned, In Progress, Completed, Completion Rate) */}
                 {(() => {
                   const allMyCourses = [...(empDashboardData.mandatory_courses || []), ...(empDashboardData.assigned_courses || [])];
                   const assignedCount = allMyCourses.length;
@@ -3971,29 +3843,32 @@ export const Dashboard: React.FC = () => {
                       {/* Card 1: Assigned Courses */}
                       <div className="metric-nav-card" style={{
                         gridColumn: 'span 3',
-                        background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0.03) 100%)',
-                        border: '1px solid rgba(59, 130, 246, 0.28)',
-                        color: 'var(--text-primary)',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderTop: '4px solid #2563eb',
+                        color: '#0f172a',
                         padding: '20px',
-                        borderRadius: 'var(--border-radius-lg)',
+                        borderRadius: '12px',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
                         minHeight: '130px',
                         cursor: 'pointer',
-                        boxShadow: '0 4px 15px rgba(59, 130, 246, 0.05)'
+                        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)'
                       }} onClick={() => navigate('/courses?tab=in_progress')}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontFamily: 'var(--font-title), sans-serif' }}>
                             Assigned Courses
                           </span>
-                          <BookOpen size={20} style={{ color: '#3b82f6' }} />
+                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <BookOpen size={18} style={{ color: '#2563eb' }} />
+                          </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
+                          <div style={{ fontSize: '2.2rem', fontWeight: 900, lineHeight: 1, color: '#0f172a', fontFamily: 'var(--font-title), sans-serif' }}>
                             {assignedCount}
                           </div>
-                          <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)' }}>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '6px', color: '#64748b' }}>
                             Enrolled & Assigned
                           </div>
                         </div>
@@ -4002,29 +3877,32 @@ export const Dashboard: React.FC = () => {
                       {/* Card 2: In Progress Courses */}
                       <div className="metric-nav-card" style={{
                         gridColumn: 'span 3',
-                        background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(245, 158, 11, 0.03) 100%)',
-                        border: '1px solid rgba(245, 158, 11, 0.28)',
-                        color: 'var(--text-primary)',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderTop: '4px solid #f59e0b',
+                        color: '#0f172a',
                         padding: '20px',
-                        borderRadius: 'var(--border-radius-lg)',
+                        borderRadius: '12px',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
                         minHeight: '130px',
                         cursor: 'pointer',
-                        boxShadow: '0 4px 15px rgba(245, 158, 11, 0.05)'
+                        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)'
                       }} onClick={() => navigate('/courses?tab=in_progress')}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontFamily: 'var(--font-title), sans-serif' }}>
                             In Progress
                           </span>
-                          <Play size={20} style={{ color: '#f59e0b' }} />
+                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Play size={18} style={{ color: '#f59e0b' }} />
+                          </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
+                          <div style={{ fontSize: '2.2rem', fontWeight: 900, lineHeight: 1, color: '#0f172a', fontFamily: 'var(--font-title), sans-serif' }}>
                             {inProgressCount}
                           </div>
-                          <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)' }}>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '6px', color: '#64748b' }}>
                             Currently Active
                           </div>
                         </div>
@@ -4033,63 +3911,67 @@ export const Dashboard: React.FC = () => {
                       {/* Card 3: Courses Completed */}
                       <div className="metric-nav-card" style={{
                         gridColumn: 'span 3',
-                        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(16, 185, 129, 0.03) 100%)',
-                        border: '1px solid rgba(16, 185, 129, 0.28)',
-                        color: 'var(--text-primary)',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderTop: '4px solid #10b981',
+                        color: '#0f172a',
                         padding: '20px',
-                        borderRadius: 'var(--border-radius-lg)',
+                        borderRadius: '12px',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
                         minHeight: '130px',
                         cursor: 'pointer',
-                        boxShadow: '0 4px 15px rgba(16, 185, 129, 0.05)'
+                        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)'
                       }} onClick={() => navigate('/courses?tab=completed')}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontFamily: 'var(--font-title), sans-serif' }}>
                             Completed
                           </span>
-                          <CheckCircle size={20} style={{ color: '#10b981' }} />
+                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <CheckCircle size={18} style={{ color: '#10b981' }} />
+                          </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
+                          <div style={{ fontSize: '2.2rem', fontWeight: 900, lineHeight: 1, color: '#0f172a', fontFamily: 'var(--font-title), sans-serif' }}>
                             {completedCount}
                           </div>
-                          <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)' }}>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '6px', color: '#64748b' }}>
                             100% Finished
                           </div>
                         </div>
                       </div>
 
-                      {/* Card 4: Average Exam Score */}
+                      {/* Card 4: Completion Rate */}
                       <div className="metric-nav-card" style={{
                         gridColumn: 'span 3',
-                        background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(124, 58, 237, 0.03) 100%)',
-                        border: '1px solid rgba(124, 58, 237, 0.28)',
-                        color: 'var(--text-primary)',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderTop: '4px solid #8b5cf6',
+                        color: '#0f172a',
                         padding: '20px',
-                        borderRadius: 'var(--border-radius-lg)',
+                        borderRadius: '12px',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
                         minHeight: '130px',
                         cursor: 'pointer',
-                        boxShadow: '0 4px 15px rgba(124, 58, 237, 0.05)'
-                      }} onClick={() => navigate('/exams')}>
+                        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)'
+                      }} onClick={() => navigate('/dashboard?tab=badges')}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontFamily: 'var(--font-title), sans-serif' }}>
-                            Average Exam Score
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontFamily: 'var(--font-title), sans-serif' }}>
+                            Completion Rate
                           </span>
-                          <Award size={20} style={{ color: '#7c3aed' }} />
+                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Award size={18} style={{ color: '#8b5cf6' }} />
+                          </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '2.1rem', fontWeight: 900, lineHeight: 1, fontFamily: 'var(--font-title), sans-serif' }}>
-                            {empDashboardData.exam_score_trend && empDashboardData.exam_score_trend.length > 0 && empDashboardData.exam_score_trend[0].label !== 'Baseline'
-                              ? (empDashboardData.exam_score_trend.reduce((acc: number, curr: any) => acc + (curr.value || 0), 0) / empDashboardData.exam_score_trend.length).toFixed(1)
-                              : '0.0'}
+                          <div style={{ fontSize: '2.2rem', fontWeight: 900, lineHeight: 1, color: '#0f172a', fontFamily: 'var(--font-title), sans-serif' }}>
+                            {assignedCount > 0 ? `${Math.round((completedCount / assignedCount) * 100)}%` : '0%'}
                           </div>
-                          <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '4px', color: 'var(--text-secondary)' }}>
-                            Scale of 0 to 10
+                          <div style={{ fontSize: '0.78rem', fontWeight: 600, marginTop: '6px', color: '#64748b' }}>
+                            {completedCount} of {assignedCount} Courses Finished
                           </div>
                         </div>
                       </div>
@@ -4098,30 +3980,31 @@ export const Dashboard: React.FC = () => {
                       {continueCourse && (
                         <div style={{
                           gridColumn: '1 / -1',
-                          background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(15, 23, 42, 0.85) 100%)',
-                          border: '1px solid rgba(59, 130, 246, 0.35)',
-                          borderRadius: 'var(--border-radius-lg)',
+                          background: '#ffffff',
+                          border: '1px solid #e2e8f0',
+                          borderLeft: '5px solid #2563eb',
+                          borderRadius: '12px',
                           padding: '24px 28px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           flexWrap: 'wrap',
                           gap: '20px',
-                          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)'
+                          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)'
                         }}>
                           <div style={{ flex: '1 1 340px' }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '20px', background: 'rgba(59, 130, 246, 0.2)', color: 'var(--accent-color)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '20px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
                               <Play size={12} style={{ fill: 'currentColor' }} /> Continue Learning
                             </div>
-                            <h3 style={{ fontSize: '1.35rem', fontWeight: 850, margin: '0 0 6px 0', color: 'var(--text-primary)' }}>
+                            <h3 style={{ fontSize: '1.35rem', fontWeight: 850, margin: '0 0 6px 0', color: '#0f172a' }}>
                               {continueCourse.title}
                             </h3>
-                            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-                              Course Code: <strong>{continueCourse.course_code}</strong> • Status: <span style={{ textTransform: 'capitalize', color: 'var(--accent-color)', fontWeight: 700 }}>{(continueCourse.progress_percent || 0) > 0 ? `${continueCourse.progress_percent}% Completed` : 'Ready to Start'}</span>
+                            <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '12px' }}>
+                              Course Code: <strong style={{ color: '#0f172a' }}>{continueCourse.course_code}</strong> &bull; Status: <span style={{ textTransform: 'capitalize', color: '#2563eb', fontWeight: 700 }}>{(continueCourse.progress_percent || 0) > 0 ? `${continueCourse.progress_percent}% Completed` : 'Ready to Start'}</span>
                             </div>
                             {/* Progress track */}
-                            <div style={{ width: '100%', maxWidth: '420px', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ width: `${continueCourse.progress_percent || 0}%`, height: '100%', background: 'linear-gradient(90deg, #3b82f6, #06b6d4)', borderRadius: '4px', transition: 'width 0.4s ease' }} />
+                            <div style={{ width: '100%', maxWidth: '420px', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${continueCourse.progress_percent || 0}%`, height: '100%', background: 'linear-gradient(90deg, #2563eb, #3b82f6)', borderRadius: '4px', transition: 'width 0.4s ease' }} />
                             </div>
                           </div>
                           <Button
@@ -4129,101 +4012,200 @@ export const Dashboard: React.FC = () => {
                             size="lg"
                             leftIcon={<Play size={18} />}
                             onClick={() => navigate(`/course-player/${continueCourse.enrollment_id}`)}
-                            style={{ minWidth: '180px' }}
+                            style={{ minWidth: '180px', background: '#2563eb', borderColor: '#2563eb', color: '#ffffff', fontWeight: 800 }}
                           >
                             {(continueCourse.progress_percent || 0) > 0 ? 'Resume Course' : 'Start Course'}
                           </Button>
                         </div>
                       )}
 
-                      {/* MANDATORY COURSES & DUE DATES HIGHLIGHT SECTION */}
-                      {mandatoryList.length > 0 && (
-                        <div style={{
-                          gridColumn: '1 / -1',
-                          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%)',
-                          border: '1px solid rgba(239, 68, 68, 0.35)',
-                          borderRadius: 'var(--border-radius-lg)',
-                          padding: '24px 28px',
-                          boxShadow: '0 4px 20px rgba(239, 68, 68, 0.06)'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <ShieldAlert size={20} />
-                              </div>
-                              <div>
-                                <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                                  Mandatory Compliance Pathways
-                                </h4>
-                                <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                  Required corporate certifications with compliance deadlines.
-                                </p>
-                              </div>
+                      {/* MY ENROLLED LEARNING PATHWAYS SECTION (FORMAL & COURSE-WISE) */}
+                      <div style={{
+                        gridColumn: '1 / -1',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '24px 28px',
+                        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <BookOpen size={22} />
                             </div>
-                            <span style={{ fontSize: '0.78rem', fontWeight: 800, padding: '4px 10px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>
-                              {mandatoryList.length} Mandatory {mandatoryList.length === 1 ? 'Course' : 'Courses'}
-                            </span>
+                            <div>
+                              <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                My Enrolled Learning Pathways
+                                <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '3px 9px', borderRadius: '12px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>
+                                  {allEnrolledCourses.length} {allEnrolledCourses.length === 1 ? 'Curriculum' : 'Curriculums'}
+                                </span>
+                              </h4>
+                              <p style={{ margin: '3px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+                                Formal course progress, module completion milestones, and examination standings.
+                              </p>
+                            </div>
                           </div>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-                            {mandatoryList.map((m: any) => {
-                              const isCompleted = m.progress_percent === 100;
-                              const dueDateStr = m.due_date ? new Date(m.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'No strict deadline';
-                              const isUrgent = m.urgency_level === 'red';
-                              const isAmber = m.urgency_level === 'amber';
+                          {/* Filter Tabs */}
+                          <div style={{ display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: '8px', border: '1px solid #e2e8f0', gap: '4px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setEnrolledCourseTab('all')}
+                              style={{
+                                padding: '6px 14px',
+                                fontSize: '0.78rem',
+                                fontWeight: enrolledCourseTab === 'all' ? 800 : 600,
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: enrolledCourseTab === 'all' ? '#2563eb' : 'transparent',
+                                color: enrolledCourseTab === 'all' ? '#ffffff' : '#64748b',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              All Courses ({allEnrolledCourses.length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEnrolledCourseTab('in_progress')}
+                              style={{
+                                padding: '6px 14px',
+                                fontSize: '0.78rem',
+                                fontWeight: enrolledCourseTab === 'in_progress' ? 800 : 600,
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: enrolledCourseTab === 'in_progress' ? '#2563eb' : 'transparent',
+                                color: enrolledCourseTab === 'in_progress' ? '#ffffff' : '#64748b',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              In Progress ({allEnrolledCourses.filter((c: any) => c.status !== 'completed' && (c.progress_percent || 0) < 100).length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEnrolledCourseTab('completed')}
+                              style={{
+                                padding: '6px 14px',
+                                fontSize: '0.78rem',
+                                fontWeight: enrolledCourseTab === 'completed' ? 800 : 600,
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: enrolledCourseTab === 'completed' ? '#2563eb' : 'transparent',
+                                color: enrolledCourseTab === 'completed' ? '#ffffff' : '#64748b',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              Completed ({allEnrolledCourses.filter((c: any) => c.status === 'completed' || (c.progress_percent || 0) >= 100).length})
+                            </button>
+                          </div>
+                        </div>
+
+                        {filteredEnrolledCourses.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '36px 20px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                            <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>
+                              No courses found in this category.
+                            </p>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '18px' }}>
+                            {filteredEnrolledCourses.map((c: any) => {
+                              const isCompleted = c.status === 'completed' || (c.progress_percent || 0) >= 100;
+                              const dueDateStr = c.due_date ? new Date(c.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+                              const isUrgent = c.urgency_level === 'red';
 
                               return (
-                                <div key={m.id} style={{
-                                  background: 'var(--bg-card)',
-                                  border: isCompleted ? '1px solid rgba(16, 185, 129, 0.3)' : isUrgent ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid var(--border-color)',
-                                  borderRadius: 'var(--border-radius-md)',
-                                  padding: '16px 20px',
+                                <div key={c.id} style={{
+                                  background: '#ffffff',
+                                  border: isCompleted ? '1px solid #a7f3d0' : isUrgent ? '1px solid #fecaca' : '1px solid #e2e8f0',
+                                  borderTop: isCompleted ? '3px solid #10b981' : isUrgent ? '3px solid #ef4444' : '3px solid #2563eb',
+                                  borderRadius: '10px',
+                                  padding: '18px 22px',
                                   display: 'flex',
                                   flexDirection: 'column',
                                   justifyContent: 'space-between',
-                                  gap: '12px'
+                                  gap: '14px',
+                                  boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+                                  position: 'relative'
                                 }}>
                                   <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                                      <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', background: isCompleted ? 'rgba(16, 185, 129, 0.15)' : isUrgent ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.15)', color: isCompleted ? '#10b981' : isUrgent ? '#ef4444' : '#f59e0b' }}>
-                                        {isCompleted ? '✓ Completed' : isUrgent ? '⚠️ Urgent Deadline' : 'Mandatory'}
-                                      </span>
-                                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                                        {m.course_code}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{ fontSize: '0.74rem', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', background: isCompleted ? '#ecfdf5' : '#eff6ff', color: isCompleted ? '#047857' : '#1d4ed8', border: isCompleted ? '1px solid #a7f3d0' : '1px solid #bfdbfe' }}>
+                                          {isCompleted ? '✓ Completed' : (c.progress_percent || 0) > 0 ? 'In Progress' : 'Enrolled'}
+                                        </span>
+                                        {c.is_mandatory && (
+                                          <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 7px', borderRadius: '4px', background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
+                                            Mandatory
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700, letterSpacing: '0.04em' }}>
+                                        {c.course_code}
                                       </span>
                                     </div>
-                                    <h5 style={{ fontSize: '1rem', fontWeight: 800, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>
-                                      {m.title}
+
+                                    <h5 style={{ fontSize: '1.05rem', fontWeight: 800, margin: '0 0 8px 0', color: '#0f172a', lineHeight: 1.35 }}>
+                                      {c.title}
                                     </h5>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: isUrgent && !isCompleted ? '#ef4444' : 'var(--text-secondary)', fontWeight: 600 }}>
-                                      <Clock size={13} />
-                                      <span>Due: {dueDateStr}</span>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.78rem', color: '#64748b', fontWeight: 600, flexWrap: 'wrap', marginTop: '6px' }}>
+                                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <BookOpen size={13} style={{ color: '#2563eb' }} />
+                                        {c.completed_modules != null ? `${c.completed_modules} / ${c.total_modules || 1} Modules` : 'Curriculum'}
+                                      </span>
+                                      {c.avg_score != null && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981' }}>
+                                          <Award size={13} />
+                                          Exam Avg: {c.avg_score}/10
+                                        </span>
+                                      )}
+                                      {dueDateStr && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: isUrgent && !isCompleted ? '#ef4444' : '#64748b' }}>
+                                          <Clock size={13} />
+                                          Due: {dueDateStr}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
 
                                   <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-secondary)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', fontWeight: 700, marginBottom: '6px', color: '#64748b' }}>
                                       <span>Progress</span>
-                                      <span>{m.progress_percent || 0}%</span>
+                                      <span style={{ color: isCompleted ? '#10b981' : '#0f172a', fontWeight: 800 }}>{c.progress_percent || 0}%</span>
                                     </div>
-                                    <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden', marginBottom: '12px' }}>
-                                      <div style={{ width: `${m.progress_percent || 0}%`, height: '100%', background: isCompleted ? '#10b981' : '#ef4444', borderRadius: '3px' }} />
+                                    <div style={{ width: '100%', height: '7px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden', marginBottom: '14px' }}>
+                                      <div style={{ width: `${c.progress_percent || 0}%`, height: '100%', background: isCompleted ? 'linear-gradient(90deg, #10b981, #059669)' : 'linear-gradient(90deg, #2563eb, #3b82f6)', borderRadius: '4px', transition: 'width 0.4s ease' }} />
                                     </div>
-                                    <Button
-                                      variant={isCompleted ? 'outline' : 'primary'}
-                                      size="sm"
-                                      onClick={() => navigate(`/course-player/${m.enrollment_id}`)}
-                                      style={{ width: '100%', fontSize: '0.78rem' }}
-                                    >
-                                      {isCompleted ? 'Review Modules' : (m.progress_percent || 0) > 0 ? 'Resume Training' : 'Start Mandatory Training'}
-                                    </Button>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                      <Button
+                                        variant={isCompleted ? 'outline' : 'primary'}
+                                        size="sm"
+                                        onClick={() => navigate(`/course-player/${c.enrollment_id}`)}
+                                        style={{ flex: 1, fontSize: '0.8rem', fontWeight: 700 }}
+                                      >
+                                        {isCompleted ? 'Review Modules' : (c.progress_percent || 0) > 0 ? 'Resume Training' : 'Start Course'}
+                                      </Button>
+                                      {isCompleted && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => navigate('/dashboard?tab=badges')}
+                                          title="View your verified course certificate and badge"
+                                          style={{ fontSize: '0.8rem', padding: '0 12px', borderColor: '#a7f3d0', color: '#047857', background: '#ecfdf5' }}
+                                        >
+                                          <Award size={14} style={{ marginRight: '4px' }} /> Certificate
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               );
                             })}
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </>
                   );
                 })()}
@@ -4232,8 +4214,8 @@ export const Dashboard: React.FC = () => {
                 {/* ROW 2: DETAILED WIDGETS */}
                 
                 {/* 1. MY DEPARTMENT RANK CARD (Span 6) */}
-                <div className="widget-card" style={{ gridColumn: 'span 6', border: '1px solid var(--border-color)', background: 'var(--bg-card)', alignItems: 'center' }}>
-                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, width: '100%', margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)' }}>
+                <div className="widget-card" style={{ gridColumn: 'span 6', border: '1px solid #e2e8f0', background: '#ffffff', borderRadius: '12px', padding: '24px 28px', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, width: '100%', margin: 0, border: 'none', padding: 0, color: '#0f172a' }}>
                     <Trophy size={18} style={{ color: '#d97706' }} />
                     My Department Rank
                   </h4>
@@ -4245,16 +4227,16 @@ export const Dashboard: React.FC = () => {
                   <Button 
                     variant="outline" 
                     onClick={() => navigate('/leaderboard')}
-                    style={{ width: '100%', marginTop: '16px', height: '36px', fontSize: '0.82rem', fontWeight: '700' }}
+                    style={{ width: '100%', marginTop: '16px', height: '38px', fontSize: '0.82rem', fontWeight: '700', border: '1px solid #cbd5e1', color: '#1e293b', background: '#ffffff' }}
                   >
                     Open Leaderboard →
                   </Button>
                 </div>
 
                 {/* 2. LEARNING JOURNEY PROGRESS RING (Span 6) */}
-                <div className="widget-card" style={{ gridColumn: 'span 6', border: '1px solid var(--border-color)', background: 'var(--bg-card)', alignItems: 'center' }}>
-                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, width: '100%', margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)' }}>
-                    <Target size={18} style={{ color: 'var(--accent-color)' }} />
+                <div className="widget-card" style={{ gridColumn: 'span 6', border: '1px solid #e2e8f0', background: '#ffffff', borderRadius: '12px', padding: '24px 28px', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, width: '100%', margin: 0, border: 'none', padding: 0, color: '#0f172a' }}>
+                    <Target size={18} style={{ color: '#2563eb' }} />
                     Learning Journey
                   </h4>
                   {renderProgressRing(
@@ -4274,11 +4256,11 @@ export const Dashboard: React.FC = () => {
                             gap: '5px',
                             padding: '4px 10px',
                             borderRadius: '20px',
-                            background: 'rgba(217, 119, 6, 0.1)',
-                            border: '1px solid rgba(217, 119, 6, 0.3)',
+                            background: '#fffbeb',
+                            border: '1px solid #fde68a',
                             fontSize: '0.74rem',
                             fontWeight: 700,
-                            color: 'var(--text-primary)'
+                            color: '#92400e'
                           }}
                         >
                           <img
@@ -4292,115 +4274,177 @@ export const Dashboard: React.FC = () => {
                     </div>
                   )}
                   {empDashboardData.next_badge_milestone.tier_name ? (
-                    <div style={{ width: '100%', marginTop: '12px', background: 'var(--accent-glow)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: 'var(--border-radius-md)', textAlign: 'center' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '700' }}>
-                        <Target size={14} style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }} /> Next Badge: <strong>{empDashboardData.next_badge_milestone.tier_name}</strong> ({empDashboardData.next_badge_milestone.courses_remaining} {empDashboardData.next_badge_milestone.courses_remaining === 1 ? 'course' : 'courses'} left!)
+                    <div style={{ width: '100%', marginTop: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 14px', borderRadius: '8px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#0f172a', fontWeight: '700' }}>
+                        <Target size={14} style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle', color: '#2563eb' }} /> Next Badge: <strong>{empDashboardData.next_badge_milestone.tier_name}</strong> ({empDashboardData.next_badge_milestone.courses_remaining} {empDashboardData.next_badge_milestone.courses_remaining === 1 ? 'course' : 'courses'} left!)
                       </span>
                     </div>
                   ) : (
-                    <div style={{ width: '100%', marginTop: '12px', background: 'var(--accent-glow)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: 'var(--border-radius-md)', textAlign: 'center' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: '700' }}>
-                        <Award size={14} style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }} /> You've unlocked all badge tiers!
+                    <div style={{ width: '100%', marginTop: '12px', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 14px', borderRadius: '8px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#0f172a', fontWeight: '700' }}>
+                        <Award size={14} style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle', color: '#10b981' }} /> You've unlocked all badge tiers!
                       </span>
                     </div>
                   )}
                   <Button 
                     variant="outline" 
                     onClick={() => navigate('/dashboard?tab=badges')}
-                    style={{ width: '100%', marginTop: '12px', height: '36px', fontSize: '0.82rem', fontWeight: '700' }}
+                    style={{ width: '100%', marginTop: '12px', height: '38px', fontSize: '0.82rem', fontWeight: '700', border: '1px solid #cbd5e1', color: '#1e293b', background: '#ffffff' }}
                   >
                     View All Awards & Badges →
                   </Button>
                 </div>
 
-                {/* ROW 3: DETAILED CHARTS */}
+                {/* ROW 3: COMPLETED COURSES RECOGNITION & ASSIGNED EXAMS */}
 
-                {/* 3. SCORE TREND LINE CHART (Span 8) */}
-                <div className="widget-card" style={{ gridColumn: 'span 8', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
-                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)', marginBottom: '14px' }}>
-                    <TrendingUp size={18} style={{ color: 'var(--accent-color)' }} />
-
-                    Exam Score Performance Trend
-
-                  </h4>
-
-                  <p style={{ margin: '0 0 16px 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-
-                    Track your grades over time (latest exam scores out of 10).
-
+                {/* 1. WHICH COURSES ARE COMPLETED (Span 6) */}
+                <div className="widget-card" style={{ gridColumn: 'span 6', border: '1px solid #e2e8f0', background: '#ffffff', borderRadius: '12px', padding: '24px 28px', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, margin: 0, color: '#0f172a' }}>
+                      <CheckCircle size={18} style={{ color: '#10b981' }} />
+                      Completed Courses &amp; Certificates
+                    </h4>
+                    <span style={{ fontSize: '0.76rem', fontWeight: 800, padding: '2px 8px', borderRadius: '12px', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}>
+                      {allEnrolledCourses.filter((c: any) => c.status === 'completed' || (c.progress_percent || 0) >= 100).length} Completed
+                    </span>
+                  </div>
+                  <p style={{ margin: '0 0 16px 0', fontSize: '0.82rem', color: '#64748b' }}>
+                    Curriculums you have fully finished and earned completion credentials for.
                   </p>
 
-                  <div style={{ flex: 1 }}>
-
-                    <SVGLineChart 
-
-                      data={empDashboardData.exam_score_trend && empDashboardData.exam_score_trend.length > 0 ? empDashboardData.exam_score_trend : [{ label: 'Baseline', value: 0 }]} 
-
-                      xAxisLabel="Exams Taken" 
-
-                      yAxisLabel="Score (max 10)" 
-
-                    />
-
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {(() => {
+                      const completedList = allEnrolledCourses.filter((c: any) => c.status === 'completed' || (c.progress_percent || 0) >= 100);
+                      if (completedList.length === 0) {
+                        return (
+                          <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            padding: '28px 16px',
+                            background: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '12px'
+                          }}>
+                            <BookOpen size={28} style={{ color: '#94a3b8', marginBottom: '8px' }} />
+                            <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a' }}>
+                              No Completed Courses Yet
+                            </span>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: '#64748b' }}>
+                              Complete all modules in your enrolled courses to unlock verified certificates and awards.
+                            </p>
+                          </div>
+                        );
+                      }
+                      return completedList.map((c: any) => (
+                        <div key={c.id} style={{
+                          padding: '14px 18px',
+                          borderRadius: '8px',
+                          border: '1px solid #bbf7d0',
+                          background: '#f0fdf4',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px'
+                        }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}>
+                                ✓ Completed
+                              </span>
+                              <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 700 }}>
+                                {c.course_code}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>
+                              {c.title}
+                            </div>
+                            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '2px' }}>
+                              {c.total_modules || 1} Modules &bull; 100% Progress
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate('/dashboard?tab=badges')}
+                            style={{ fontSize: '0.76rem', borderColor: '#a7f3d0', color: '#047857', background: '#ffffff', whiteSpace: 'nowrap' }}
+                          >
+                            <Award size={13} style={{ marginRight: '4px' }} /> Certificate
+                          </Button>
+                        </div>
+                      ));
+                    })()}
                   </div>
-
                 </div>
 
-                {/* 4. COURSE ENROLLMENT STATUS BAR CHART (Span 4) */}
-                <div className="widget-card" style={{ gridColumn: 'span 4', border: '1px solid var(--border-color)', background: 'var(--bg-card)' }}>
-                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, margin: 0, border: 'none', padding: 0, color: 'var(--text-primary)', marginBottom: '14px' }}>
-                    <Layers size={18} style={{ color: '#00f2fe' }} />
-
-                    Course Enrollment Status
-
+                {/* 2. ASSIGNED EXAMINATIONS & MILESTONES (Span 6) */}
+                <div className="widget-card" style={{ gridColumn: 'span 6', border: '1px solid #e2e8f0', background: '#ffffff', borderRadius: '12px', padding: '24px 28px', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)' }}>
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', fontWeight: 800, margin: 0, border: 'none', padding: 0, color: '#0f172a', marginBottom: '14px' }}>
+                    <FileText size={18} style={{ color: '#2563eb' }} />
+                    Assigned Examinations & Milestones
                   </h4>
-
-                  <p style={{ margin: '0 0 16px 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-
-                    Visual count breakdown of your course standings.
-
+                  <p style={{ margin: '0 0 16px 0', fontSize: '0.82rem', color: '#64748b' }}>
+                    Formal evaluations and compliance deadlines assigned to you.
                   </p>
-
-                  <div style={{ 
-
-                    flex: 1, 
-
-                    display: 'flex', 
-
-                    flexDirection: 'column', 
-
-                    justifyContent: 'center',
-
-                    background: 'rgba(255,255,255,0.015)',
-
-                    border: '1px solid var(--border-color)',
-
-                    borderRadius: '12px',
-
-                    padding: '24px 20px 20px 20px',
-
-                    boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.02)'
-
-                  }}>
-
-                    <SVGBarChart data={empDashboardData.category_progress && empDashboardData.category_progress.length > 0 
-
-                      ? empDashboardData.category_progress 
-
-                      : [
-
-                          { label: 'Completed', value: 0, color: '#10b981' },
-
-                          { label: 'In Progress', value: 0, color: '#00f2fe' },
-
-                          { label: 'Enrolled', value: 0, color: '#f59e0b' }
-
-                        ]
-
-                    } />
-
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {empDashboardData.upcoming_exams && empDashboardData.upcoming_exams.length > 0 ? (
+                      empDashboardData.upcoming_exams.slice(0, 3).map((exam: any) => (
+                        <div key={exam.id} style={{
+                          padding: '12px 14px',
+                          borderRadius: '8px',
+                          border: '1px solid #e2e8f0',
+                          background: '#f8fafc',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '10px'
+                        }}>
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>
+                              {exam.exam_title}
+                            </div>
+                            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '2px' }}>
+                              {exam.course_title} &bull; {exam.duration_minutes} mins
+                            </div>
+                          </div>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => navigate('/exams')}
+                            style={{ fontSize: '0.75rem', padding: '4px 10px', background: '#2563eb', borderColor: '#2563eb', color: '#ffffff' }}
+                          >
+                            Take Exam
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        padding: '24px 16px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px'
+                      }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+                          <CheckCircle size={26} style={{ color: '#10b981' }} />
+                        </div>
+                        <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0f172a' }}>
+                          All Assigned Exams Completed
+                        </span>
+                        <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                          You have no pending mandatory exams. All evaluations are fully submitted.
+                        </p>
+                      </div>
+                    )}
                   </div>
-
                 </div>
 
 
@@ -4969,10 +5013,17 @@ export const Dashboard: React.FC = () => {
                         <span>Courses Required:</span>
                         <strong style={{ color: 'var(--text-primary)' }}>{tier.courses_required_cumulative}</strong>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                        <span>Min. Score Required:</span>
-                        <strong style={{ color: '#d97706' }}>{tier.min_score_percent || 0}%</strong>
-                      </div>
+                      {tier.min_score_percent ? (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                          <span>Min. Score Required:</span>
+                          <strong style={{ color: '#d97706' }}>{tier.min_score_percent}%</strong>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                          <span>Requirement:</span>
+                          <strong style={{ color: 'var(--accent-color)' }}>Course Completion</strong>
+                        </div>
+                      )}
                     </div>
 
                     {/* Status footer */}
@@ -4982,7 +5033,7 @@ export const Dashboard: React.FC = () => {
                       </span>
                     ) : (
                       <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: 'auto' }}>
-                        Complete {tier.courses_required_cumulative} courses with ≥{tier.min_score_percent || 0}% avg score
+                        Complete {tier.courses_required_cumulative} {tier.courses_required_cumulative === 1 ? 'course' : 'courses'} to unlock
                       </span>
                     )}
                   </div>
@@ -5702,60 +5753,72 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* Right Column (span 4): Top Performers Showcase (Global Podium) */}
-            <div style={{ gridColumn: 'span 4' }}>
-              <div className="widget-card">
-                <h4 style={{ fontSize: '1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Trophy size={18} style={{ color: 'var(--accent-color)' }} /> Top Performers Showcase
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '10px' }}>
-                  {topPerformersData && topPerformersData.length > 0 ? (
-                    topPerformersData.map((user: any, idx: number) => (
-                      <div 
-                        key={user.user_id || idx} 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'space-between', 
-                          padding: '12px', 
-                          borderRadius: 'var(--border-radius-sm)', 
-                          background: idx === 0 ? 'rgba(245, 158, 11, 0.06)' : 'rgba(255,255,255,0.02)',
-                          border: idx === 0 ? '1px solid rgba(245, 158, 11, 0.15)' : '1px solid var(--border-color)',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ 
-                            fontSize: '0.85rem', 
-                            fontWeight: '900', 
-                            color: idx === 0 ? '#f59e0b' : idx === 1 ? '#94a3b8' : '#b45309',
-                            width: '20px'
-                          }}>
-                            #{idx + 1}
-                          </span>
-                          <div>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                              {user.user_name}
-                            </div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                              <span>{user.department_name}</span> &bull; 
-                              {user.badge_asset_ref && (
-                                <img 
-                                  src={`/badges/${user.badge_asset_ref}.png`} 
-                                  alt={user.badge_name} 
-                                  style={{ width: '14px', height: '14px', objectFit: 'contain' }} 
-                                />
-                              )}
-                              <span>{user.badge_name || 'No Badge Yet'}</span>
+            <div style={{ gridColumn: 'span 4', display: 'flex', flexDirection: 'column' }}>
+              <div className="widget-card" style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Trophy size={18} style={{ color: 'var(--accent-color)' }} /> Top Performers Showcase
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '12px' }}>
+                    {topPerformersData && topPerformersData.length > 0 ? (
+                      topPerformersData.map((user: any, idx: number) => (
+                        <div 
+                          key={user.user_id || idx} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'space-between', 
+                            padding: '12px', 
+                            borderRadius: 'var(--border-radius-sm)', 
+                            background: idx === 0 ? 'rgba(245, 158, 11, 0.06)' : 'rgba(255,255,255,0.02)',
+                            border: idx === 0 ? '1px solid rgba(245, 158, 11, 0.15)' : '1px solid var(--border-color)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ 
+                              fontSize: '0.85rem', 
+                              fontWeight: '900', 
+                              color: idx === 0 ? '#f59e0b' : idx === 1 ? '#94a3b8' : '#b45309',
+                              width: '20px'
+                            }}>
+                              #{idx + 1}
+                            </span>
+                            <div>
+                              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {user.user_name}
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                <span>{user.department_name}</span> &bull; 
+                                {user.badge_asset_ref && (
+                                  <img 
+                                    src={`/badges/${user.badge_asset_ref}.png`} 
+                                    alt={user.badge_name} 
+                                    style={{ width: '14px', height: '14px', objectFit: 'contain' }} 
+                                  />
+                                )}
+                                <span>{user.badge_name || 'No Badge Yet'}</span>
+                              </div>
                             </div>
                           </div>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--accent-color)', background: 'var(--accent-glow)', padding: '2px 8px', borderRadius: '4px' }}>
+                            {user.score ? user.score.toFixed(1) : '0.0'}/10
+                          </span>
                         </div>
-                        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--accent-color)', background: 'var(--accent-glow)', padding: '2px 8px', borderRadius: '4px' }}>
-                          {user.score ? user.score.toFixed(1) : '0.0'}/10
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.82rem' }}>No student evaluations recorded.</p>
-                  )}
+                      ))
+                    ) : (
+                      <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.82rem' }}>No student evaluations recorded.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick Governance Links to eliminate blank space */}
+                <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/admin/users')} style={{ width: '100%', fontSize: '0.78rem', fontWeight: 700, height: '34px' }}>
+                    <Users size={14} style={{ marginRight: '6px' }} /> Registered Learners Directory
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/reporting')} style={{ width: '100%', fontSize: '0.78rem', fontWeight: 700, height: '34px' }}>
+                    <FileText size={14} style={{ marginRight: '6px' }} /> Enterprise Examination Reports
+                  </Button>
                 </div>
               </div>
             </div>

@@ -33,6 +33,7 @@ def package_phase2():
     base_dirs = [
         "app",
         "alembic",
+        "init-db",
         "frontend/src",
         "frontend/public",
         "frontend/dist"
@@ -42,6 +43,15 @@ def package_phase2():
         "deploy_phase_2.py",
         "deploy.py",
         "DEPLOYMENT_PHASE_2.md",
+        "README_DEPLOY.md",
+        "deploy.bat",
+        "deploy.sh",
+        "restore_database.bat",
+        "restore_database.sh",
+        "docker-compose.yml",
+        "Dockerfile",
+        "start.sh",
+        ".env.example",
         "start_local.ps1",
         "start_local.bat",
         "start_backend.bat",
@@ -53,10 +63,13 @@ def package_phase2():
         "setup_backup_db.py",
         "frontend/index.html",
         "frontend/package.json",
+        "frontend/package-lock.json",
         "frontend/vite.config.ts",
         "frontend/tsconfig.json",
         "frontend/tsconfig.app.json",
-        "frontend/tsconfig.node.json"
+        "frontend/tsconfig.node.json",
+        "frontend/Dockerfile",
+        "frontend/nginx.conf"
     ]
 
     files_to_pack = set()
@@ -87,7 +100,12 @@ def package_phase2():
     print(f"\n[1/3] Building primary archive: {primary_zip}...")
     with zipfile.ZipFile(primary_zip, "w", zipfile.ZIP_DEFLATED) as zipf:
         for f in sorted(files_to_pack):
-            zipf.write(f, arcname=f.replace("\\", "/"))
+            arc = f.replace("\\", "/")
+            zipf.write(f, arcname=arc)
+            # If it's in frontend/dist, also mirror it into dist/ for server root configurations
+            if arc.startswith("frontend/dist/"):
+                mirror_arc = arc.replace("frontend/dist/", "dist/")
+                zipf.write(f, arcname=mirror_arc)
 
     size_mb = os.path.getsize(primary_zip) / (1024 * 1024)
     sha256 = get_file_hash(primary_zip)
@@ -98,6 +116,22 @@ def package_phase2():
     for alias in target_archives[1:]:
         shutil.copy2(primary_zip, alias)
         print(f"✅ Synced alias archive: {alias}")
+
+    # Copy primary zip and update.zip to Desktop and Downloads
+    userprofile = os.environ.get("USERPROFILE", r"C:\Users\arati")
+    desktop_onedrive = os.path.join(userprofile, "OneDrive - Abhiyanta India Solutions Pvt Ltd", "Desktop")
+    downloads_dir = os.path.join(userprofile, "Downloads")
+
+    for zip_to_copy in [primary_zip, "update.zip"]:
+        if os.path.exists(desktop_onedrive):
+            desktop_target = os.path.join(desktop_onedrive, zip_to_copy)
+            shutil.copy2(zip_to_copy, desktop_target)
+            print(f"✅ Copied to Desktop: {desktop_target}")
+
+        if os.path.exists(downloads_dir):
+            downloads_target = os.path.join(downloads_dir, zip_to_copy)
+            shutil.copy2(zip_to_copy, downloads_target)
+            print(f"✅ Copied to Downloads: {downloads_target}")
 
     print("\n" + "=" * 75)
     print("PHASE 2 DEPLOYMENT PACKAGES SAVED SUCCESSFULLY TO ONEDRIVE DIRECTORY:")

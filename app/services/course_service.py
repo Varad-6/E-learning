@@ -711,10 +711,13 @@ class CourseService:
             for mod in modules:
                 contents = db.query(ModuleContent).filter(
                     ModuleContent.module_id == mod.id,
-                    ModuleContent.is_active == True
+                    ModuleContent.is_active == True,
+                    ModuleContent.content_type.notin_(["title", "subtitle"])
                 ).all()
                 is_mod_completed = False
-                if contents:
+                if enr.status == "completed" or (enr.progress_percent or 0) >= 100:
+                    is_mod_completed = True
+                elif contents:
                     c_ids = [c.id for c in contents]
                     done_count = db.query(UserCourseProgress).filter(
                         UserCourseProgress.enrollment_id == enr.id,
@@ -724,7 +727,7 @@ class CourseService:
                     if done_count >= len(contents):
                         is_mod_completed = True
                 else:
-                    if enr.progress_percent >= 100 or enr.status == "completed":
+                    if (enr.progress_percent or 0) >= 100 or enr.status == "completed":
                         is_mod_completed = True
 
                 if is_mod_completed:
@@ -738,7 +741,7 @@ class CourseService:
                 next_mod_title = modules[0].title
 
             # Accurate progress percentage calculation
-            progress_pct = enr.progress_percent or 0
+            progress_pct = 100 if enr.status == "completed" else (enr.progress_percent or 0)
             if total_mods > 0 and completed_mods_count == total_mods and progress_pct < 100:
                 progress_pct = 100
                 enr.progress_percent = 100
@@ -1056,11 +1059,14 @@ class CourseService:
         for m in modules:
             contents = db.query(ModuleContent).filter(
                 ModuleContent.module_id == m.id,
-                ModuleContent.is_active == True
+                ModuleContent.is_active == True,
+                ModuleContent.content_type.notin_(["title", "subtitle"])
             ).all()
             completed = False
             if enr:
-                if contents:
+                if enr.status == "completed" or (enr.progress_percent or 0) >= 100:
+                    completed = True
+                elif contents:
                     c_ids = [c.id for c in contents]
                     done_count = db.query(UserCourseProgress).filter(
                         UserCourseProgress.enrollment_id == enr.id,
@@ -1069,7 +1075,7 @@ class CourseService:
                     ).count()
                     if done_count >= len(contents):
                         completed = True
-                elif enr.progress_percent >= 100 or enr.status == 'completed':
+                elif (enr.progress_percent or 0) >= 100 or enr.status == 'completed':
                     completed = True
 
             dur_secs = sum(c.duration_seconds or 0 for c in contents)

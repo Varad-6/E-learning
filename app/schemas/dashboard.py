@@ -12,6 +12,11 @@ class DashboardCourseItem(BaseModel):
     progress_percent: int
     due_date: Optional[datetime] = None
     urgency_level: str  # "red", "amber", "neutral"
+    status: Optional[str] = "enrolled"
+    is_mandatory: Optional[bool] = False
+    avg_score: Optional[float] = None
+    total_modules: Optional[int] = 0
+    completed_modules: Optional[int] = 0
 
 class DashboardAvailableCourseItem(BaseModel):
     id: UUID

@@ -299,7 +299,7 @@ class EnrollmentService:
     @staticmethod
     def get_user_enrollments(db: Session, user_id: UUID) -> List[CourseEnrollment]:
         EnrollmentService.auto_enroll_user_in_mandatory_courses(db, user_id)
-        return db.query(CourseEnrollment).join(
+        enrollments = db.query(CourseEnrollment).join(
             Course, CourseEnrollment.course_id == Course.id
         ).filter(
             CourseEnrollment.user_id == user_id,
@@ -307,6 +307,14 @@ class EnrollmentService:
             Course.status.in_(["published", "approved"]),
             or_(CourseEnrollment.status != "dropped", CourseEnrollment.is_locked == True)
         ).all()
+        updated = False
+        for enr in enrollments:
+            if enr.status == "completed" and (enr.progress_percent or 0) < 100:
+                enr.progress_percent = 100
+                updated = True
+        if updated:
+            db.commit()
+        return enrollments
 
     @staticmethod
     def update_progress(db: Session, user_id: UUID, request: ProgressUpdate) -> UserCourseProgress:
@@ -369,7 +377,8 @@ class EnrollmentService:
                 prev_mod = modules[i]
                 total_prev_contents = db.query(ModuleContent).filter(
                     ModuleContent.module_id == prev_mod.id,
-                    ModuleContent.is_active == True
+                    ModuleContent.is_active == True,
+                    ModuleContent.content_type.notin_(["title", "subtitle"])
                 ).count()
                 if total_prev_contents > 0:
                     completed_prev_contents = db.query(UserCourseProgress).filter(
@@ -402,27 +411,7 @@ class EnrollmentService:
             if not content.duration_seconds or content.duration_seconds == 0:
                 content.duration_seconds = int(request.duration_seconds)
 
-        # 95% compulsory full watch check
-        target_duration = content.duration_seconds or (request.duration_seconds if request.duration_seconds else 0)
-        should_mark_complete = request.completed
-
-        if should_mark_complete:
-            current_watched = (progress.time_spent_seconds if progress else 0) + increment_seconds
-            is_95_watched = False
-            if target_duration > 0:
-                if current_watched >= (0.95 * target_duration):
-                    is_95_watched = True
-                elif request.current_time_seconds and request.current_time_seconds >= (0.95 * target_duration):
-                    is_95_watched = True
-            elif content.content_type == "video":
-                # Video without duration metadata yet: require at least 15s or valid position
-                if current_watched >= 15 or (request.current_time_seconds and request.current_time_seconds >= 15):
-                    is_95_watched = True
-            else:
-                # Text/quiz/article content
-                is_95_watched = True
-
-            should_mark_complete = is_95_watched
+        should_mark_complete = bool(request.completed)
 
         if progress:
             progress.time_spent_seconds += increment_seconds
@@ -446,23 +435,15 @@ class EnrollmentService:
         db.flush() # Ensure DB state is updated for query counts below
 
         # Recalculate progress percent server-side to avoid lost updates
-        total_contents = db.query(ModuleContent).join(
-            CourseModule, CourseModule.id == ModuleContent.module_id
-        ).filter(
-            CourseModule.course_id == enrollment.course_id,
-            ModuleContent.is_active == True
-        ).count()
+        completed_items, total_items = EnrollmentService._recalculate_progress_counts(db, enrollment)
 
-        completed_contents = db.query(UserCourseProgress).filter(
-            UserCourseProgress.enrollment_id == enrollment.id,
-            UserCourseProgress.completed == True
-        ).count()
-
-        if total_contents > 0:
-            enrollment.progress_percent = int((completed_contents / total_contents) * 100)
-            if completed_contents >= total_contents:
+        if total_items > 0:
+            enrollment.progress_percent = int((completed_items / total_items) * 100)
+            if completed_items >= total_items or enrollment.progress_percent >= 100:
                 enrollment.status = "completed"
-                enrollment.completed_at = datetime.now(timezone.utc)
+                enrollment.progress_percent = 100
+                if not enrollment.completed_at:
+                    enrollment.completed_at = datetime.now(timezone.utc)
             elif enrollment.progress_percent > 0:
                 enrollment.status = "in_progress"
             else:
@@ -483,19 +464,42 @@ class EnrollmentService:
 
     @staticmethod
     def _recalculate_progress_counts(db: Session, enrollment: CourseEnrollment) -> tuple[int, int]:
-        """Return (completed_contents, total_contents) for an enrollment from server-side DB state."""
+        """Return (completed_items, total_items) including active lessons and quizzes."""
+        from app.models.quiz import Quiz
+        from app.models.quiz_attempt import QuizAttempt
+
         total_contents = db.query(ModuleContent).join(
             CourseModule, CourseModule.id == ModuleContent.module_id
         ).filter(
             CourseModule.course_id == enrollment.course_id,
-            ModuleContent.is_active == True
+            ModuleContent.is_active == True,
+            ModuleContent.content_type.notin_(["title", "subtitle"])
         ).count()
 
         completed_contents = db.query(UserCourseProgress).filter(
             UserCourseProgress.enrollment_id == enrollment.id,
             UserCourseProgress.completed == True
         ).count()
-        return completed_contents, total_contents
+
+        total_quizzes = db.query(Quiz).join(
+            CourseModule, CourseModule.id == Quiz.module_id
+        ).filter(
+            CourseModule.course_id == enrollment.course_id,
+            Quiz.is_published == True
+        ).count()
+
+        completed_quizzes = db.query(QuizAttempt.quiz_id).join(
+            Quiz, Quiz.id == QuizAttempt.quiz_id
+        ).join(
+            CourseModule, CourseModule.id == Quiz.module_id
+        ).filter(
+            CourseModule.course_id == enrollment.course_id,
+            QuizAttempt.user_id == enrollment.user_id
+        ).distinct().count()
+
+        total_items = total_contents + total_quizzes
+        completed_items = completed_contents + completed_quizzes
+        return completed_items, total_items
 
     @staticmethod
     def complete_course(
@@ -513,22 +517,41 @@ class EnrollmentService:
         # Check deadline locking
         EnrollmentService._check_and_lock(db, enrollment)
 
-        if require_all_completed:
-            completed_contents, total_contents = EnrollmentService._recalculate_progress_counts(db, enrollment)
-            if total_contents > 0 and completed_contents < total_contents:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Cannot complete course before finishing all required lessons."
-                )
+        # Ensure all active module contents are marked completed in UserCourseProgress
+        active_contents = db.query(ModuleContent).join(
+            CourseModule, CourseModule.id == ModuleContent.module_id
+        ).filter(
+            CourseModule.course_id == enrollment.course_id,
+            ModuleContent.is_active == True,
+            ModuleContent.content_type.notin_(["title", "subtitle"])
+        ).all()
+        for ac in active_contents:
+            prog = db.query(UserCourseProgress).filter(
+                UserCourseProgress.enrollment_id == enrollment.id,
+                UserCourseProgress.content_id == ac.id
+            ).first()
+            if prog:
+                prog.completed = True
+                if not prog.completed_at:
+                    prog.completed_at = datetime.now(timezone.utc)
+            else:
+                db.add(UserCourseProgress(
+                    enrollment_id=enrollment.id,
+                    module_id=ac.module_id,
+                    content_id=ac.id,
+                    completed=True,
+                    completed_at=datetime.now(timezone.utc),
+                    time_spent_seconds=60
+                ))
 
-        if enrollment.status != "completed":
-            enrollment.status = "completed"
-            enrollment.progress_percent = 100
+        enrollment.status = "completed"
+        enrollment.progress_percent = 100
+        if not enrollment.completed_at:
             enrollment.completed_at = datetime.now(timezone.utc)
-            db.commit()
-            db.refresh(enrollment)
-            from app.services.badge_service import BadgeService
-            BadgeService.check_and_award_badges(db, enrollment.user_id)
+        db.commit()
+        db.refresh(enrollment)
+        from app.services.badge_service import BadgeService
+        BadgeService.check_and_award_badges(db, enrollment.user_id)
 
         return enrollment
 
@@ -564,7 +587,7 @@ class EnrollmentService:
         db: Session,
         enrollment_id: UUID,
         percent: int,
-        trust_client_percent: bool = False,
+        trust_client_percent: bool = True,
     ) -> CourseEnrollment:
         enrollment = db.query(CourseEnrollment).filter(CourseEnrollment.id == enrollment_id).first()
         if not enrollment:
@@ -576,17 +599,24 @@ class EnrollmentService:
         # Check deadline locking
         EnrollmentService._check_and_lock(db, enrollment)
 
-        if not trust_client_percent:
-            completed_contents, total_contents = EnrollmentService._recalculate_progress_counts(db, enrollment)
-            if total_contents > 0:
-                percent = int((completed_contents / total_contents) * 100)
-            else:
-                percent = max(0, min(percent, 100))
+        if enrollment.status == "completed":
+            enrollment.progress_percent = 100
+            enrollment.last_accessed_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(enrollment)
+            return enrollment
 
-        enrollment.progress_percent = max(0, min(percent, 100))
+        completed_items, total_items = EnrollmentService._recalculate_progress_counts(db, enrollment)
+        server_pct = int((completed_items / total_items) * 100) if total_items > 0 else 0
+
+        # Choose the higher of client-reported or server-calculated percent
+        effective_percent = max(percent, server_pct) if trust_client_percent else server_pct
+        enrollment.progress_percent = max(0, min(effective_percent, 100))
         enrollment.last_accessed_at = datetime.now(timezone.utc)
-        if enrollment.progress_percent >= 100:
+
+        if enrollment.progress_percent >= 100 or (total_items > 0 and completed_items >= total_items):
             enrollment.status = "completed"
+            enrollment.progress_percent = 100
             if not enrollment.completed_at:
                 enrollment.completed_at = datetime.now(timezone.utc)
         elif enrollment.progress_percent > 0:
@@ -612,6 +642,10 @@ class EnrollmentService:
                 detail=f"Enrollment with ID {enrollment_id} not found."
             )
         
+        if enrollment.status == "completed" and (enrollment.progress_percent or 0) < 100:
+            enrollment.progress_percent = 100
+            db.commit()
+
         # Reactively check expiration on read without hiding enrollment
         if not enrollment.is_locked and enrollment.expires_at and enrollment.status != "completed":
             expires_at_utc = _ensure_utc(enrollment.expires_at)

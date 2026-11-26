@@ -44,6 +44,9 @@ class QuizResponse(BaseModel):
     is_published: bool
     is_optional: bool = True
     questions: List[QuizQuestionResponse] = []
+    already_submitted: bool = False
+    user_score: Optional[float] = None
+    user_passed: Optional[bool] = None
 
     class Config:
         from_attributes = True

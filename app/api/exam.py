@@ -28,6 +28,17 @@ router = APIRouter(prefix="/api/exams", tags=["Exams"])
 UPLOAD_DIR = os.path.join(settings.UPLOAD_DIR, "exam_submissions")
 
 
+def _get_user_exam_submission(db: Session, exam_id: UUID, user_id: UUID) -> Optional[ExamSubmission]:
+    """Return the user's most progressed submission (submitted/graded first) for an exam."""
+    return db.query(ExamSubmission).filter(
+        ExamSubmission.exam_id == exam_id,
+        ExamSubmission.user_id == user_id
+    ).order_by(
+        ExamSubmission.submitted_at.desc().nullslast(),
+        ExamSubmission.started_at.desc().nullslast()
+    ).first()
+
+
 def _is_exam_privileged(user: User) -> bool:
     roles = [r.name for r in user.roles]
     return any(r in roles for r in ["SYSTEM_ADMIN", "HR_ADMIN", "COURSE_MANAGER", "ADMIN"])
@@ -161,10 +172,7 @@ def get_employee_categorized_exams(
     evaluated = []
 
     for exam in published_exams:
-        sub = db.query(ExamSubmission).filter(
-            ExamSubmission.exam_id == exam.id,
-            ExamSubmission.user_id == current_user.id
-        ).first()
+        sub = _get_user_exam_submission(db, exam.id, current_user.id)
 
         if not sub:
             sub = ExamSubmission(
@@ -466,10 +474,7 @@ def start_exam(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    sub = db.query(ExamSubmission).filter(
-        ExamSubmission.exam_id == exam_id,
-        ExamSubmission.user_id == current_user.id
-    ).first()
+    sub = _get_user_exam_submission(db, exam_id, current_user.id)
 
     if not sub:
         # Check if the exam is published and targets the user's department (or company-wide)
@@ -490,6 +495,9 @@ def start_exam(
         db.add(sub)
         db.commit()
         db.refresh(sub)
+
+    if sub.status in ["submitted", "graded"]:
+        raise HTTPException(status_code=400, detail="Exam has already been submitted.")
 
     if sub.status != "assigned":
         return ExamSubmissionResponse(
@@ -531,10 +539,7 @@ def submit_exam(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    sub = db.query(ExamSubmission).filter(
-        ExamSubmission.exam_id == exam_id,
-        ExamSubmission.user_id == current_user.id
-    ).first()
+    sub = _get_user_exam_submission(db, exam_id, current_user.id)
 
     if not sub:
         raise HTTPException(status_code=404, detail="Exam submission not found")
